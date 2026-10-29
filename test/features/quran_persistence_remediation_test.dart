@@ -171,7 +171,8 @@ void main() {
 
       // Verify on disk: only Ayah 10 persisted
       final diskData = storage.readMap('quran_memorization');
-      final diskItems = (diskData['items'] as List).cast<Map<String, dynamic>>();
+      final diskItems = (diskData['items'] as List)
+          .cast<Map<String, dynamic>>();
       expect(diskItems.length, 1);
       expect(diskItems.first['g'] ?? diskItems.first['globalAyah'], 10);
     });
@@ -393,7 +394,10 @@ void main() {
       await rebootCubit.load();
 
       // INVARIANT: Mastery data is 100% intact!
-      expect(rebootCubit.state.getItem(80).status, MemorizationStatus.memorized);
+      expect(
+        rebootCubit.state.getItem(80).status,
+        MemorizationStatus.memorized,
+      );
       expect(rebootCubit.state.getItem(80).consecutiveSuccesses, 1);
       expect(rebootCubit.state.getItem(80).intervalDays, 3);
       expect(rebootCubit.state.history.length, 1);
@@ -401,118 +405,136 @@ void main() {
 
       // Checkpoint is detected as corrupt/expired and safely purged
       final checkpointData = storage.readMap('quran_visual_recall_checkpoint');
-      final isExpiredOrInvalid = (checkpointData['version'] != 1) ||
-          (DateTime.now().millisecondsSinceEpoch - (checkpointData['savedAt'] as num? ?? 0) > 86400000);
+      final isExpiredOrInvalid =
+          (checkpointData['version'] != 1) ||
+          (DateTime.now().millisecondsSinceEpoch -
+                  (checkpointData['savedAt'] as num? ?? 0) >
+              86400000);
       expect(isExpiredOrInvalid, true);
       if (isExpiredOrInvalid) {
         await storage.remove('quran_visual_recall_checkpoint');
       }
 
-      expect(storage.store.containsKey('quran_visual_recall_checkpoint'), false);
+      expect(
+        storage.store.containsKey('quran_visual_recall_checkpoint'),
+        false,
+      );
       expect(storage.store.containsKey('quran_memorization'), true);
-      expect(rebootCubit.state.getItem(80).status, MemorizationStatus.memorized);
+      expect(
+        rebootCubit.state.getItem(80).status,
+        MemorizationStatus.memorized,
+      );
     });
   });
 
-  group('Q13 Persistence Remediation — Production UI Session Identity Tests', () {
-    late ControllableLocalStorageService storage;
-    late QuranMemorizationRepository repository;
-    late QuranMemorizationCubit cubit;
+  group(
+    'Q13 Persistence Remediation — Production UI Session Identity Tests',
+    () {
+      late ControllableLocalStorageService storage;
+      late QuranMemorizationRepository repository;
+      late QuranMemorizationCubit cubit;
 
-    setUp(() async {
-      storage = ControllableLocalStorageService();
-      repository = QuranMemorizationRepository(storage: storage);
-      cubit = QuranMemorizationCubit(repository: repository);
-      await cubit.load();
-    });
+      setUp(() async {
+        storage = ControllableLocalStorageService();
+        repository = QuranMemorizationRepository(storage: storage);
+        cubit = QuranMemorizationCubit(repository: repository);
+        await cubit.load();
+      });
 
-    test('UI review without passing sessionId or operationId adopts activeSession.id', () async {
-      // Setup active session
-      final session = const MemorizationSession(
-        id: 'sess_prod_ui_1',
-        queue: [100, 101, 102],
-      );
-      cubit.emit(cubit.state.copyWith(activeSession: session));
+      test('UI review without passing sessionId or operationId adopts activeSession.id', () async {
+        // Setup active session
+        final session = const MemorizationSession(
+          id: 'sess_prod_ui_1',
+          queue: [100, 101, 102],
+        );
+        cubit.emit(cubit.state.copyWith(activeSession: session));
 
-      // UI calls recordReviewOutcome with NO sessionId and NO operationId
-      await cubit.recordReviewOutcome(
-        globalAyah: 100,
-        outcome: ReviewOutcome.good,
-      );
+        // UI calls recordReviewOutcome with NO sessionId and NO operationId
+        await cubit.recordReviewOutcome(
+          globalAyah: 100,
+          outcome: ReviewOutcome.good,
+        );
 
-      // Verify record adopted session id
-      expect(cubit.state.history.length, 1);
-      final rec = cubit.state.history.first;
-      expect(rec.sessionId, 'sess_prod_ui_1');
-      expect(rec.id, 'rev_sess_prod_ui_1_100');
-      expect(cubit.state.getItem(100).status, MemorizationStatus.memorized);
-      expect(cubit.state.getItem(100).consecutiveSuccesses, 1);
-      expect(cubit.state.getItem(100).intervalDays, 3);
+        // Verify record adopted session id
+        expect(cubit.state.history.length, 1);
+        final rec = cubit.state.history.first;
+        expect(rec.sessionId, 'sess_prod_ui_1');
+        expect(rec.id, 'rev_sess_prod_ui_1_100');
+        expect(cubit.state.getItem(100).status, MemorizationStatus.memorized);
+        expect(cubit.state.getItem(100).consecutiveSuccesses, 1);
+        expect(cubit.state.getItem(100).intervalDays, 3);
 
-      // Subsequent duplicate tap with NO sessionId and NO operationId
-      await cubit.recordReviewOutcome(
-        globalAyah: 100,
-        outcome: ReviewOutcome.good,
-      );
+        // Subsequent duplicate tap with NO sessionId and NO operationId
+        await cubit.recordReviewOutcome(
+          globalAyah: 100,
+          outcome: ReviewOutcome.good,
+        );
 
-      // INVARIANT: Exactly 1 record; consecutive successes not doubled!
-      expect(cubit.state.history.length, 1);
-      expect(cubit.state.getItem(100).consecutiveSuccesses, 1);
-      expect(cubit.state.getItem(100).intervalDays, 3);
-    });
+        // INVARIANT: Exactly 1 record; consecutive successes not doubled!
+        expect(cubit.state.history.length, 1);
+        expect(cubit.state.getItem(100).consecutiveSuccesses, 1);
+        expect(cubit.state.getItem(100).intervalDays, 3);
+      });
 
-    test('recordKnows and recordNeedsRevision seamlessly adopt activeSession.id', () async {
-      final session = const MemorizationSession(
-        id: 'sess_bridge_test',
-        queue: [200, 201],
-      );
-      cubit.emit(cubit.state.copyWith(activeSession: session));
+      test(
+        'recordKnows and recordNeedsRevision seamlessly adopt activeSession.id',
+        () async {
+          final session = const MemorizationSession(
+            id: 'sess_bridge_test',
+            queue: [200, 201],
+          );
+          cubit.emit(cubit.state.copyWith(activeSession: session));
 
-      await cubit.recordKnows(200);
+          await cubit.recordKnows(200);
 
-      expect(cubit.state.history.length, 1);
-      expect(cubit.state.history.first.sessionId, 'sess_bridge_test');
-      expect(cubit.state.history.first.id, 'rev_sess_bridge_test_200');
+          expect(cubit.state.history.length, 1);
+          expect(cubit.state.history.first.sessionId, 'sess_bridge_test');
+          expect(cubit.state.history.first.id, 'rev_sess_bridge_test_200');
 
-      // Calling recordKnows again is idempotent
-      await cubit.recordKnows(200);
-      expect(cubit.state.history.length, 1);
-      expect(cubit.state.getItem(200).consecutiveSuccesses, 1);
-    });
-
-    test('UI review retry after restart does not duplicate mutations', () async {
-      final session = const MemorizationSession(
-        id: 'sess_restart_test',
-        queue: [300],
-      );
-      cubit.emit(cubit.state.copyWith(activeSession: session));
-
-      await cubit.recordReviewOutcome(
-        globalAyah: 300,
-        outcome: ReviewOutcome.good,
-      );
-      expect(cubit.state.history.length, 1);
-
-      // Reconstruct repository & cubit
-      final newRepo = QuranMemorizationRepository(storage: storage);
-      final newCubit = QuranMemorizationCubit(repository: newRepo);
-      await newCubit.load();
-
-      // Restore active session with same ID
-      newCubit.emit(newCubit.state.copyWith(activeSession: session));
-
-      // Retry review
-      await newCubit.recordReviewOutcome(
-        globalAyah: 300,
-        outcome: ReviewOutcome.good,
+          // Calling recordKnows again is idempotent
+          await cubit.recordKnows(200);
+          expect(cubit.state.history.length, 1);
+          expect(cubit.state.getItem(200).consecutiveSuccesses, 1);
+        },
       );
 
-      // INVARIANT: Deduplicated!
-      expect(newCubit.state.history.length, 1);
-      expect(newCubit.state.getItem(300).consecutiveSuccesses, 1);
-      expect(newCubit.state.getItem(300).intervalDays, 3);
-    });
-  });
+      test(
+        'UI review retry after restart does not duplicate mutations',
+        () async {
+          final session = const MemorizationSession(
+            id: 'sess_restart_test',
+            queue: [300],
+          );
+          cubit.emit(cubit.state.copyWith(activeSession: session));
+
+          await cubit.recordReviewOutcome(
+            globalAyah: 300,
+            outcome: ReviewOutcome.good,
+          );
+          expect(cubit.state.history.length, 1);
+
+          // Reconstruct repository & cubit
+          final newRepo = QuranMemorizationRepository(storage: storage);
+          final newCubit = QuranMemorizationCubit(repository: newRepo);
+          await newCubit.load();
+
+          // Restore active session with same ID
+          newCubit.emit(newCubit.state.copyWith(activeSession: session));
+
+          // Retry review
+          await newCubit.recordReviewOutcome(
+            globalAyah: 300,
+            outcome: ReviewOutcome.good,
+          );
+
+          // INVARIANT: Deduplicated!
+          expect(newCubit.state.history.length, 1);
+          expect(newCubit.state.getItem(300).consecutiveSuccesses, 1);
+          expect(newCubit.state.getItem(300).intervalDays, 3);
+        },
+      );
+    },
+  );
 
   group('Q13 Persistence Remediation — Concurrency & In-Flight Lock Tests', () {
     late ControllableLocalStorageService storage;
@@ -551,21 +573,25 @@ void main() {
       storage.failBeforeWriteMap = true;
 
       var thrownCount = 0;
-      final f1 = cubit.recordReviewOutcome(
-        globalAyah: 500,
-        outcome: ReviewOutcome.good,
-        operationId: 'op_concurrent_fail',
-      ).catchError((_) {
-        thrownCount++;
-      });
+      final f1 = cubit
+          .recordReviewOutcome(
+            globalAyah: 500,
+            outcome: ReviewOutcome.good,
+            operationId: 'op_concurrent_fail',
+          )
+          .catchError((_) {
+            thrownCount++;
+          });
 
-      final f2 = cubit.recordReviewOutcome(
-        globalAyah: 500,
-        outcome: ReviewOutcome.good,
-        operationId: 'op_concurrent_fail',
-      ).catchError((_) {
-        thrownCount++;
-      });
+      final f2 = cubit
+          .recordReviewOutcome(
+            globalAyah: 500,
+            outcome: ReviewOutcome.good,
+            operationId: 'op_concurrent_fail',
+          )
+          .catchError((_) {
+            thrownCount++;
+          });
 
       await Future.wait([f1, f2]);
 
@@ -577,70 +603,80 @@ void main() {
     });
   });
 
-  group('Q13 Persistence Remediation — Real Filesystem LocalStorageService Tests', () {
-    late Directory tempDir;
-    late LocalStorageService storage;
+  group(
+    'Q13 Persistence Remediation — Real Filesystem LocalStorageService Tests',
+    () {
+      late Directory tempDir;
+      late LocalStorageService storage;
 
-    setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('mishkat_persistence_test_');
-      storage = LocalStorageService(directory: tempDir);
-      await storage.init();
-    });
+      setUp(() async {
+        tempDir = await Directory.systemTemp.createTemp(
+          'mishkat_persistence_test_',
+        );
+        storage = LocalStorageService(directory: tempDir);
+        await storage.init();
+      });
 
-    tearDown(() async {
-      if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
-      }
-    });
+      tearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
 
-    test('Real filesystem writes and re-reads atomic snapshot', () async {
-      await storage.writeMap('test_key', {'hello': 'world'});
-      expect(storage.readMap('test_key'), {'hello': 'world'});
+      test('Real filesystem writes and re-reads atomic snapshot', () async {
+        await storage.writeMap('test_key', {'hello': 'world'});
+        expect(storage.readMap('test_key'), {'hello': 'world'});
 
-      // Read directly from disk file to verify persistence
-      final file = File('${tempDir.path}/mishkat_store.json');
-      expect(await file.exists(), true);
-      final content = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      expect(content['test_key'], {'hello': 'world'});
-    });
+        // Read directly from disk file to verify persistence
+        final file = File('${tempDir.path}/mishkat_store.json');
+        expect(await file.exists(), true);
+        final content =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        expect(content['test_key'], {'hello': 'world'});
+      });
 
-    test('In-memory dirty data rolls back when write fails', () async {
-      await storage.writeMap('valid_key', {'init': true});
+      test('In-memory dirty data rolls back when write fails', () async {
+        await storage.writeMap('valid_key', {'init': true});
 
-      // Point file to non-writable path to trigger real write failure
-      final readOnlyDir = File('${tempDir.path}/mishkat_store.json');
-      // Create a directory where the file was supposed to be to cause FileSystemException on write
-      await readOnlyDir.delete();
-      await Directory('${tempDir.path}/mishkat_store.json').create();
+        // Point file to non-writable path to trigger real write failure
+        final readOnlyDir = File('${tempDir.path}/mishkat_store.json');
+        // Create a directory where the file was supposed to be to cause FileSystemException on write
+        await readOnlyDir.delete();
+        await Directory('${tempDir.path}/mishkat_store.json').create();
 
-      var threw = false;
-      try {
-        await storage.writeMap('valid_key', {'corrupt': true});
-      } catch (_) {
-        threw = true;
-      }
+        var threw = false;
+        try {
+          await storage.writeMap('valid_key', {'corrupt': true});
+        } catch (_) {
+          threw = true;
+        }
 
-      expect(threw, true);
-      // INVARIANT: In-memory store was rolled back!
-      expect(storage.readMap('valid_key'), {'init': true});
-    });
+        expect(threw, true);
+        // INVARIANT: In-memory store was rolled back!
+        expect(storage.readMap('valid_key'), {'init': true});
+      });
 
-    test('Orphan .tmp file recovery restores data upon restart', () async {
-      // Simulate crash after writing .tmp but before renaming
-      final storeFile = File('${tempDir.path}/mishkat_store.json');
-      final tmpFile = File('${tempDir.path}/mishkat_store.json.123456.tmp');
-      await tmpFile.writeAsString(jsonEncode({'recovered_key': {'data': 'survived_crash'}}));
+      test('Orphan .tmp file recovery restores data upon restart', () async {
+        // Simulate crash after writing .tmp but before renaming
+        final storeFile = File('${tempDir.path}/mishkat_store.json');
+        final tmpFile = File('${tempDir.path}/mishkat_store.json.123456.tmp');
+        await tmpFile.writeAsString(
+          jsonEncode({
+            'recovered_key': {'data': 'survived_crash'},
+          }),
+        );
 
-      expect(await storeFile.exists(), false);
-      expect(await tmpFile.exists(), true);
+        expect(await storeFile.exists(), false);
+        expect(await tmpFile.exists(), true);
 
-      // Initialize a new LocalStorageService instance
-      final newStorage = LocalStorageService(directory: tempDir);
-      await newStorage.init();
+        // Initialize a new LocalStorageService instance
+        final newStorage = LocalStorageService(directory: tempDir);
+        await newStorage.init();
 
-      // INVARIANT: The orphaned tmp file was promoted to primary store!
-      expect(await storeFile.exists(), true);
-      expect(newStorage.readMap('recovered_key'), {'data': 'survived_crash'});
-    });
-  });
+        // INVARIANT: The orphaned tmp file was promoted to primary store!
+        expect(await storeFile.exists(), true);
+        expect(newStorage.readMap('recovered_key'), {'data': 'survived_crash'});
+      });
+    },
+  );
 }

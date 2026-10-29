@@ -8,9 +8,17 @@ import 'quran_search_normalizer.dart';
 class QuranReferenceParser {
   const QuranReferenceParser._();
 
-  static final RegExp _surahAyahSepRegex = RegExp(r'^(\d{1,3})[:/\-\s](\d{1,3})$');
-  static final RegExp _pageExplicitRegex = RegExp(r'^(?:ص|صفحة|صفحه)\s*(\d{1,3})$', caseSensitive: false);
-  static final RegExp _globalAyahRegex = RegExp(r'^(?:#|g|آية|ايه)\s*(\d{1,4})$', caseSensitive: false);
+  static final RegExp _surahAyahSepRegex = RegExp(
+    r'^(\d{1,3})[:/\-\s](\d{1,3})$',
+  );
+  static final RegExp _pageExplicitRegex = RegExp(
+    r'^(?:ص|صفحة|صفحه)\s*(\d{1,3})$',
+    caseSensitive: false,
+  );
+  static final RegExp _globalAyahRegex = RegExp(
+    r'^(?:#|g|آية|ايه)\s*(\d{1,4})$',
+    caseSensitive: false,
+  );
   static final RegExp _singleNumberRegex = RegExp(r'^(\d{1,4})$');
   static final RegExp _surahNameAyahRegex = RegExp(r'^(.*?)\s+(\d{1,3})$');
 
@@ -65,7 +73,10 @@ class QuranReferenceParser {
     if (surahAyahMatch != null) {
       final surahNum = int.tryParse(surahAyahMatch.group(1)!);
       final ayahNum = int.tryParse(surahAyahMatch.group(2)!);
-      if (surahNum != null && ayahNum != null && surahNum >= 1 && surahNum <= 114) {
+      if (surahNum != null &&
+          ayahNum != null &&
+          surahNum >= 1 &&
+          surahNum <= 114) {
         final ch = data.chapter(surahNum);
         if (ayahNum >= 1 && ayahNum <= ch.ayahs.length) {
           final global = data.globalFor(surahNum, ayahNum);
@@ -150,7 +161,8 @@ class QuranReferenceParser {
           return QuranParsedReference(
             type: QuranReferenceType.surah,
             title: 'سورة ${ch.name}',
-            subtitle: '${ch.revelationType} · ${ch.ayahs.length} آية · صفحة ${ch.page}',
+            subtitle:
+                '${ch.revelationType} · ${ch.ayahs.length} آية · صفحة ${ch.page}',
             page: ch.page,
             surah: ch.number,
             globalAyah: ch.globalStart,

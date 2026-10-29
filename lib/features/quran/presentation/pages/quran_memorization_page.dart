@@ -275,106 +275,200 @@ class _TodayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.mishkat;
     final progress = state.planProgress(plan);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardTop = isDark ? const Color(0xFF18312A) : const Color(0xFF2D6256);
+    final cardBottom = isDark
+        ? const Color(0xFF0D1D19)
+        : const Color(0xFF1C453C);
+    final actionBackground = isDark
+        ? const Color(0xFF9AD8C0)
+        : const Color(0xFFF4F7F2);
+    const actionForeground = Color(0xFF163C33);
+
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colors.primaryDark,
         borderRadius: MishkatRadius.brXl,
         boxShadow: MishkatShadows.elevated(context),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: ClipRRect(
+        borderRadius: MishkatRadius.brXl,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [cardTop, cardBottom],
+            ),
+            border: Border.all(
+              color: isDark
+                  ? const Color(0xFF41685C)
+                  : Colors.white.withValues(alpha: .12),
+            ),
+            borderRadius: MishkatRadius.brXl,
+          ),
+          child: Stack(
             children: [
-              Expanded(
+              PositionedDirectional(
+                top: -58,
+                end: -46,
+                child: Container(
+                  width: 154,
+                  height: 154,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFDDBE72).withValues(alpha: .11),
+                      width: 18,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'وردك اليومي المقترح',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: .7),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.auto_awesome_rounded,
+                                    color: Color(0xFFE5C679),
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 7),
+                                  Text(
+                                    'وردك اليومي المقترح',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: .72,
+                                      ),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                plan.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 52,
+                          height: 52,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: .08),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFFE5C679)
+                                  .withValues(alpha: .42),
+                            ),
+                          ),
+                          child: Text(
+                            '${(progress.percentage * 100).round()}٪',
+                            style: const TextStyle(
+                              color: Color(0xFFF4D891),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      plan.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                    if (journey.isRecoveryMode) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE5C679).withValues(alpha: .12),
+                          borderRadius: MishkatRadius.brPill,
+                        ),
+                        child: const Text(
+                          'وضع التعويض الهادئ',
+                          style: TextStyle(
+                            color: Color(0xFFF0D690),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
+                    ],
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        for (
+                          var index = 0;
+                          index < journey.segments.length;
+                          index++
+                        ) ...[
+                          if (index > 0) const SizedBox(width: 7),
+                          Expanded(
+                            child: _SegmentStat(
+                              segment: journey.segments[index],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    MishkatPrimaryAction(
+                      label: journey.isEmpty
+                          ? 'أتممت ورد اليوم'
+                          : 'ابدأ ورد اليوم المتكامل (${journey.totalAyahs} آية)',
+                      icon: Icon(
+                        journey.isEmpty
+                            ? Icons.done_rounded
+                            : Icons.play_arrow_rounded,
+                      ),
+                      isFullWidth: true,
+                      backgroundColor: actionBackground,
+                      foregroundColor: actionForeground,
+                      disabledBackgroundColor: Colors.white.withValues(
+                        alpha: .08,
+                      ),
+                      disabledForegroundColor: Colors.white.withValues(
+                        alpha: .46,
+                      ),
+                      onPressed: journey.isEmpty
+                          ? null
+                          : () => _showPracticeModeSheet(
+                              context,
+                              title: 'ورد اليوم المتكامل',
+                              queue: journey.allAyahs,
+                              quranData: quranData,
+                              planId: plan.id,
+                              startTraditional: () => context
+                                  .read<QuranMemorizationCubit>()
+                                  .startDailyJourneySession(journey: journey),
+                            ),
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .1),
-                  borderRadius: MishkatRadius.brPill,
-                ),
-                child: Text(
-                  '${(progress.percentage * 100).round()}٪',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
             ],
           ),
-          if (journey.isRecoveryMode) ...[
-            const SizedBox(height: 8),
-            const Text(
-              'وضع التعويض الهادئ',
-              style: TextStyle(
-                color: Color(0xFFE7C76B),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              for (final segment in journey.segments)
-                Expanded(child: _SegmentStat(segment: segment)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          MishkatPrimaryAction(
-            label: journey.isEmpty
-                ? 'أتممت ورد اليوم'
-                : 'ابدأ ورد اليوم المتكامل (${journey.totalAyahs} آية)',
-            icon: Icon(
-              journey.isEmpty ? Icons.done_rounded : Icons.play_arrow_rounded,
-            ),
-            isFullWidth: true,
-            onPressed: journey.isEmpty
-                ? null
-                : () => _showPracticeModeSheet(
-                    context,
-                    title: 'ورد اليوم المتكامل',
-                    queue: journey.allAyahs,
-                    quranData: quranData,
-                    planId: plan.id,
-                    startTraditional: () => context
-                        .read<QuranMemorizationCubit>()
-                        .startDailyJourneySession(journey: journey),
-                  ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -384,31 +478,62 @@ class _SegmentStat extends StatelessWidget {
   const _SegmentStat({required this.segment});
   final HifzJourneySegment segment;
 
+  IconData get _icon => switch (segment.type) {
+    HifzJourneySegmentType.dueMurajaah => Icons.history_rounded,
+    HifzJourneySegmentType.weakConsolidation => Icons.shield_outlined,
+    HifzJourneySegmentType.newHifz => Icons.menu_book_rounded,
+  };
+
+  Color get _accent => switch (segment.type) {
+    HifzJourneySegmentType.dueMurajaah => const Color(0xFF9BD5C0),
+    HifzJourneySegmentType.weakConsolidation => const Color(0xFFE7C878),
+    HifzJourneySegmentType.newHifz => const Color(0xFFB5C8EC),
+  };
+
   @override
   Widget build(BuildContext context) => Semantics(
     label: '${segment.title}: ${segment.count}',
-    child: Column(
-      children: [
-        Text(
-          '${segment.count}',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
+    child: Container(
+      constraints: const BoxConstraints(minHeight: 84),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .065),
+        borderRadius: MishkatRadius.brMd,
+        border: Border.all(color: Colors.white.withValues(alpha: .09)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_icon, color: _accent, size: 15),
+              const SizedBox(width: 5),
+              Text(
+                '${segment.count}',
+                style: TextStyle(
+                  color: _accent,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          segment.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: .65),
-            fontSize: 10,
+          const SizedBox(height: 4),
+          Text(
+            segment.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: .72),
+              fontSize: 9.5,
+              height: 1.25,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

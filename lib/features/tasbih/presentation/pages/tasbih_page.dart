@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
@@ -10,8 +11,61 @@ import '../../../../core/widgets/mishkat_widgets.dart';
 import '../cubit/tasbih_cubit.dart';
 import '../cubit/tasbih_state.dart';
 
-class TasbihPage extends StatelessWidget {
-  const TasbihPage({super.key});
+class TasbihPage extends StatefulWidget {
+  const TasbihPage({super.key, this.onCompletionSound});
+
+  final VoidCallback? onCompletionSound;
+
+  @override
+  State<TasbihPage> createState() => _TasbihPageState();
+}
+
+class _TasbihPageState extends State<TasbihPage> {
+  static const _completionSoundAsset = 'assets/audio/tasbih_complete.wav';
+
+  AudioPlayer? _completionSoundPlayer;
+  Future<void>? _completionSoundReady;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.onCompletionSound == null) {
+      final player = AudioPlayer();
+      _completionSoundPlayer = player;
+      _completionSoundReady = _loadCompletionSound(player);
+    }
+  }
+
+  @override
+  void dispose() {
+    _completionSoundPlayer?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCompletionSound(AudioPlayer player) async {
+    try {
+      await player.setAsset(_completionSoundAsset);
+    } on Object {
+      // A missing audio backend must never interrupt the counter.
+    }
+  }
+
+  Future<void> _playCompletionSound() async {
+    final injectedPlayer = widget.onCompletionSound;
+    if (injectedPlayer != null) {
+      injectedPlayer();
+      return;
+    }
+    final player = _completionSoundPlayer;
+    if (player == null) return;
+    try {
+      await _completionSoundReady;
+      await player.seek(Duration.zero);
+      await player.play();
+    } on Object {
+      // Keep counting even if the device cannot play the short chime.
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -24,19 +78,21 @@ class TasbihPage extends StatelessWidget {
       title: const Text('المسبحة'),
       actions: [
         BlocBuilder<TasbihCubit, TasbihState>(
-          buildWhen: (previous, current) =>
-              previous.hapticsEnabled != current.hapticsEnabled,
+          buildWhen: (previous, current) => previous.count != current.count,
           builder: (context, state) => IconButton(
-            tooltip: state.hapticsEnabled ? 'إيقاف الاهتزاز' : 'تشغيل الاهتزاز',
-            onPressed: context.read<TasbihCubit>().toggleHaptics,
-            icon: Icon(
-              state.hapticsEnabled
-                  ? Icons.vibration_rounded
-                  : Icons.phone_android_rounded,
-            ),
+            tooltip: 'تراجع عن آخر ضغطة',
+            onPressed: state.count == 0
+                ? null
+                : context.read<TasbihCubit>().undo,
+            icon: const Icon(Icons.undo_rounded),
           ),
         ),
-        const SizedBox(width: 4),
+        IconButton(
+          tooltip: 'إعدادات المسبحة',
+          onPressed: () => _showTasbihSettingsSheet(context),
+          icon: const Icon(Icons.tune_rounded),
+        ),
+        const SizedBox(width: 2),
       ],
     ),
     body: BlocBuilder<TasbihCubit, TasbihState>(
@@ -61,11 +117,12 @@ class TasbihPage extends StatelessWidget {
                   const SizedBox(height: MishkatSpacing.base),
                   _TargetSelector(state: state),
                   const SizedBox(height: MishkatSpacing.lg),
-                  _CounterSurface(state: state),
+                  _CounterSurface(
+                    state: state,
+                    onCompletionSound: _playCompletionSound,
+                  ),
                   const SizedBox(height: MishkatSpacing.base),
                   _SessionStats(state: state),
-                  const SizedBox(height: MishkatSpacing.md),
-                  _SessionActions(state: state),
                 ],
               ),
             ),
@@ -79,6 +136,7 @@ class TasbihPage extends StatelessWidget {
 class _DhikrSelector extends StatelessWidget {
   const _DhikrSelector({required this.state});
 
+  static const _editCustomValue = '__edit_custom__';
   final TasbihState state;
 
   @override
@@ -144,6 +202,15 @@ class _DhikrSelector extends StatelessWidget {
     BuildContext pageContext,
     TasbihState state,
   ) async {
+    final options = <TasbihDhikr>[
+      ...tasbihDhikrOptions,
+      if (state.customDhikrText.isNotEmpty)
+        TasbihDhikr(
+          id: tasbihCustomDhikrId,
+          text: state.customDhikrText,
+          suggestedTarget: state.customDhikrTarget,
+        ),
+    ];
     final selected = await showModalBottomSheet<String>(
       context: pageContext,
       showDragHandle: true,
@@ -181,16 +248,17 @@ class _DhikrSelector extends StatelessWidget {
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                itemCount: tasbihDhikrOptions.length,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                itemCount: options.length,
                 separatorBuilder: (_, _) => Divider(
                   height: 1,
                   indent: 56,
                   color: context.mishkat.borderSubtle,
                 ),
                 itemBuilder: (context, index) {
-                  final item = tasbihDhikrOptions[index];
+                  final item = options[index];
                   final isSelected = item.id == state.dhikrId;
+                  final isCustom = item.id == tasbihCustomDhikrId;
                   return ListTile(
                     onTap: () => Navigator.pop(context, item.id),
                     leading: Container(
@@ -205,6 +273,8 @@ class _DhikrSelector extends StatelessWidget {
                       child: Icon(
                         isSelected
                             ? Icons.check_rounded
+                            : isCustom
+                            ? Icons.edit_note_rounded
                             : Icons.auto_awesome_outlined,
                         size: 18,
                         color: context.mishkat.primary,
@@ -218,18 +288,306 @@ class _DhikrSelector extends StatelessWidget {
                             : FontWeight.w600,
                       ),
                     ),
-                    subtitle: Text('الهدف المقترح ${item.suggestedTarget}'),
+                    subtitle: Text(
+                      isCustom
+                          ? 'ذكر مخصص · الهدف ${item.suggestedTarget}'
+                          : 'الهدف المقترح ${item.suggestedTarget}',
+                    ),
                   );
                 },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: FilledButton.tonalIcon(
+                onPressed: () => Navigator.pop(context, _editCustomValue),
+                icon: Icon(
+                  state.customDhikrText.isEmpty
+                      ? Icons.add_rounded
+                      : Icons.edit_rounded,
+                ),
+                label: Text(
+                  state.customDhikrText.isEmpty
+                      ? 'إضافة ذكر مخصص'
+                      : 'تعديل الذكر المخصص',
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+    if (selected == _editCustomValue && pageContext.mounted) {
+      await _showCustomDhikrSheet(pageContext, state);
+      return;
+    }
     if (selected != null && pageContext.mounted) {
       await pageContext.read<TasbihCubit>().selectDhikr(selected);
     }
+  }
+
+  Future<void> _showCustomDhikrSheet(
+    BuildContext pageContext,
+    TasbihState state,
+  ) async {
+    final value = await showModalBottomSheet<_CustomDhikrValue>(
+      context: pageContext,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _CustomDhikrSheet(
+        initialText: state.customDhikrText,
+        initialTarget: state.customDhikrText.isEmpty
+            ? state.target
+            : state.customDhikrTarget,
+      ),
+    );
+    if (value != null && pageContext.mounted) {
+      await pageContext.read<TasbihCubit>().setCustomDhikr(
+        value.text,
+        target: value.target,
+      );
+    }
+  }
+}
+
+class _CustomDhikrValue {
+  const _CustomDhikrValue(this.text, this.target);
+
+  final String text;
+  final int target;
+}
+
+class _CustomDhikrSheet extends StatefulWidget {
+  const _CustomDhikrSheet({
+    required this.initialText,
+    required this.initialTarget,
+  });
+
+  final String initialText;
+  final int initialTarget;
+
+  @override
+  State<_CustomDhikrSheet> createState() => _CustomDhikrSheetState();
+}
+
+class _CustomDhikrSheetState extends State<_CustomDhikrSheet> {
+  static const _targetPresets = [33, 100, 1000];
+
+  late final TextEditingController _textController;
+  late final TextEditingController _targetController;
+  String? _validationMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(text: widget.initialText);
+    _targetController = TextEditingController(text: '${widget.initialTarget}');
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _targetController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.mishkat;
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: colors.primarySoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    widget.initialText.isEmpty
+                        ? Icons.add_rounded
+                        : Icons.edit_rounded,
+                    color: colors.primary,
+                  ),
+                ),
+                const SizedBox(width: MishkatSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.initialText.isEmpty
+                            ? 'إضافة ذكر مخصص'
+                            : 'تعديل الذكر المخصص',
+                        style: Theme.of(context).textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'اكتب الذكر وحدد العدد الذي تريد الوصول إليه.',
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  tooltip: 'إغلاق',
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: MishkatSpacing.lg),
+            TextField(
+              controller: _textController,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 4,
+              maxLength: 160,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'نص الذكر',
+                hintText: 'مثال: أستغفر الله العظيم',
+                alignLabelWithHint: true,
+              ),
+              onChanged: (_) => _clearValidation(),
+            ),
+            const SizedBox(height: MishkatSpacing.md),
+            Text(
+              'هدف الجلسة',
+              style: Theme.of(context).textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: MishkatSpacing.sm),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _targetController,
+              builder: (context, value, _) {
+                final selectedTarget = int.tryParse(value.text);
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final target in _targetPresets)
+                      ChoiceChip(
+                        label: Text('$target'),
+                        selected: selectedTarget == target,
+                        onSelected: (_) {
+                          _targetController.text = '$target';
+                          _clearValidation();
+                        },
+                      ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: MishkatSpacing.md),
+            TextField(
+              controller: _targetController,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              maxLength: 4,
+              decoration: const InputDecoration(
+                labelText: 'أو اكتب هدفًا مخصصًا',
+                hintText: 'من 1 إلى 9999',
+                counterText: '',
+              ),
+              onChanged: (_) => _clearValidation(),
+              onSubmitted: (_) => _submit(),
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              child: _validationMessage == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      key: const ValueKey('custom-dhikr-error'),
+                      padding: const EdgeInsets.only(top: MishkatSpacing.sm),
+                      child: Text(
+                        _validationMessage!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: MishkatSpacing.base),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.surfaceVariant,
+                borderRadius: MishkatRadius.brMd,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: colors.textSecondary,
+                  ),
+                  const SizedBox(width: MishkatSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'سيبدأ عدّ جديد لهذا الذكر، وسيبقى إجماليك محفوظًا.',
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 11.5,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: MishkatSpacing.base),
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _submit,
+                icon: const Icon(Icons.check_rounded),
+                label: Text(
+                  widget.initialText.isEmpty
+                      ? 'إضافة واستخدام الذكر'
+                      : 'حفظ التعديلات',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _clearValidation() {
+    if (_validationMessage != null) {
+      setState(() => _validationMessage = null);
+    }
+  }
+
+  void _submit() {
+    final text = _textController.text.trim();
+    final target = int.tryParse(_targetController.text);
+    if (text.isEmpty || target == null || target < 1 || target > 9999) {
+      setState(() => _validationMessage = 'اكتب ذكرًا وحدد هدفًا بين 1 و9999.');
+      return;
+    }
+    Navigator.pop(context, _CustomDhikrValue(text, target));
   }
 }
 
@@ -283,13 +641,50 @@ class _TargetSelector extends StatelessWidget {
     BuildContext pageContext,
     int current,
   ) async {
-    final controller = TextEditingController(text: '$current');
     final value = await showDialog<int>(
       context: pageContext,
-      builder: (context) => AlertDialog(
-        title: const Text('هدف مخصص'),
-        content: TextField(
-          controller: controller,
+      builder: (context) => _CustomTargetDialog(initialTarget: current),
+    );
+    if (value != null && pageContext.mounted) {
+      await pageContext.read<TasbihCubit>().setTarget(value);
+    }
+  }
+}
+
+class _CustomTargetDialog extends StatefulWidget {
+  const _CustomTargetDialog({required this.initialTarget});
+
+  final int initialTarget;
+
+  @override
+  State<_CustomTargetDialog> createState() => _CustomTargetDialogState();
+}
+
+class _CustomTargetDialogState extends State<_CustomTargetDialog> {
+  late final TextEditingController _controller;
+  String? _validationMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${widget.initialTarget}');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    scrollable: true,
+    title: const Text('هدف مخصص'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _controller,
           autofocus: true,
           keyboardType: TextInputType.number,
           textInputAction: TextInputAction.done,
@@ -299,34 +694,37 @@ class _TargetSelector extends StatelessWidget {
             labelText: 'عدد التسبيحات',
             hintText: 'من 1 إلى 9999',
           ),
-          onSubmitted: (raw) {
-            final parsed = int.tryParse(raw);
-            if (parsed != null && parsed >= 1 && parsed <= 9999) {
-              Navigator.pop(context, parsed);
-            }
-          },
+          onSubmitted: (_) => _submit(),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
+        if (_validationMessage != null)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              _validationMessage!,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                fontSize: 12,
+              ),
+            ),
           ),
-          FilledButton(
-            onPressed: () {
-              final parsed = int.tryParse(controller.text);
-              if (parsed != null && parsed >= 1 && parsed <= 9999) {
-                Navigator.pop(context, parsed);
-              }
-            },
-            child: const Text('حفظ'),
-          ),
-        ],
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('إلغاء'),
       ),
-    );
-    controller.dispose();
-    if (value != null && pageContext.mounted) {
-      await pageContext.read<TasbihCubit>().setTarget(value);
+      FilledButton(onPressed: _submit, child: const Text('حفظ')),
+    ],
+  );
+
+  void _submit() {
+    final value = int.tryParse(_controller.text);
+    if (value == null || value < 1 || value > 9999) {
+      setState(() => _validationMessage = 'أدخل عددًا بين 1 و9999.');
+      return;
     }
+    Navigator.pop(context, value);
   }
 }
 
@@ -388,9 +786,10 @@ class _TargetButton extends StatelessWidget {
 }
 
 class _CounterSurface extends StatelessWidget {
-  const _CounterSurface({required this.state});
+  const _CounterSurface({required this.state, this.onCompletionSound});
 
   final TasbihState state;
+  final VoidCallback? onCompletionSound;
 
   @override
   Widget build(BuildContext context) {
@@ -451,12 +850,16 @@ class _CounterSurface extends StatelessWidget {
             child: MishkatPressable(
               scaleDown: 0.965,
               onTap: () {
+                final completesGoal = state.count + 1 == state.target;
                 if (state.hapticsEnabled) {
-                  if (state.count + 1 == state.target) {
+                  if (completesGoal) {
                     HapticFeedback.heavyImpact();
                   } else {
                     HapticFeedback.selectionClick();
                   }
+                }
+                if (completesGoal && state.completionSoundEnabled) {
+                  onCompletionSound?.call();
                 }
                 context.read<TasbihCubit>().increment();
               },
@@ -618,53 +1021,89 @@ class _StatDivider extends StatelessWidget {
       Container(width: 1, height: 48, color: color);
 }
 
-class _SessionActions extends StatelessWidget {
-  const _SessionActions({required this.state});
+Future<void> _showTasbihSettingsSheet(BuildContext pageContext) async {
+  final cubit = pageContext.read<TasbihCubit>();
+  final resetRequested = await showModalBottomSheet<bool>(
+    context: pageContext,
+    showDragHandle: true,
+    useSafeArea: true,
+    builder: (context) =>
+        BlocProvider.value(value: cubit, child: const _TasbihSettingsSheet()),
+  );
+  if (resetRequested == true && pageContext.mounted) {
+    await _confirmReset(pageContext);
+  }
+}
 
-  final TasbihState state;
+class _TasbihSettingsSheet extends StatelessWidget {
+  const _TasbihSettingsSheet();
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: MishkatSecondaryAction(
-          onPressed: state.count == 0 ? null : context.read<TasbihCubit>().undo,
-          icon: const Icon(Icons.undo_rounded),
-          label: 'تراجع عن آخر ضغطة',
-          isFullWidth: true,
-        ),
-      ),
-      const SizedBox(width: MishkatSpacing.sm),
-      IconButton.filledTonal(
-        tooltip: 'بدء جلسة جديدة',
-        onPressed: state.count == 0 ? null : () => _confirmReset(context),
-        icon: const Icon(Icons.refresh_rounded),
-      ),
-    ],
-  );
-
-  Future<void> _confirmReset(BuildContext pageContext) async {
-    final confirmed = await showDialog<bool>(
-      context: pageContext,
-      builder: (context) => AlertDialog(
-        title: const Text('بدء جلسة جديدة؟'),
-        content: const Text(
-          'سيعود عدّاد الجلسة إلى الصفر، وسيبقى مجموعك اليومي والتراكمي محفوظًا.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+  Widget build(BuildContext context) => BlocBuilder<TasbihCubit, TasbihState>(
+    builder: (context, state) => Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Text(
+              'إعدادات المسبحة',
+              style: Theme.of(context).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w900),
+            ),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('بدء جلسة جديدة'),
+          SwitchListTile.adaptive(
+            value: state.completionSoundEnabled,
+            onChanged: (_) =>
+                context.read<TasbihCubit>().toggleCompletionSound(),
+            secondary: const Icon(Icons.notifications_active_outlined),
+            title: const Text('صوت عند إتمام الهدف'),
+            subtitle: const Text('تنبيه قصير مرة واحدة عند بلوغ العدد'),
+          ),
+          SwitchListTile.adaptive(
+            value: state.hapticsEnabled,
+            onChanged: (_) => context.read<TasbihCubit>().toggleHaptics(),
+            secondary: const Icon(Icons.vibration_rounded),
+            title: const Text('الاهتزاز مع العد'),
+            subtitle: const Text('لمسة خفيفة، وأقوى عند اكتمال الهدف'),
+          ),
+          Divider(color: context.mishkat.borderSubtle),
+          ListTile(
+            enabled: state.count > 0,
+            onTap: state.count == 0 ? null : () => Navigator.pop(context, true),
+            leading: const Icon(Icons.refresh_rounded),
+            title: const Text('بدء جلسة جديدة'),
+            subtitle: const Text('تصفير الجلسة مع إبقاء إجماليك محفوظًا'),
           ),
         ],
       ),
-    );
-    if (confirmed == true && pageContext.mounted) {
-      await pageContext.read<TasbihCubit>().reset();
-    }
+    ),
+  );
+}
+
+Future<void> _confirmReset(BuildContext pageContext) async {
+  final confirmed = await showDialog<bool>(
+    context: pageContext,
+    builder: (context) => AlertDialog(
+      title: const Text('بدء جلسة جديدة؟'),
+      content: const Text(
+        'سيعود عدّاد الجلسة إلى الصفر، وسيبقى مجموعك اليومي والتراكمي محفوظًا.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('إلغاء'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('بدء جلسة جديدة'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true && pageContext.mounted) {
+    await pageContext.read<TasbihCubit>().reset();
   }
 }

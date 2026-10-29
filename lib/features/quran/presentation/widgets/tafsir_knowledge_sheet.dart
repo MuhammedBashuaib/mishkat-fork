@@ -59,11 +59,9 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
       try {
         context.read<TafsirCubit>();
       } catch (_) {
-        _localCubit = TafsirCubit(repository: widget.repository)
-          ..loadTafsir(
-            widget.ayah.globalAyah,
-            sourceId: widget.initialSourceId,
-          );
+        _localCubit = TafsirCubit(
+          repository: widget.repository,
+        )..loadTafsir(widget.ayah.globalAyah, sourceId: widget.initialSourceId);
       }
     }
   }
@@ -89,13 +87,13 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final chapter = widget.quranData.chapter(widget.ayah.surah);
-    final ayahIndex =
-        (widget.ayah.ayah - 1).clamp(0, chapter.ayahs.length - 1);
+    final ayahIndex = (widget.ayah.ayah - 1).clamp(0, chapter.ayahs.length - 1);
     final ayahText = chapter.ayahs.isNotEmpty ? chapter.ayahs[ayahIndex] : '';
     final juzNumber = _juzFor(widget.quranData, widget.ayah.globalAyah);
 
-    final backgroundColor =
-        isDark ? const Color(0xFF16241D) : const Color(0xFFFAF7F2);
+    final backgroundColor = isDark
+        ? const Color(0xFF16241D)
+        : const Color(0xFFFAF7F2);
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.08)
         : const Color(0xFFDED8CD);
@@ -136,8 +134,9 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
                         width: 44,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.2),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.2,
+                          ),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -152,8 +151,9 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primary
-                                  .withValues(alpha: isDark ? 0.2 : 0.12),
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: isDark ? 0.2 : 0.12,
+                              ),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -319,9 +319,9 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
             ),
             const SizedBox(height: 16),
             FilledButton.tonalIcon(
-              onPressed: () => context
-                  .read<TafsirCubit>()
-                  .loadTafsir(widget.ayah.globalAyah),
+              onPressed: () => context.read<TafsirCubit>().loadTafsir(
+                widget.ayah.globalAyah,
+              ),
               icon: const Icon(Icons.refresh_rounded, size: 18),
               label: const Text('إعادة المحاولة'),
             ),
@@ -389,8 +389,9 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
                     Text(
                       source!.author,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.65),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.65,
+                        ),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -413,9 +414,7 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
           style: theme.textTheme.bodyLarge?.copyWith(
             height: 1.8,
             fontSize: 16.5,
-            color: isDark
-                ? const Color(0xFFDEE5DF)
-                : const Color(0xFF222C25),
+            color: isDark ? const Color(0xFFDEE5DF) : const Color(0xFF222C25),
           ),
         ),
 
@@ -446,8 +445,7 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  source?.attribution ??
-                      'مأخوذ وموثق من مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة عبر موسوعة القرآن الكريم (QuranEnc.com)',
+                  source?.attribution ?? 'مأخوذ وموثق من مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة عبر موسوعة القرآن الكريم (QuranEnc.com)',
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontSize: 11.5,
                     height: 1.45,
@@ -487,9 +485,7 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: Theme.of(context)
-                .colorScheme
-                .onSurface
+            color: Theme.of(context).colorScheme.onSurface
                 .withValues(alpha: 0.15),
           ),
         ),
@@ -498,9 +494,8 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
           children: [
             Text(
               'المصدر',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: 4),
             const Icon(Icons.arrow_drop_down, size: 18),

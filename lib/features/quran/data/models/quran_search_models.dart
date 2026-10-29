@@ -1,13 +1,9 @@
 import 'package:equatable/equatable.dart';
+
 import 'quran_models.dart';
 
 /// Filter mode for Quran search queries.
-enum QuranSearchFilter {
-  all,
-  ayahs,
-  surahs,
-  pages,
-}
+enum QuranSearchFilter { all, ayahs, surahs, pages }
 
 /// A character range representing a match within text.
 class TextMatchRange extends Equatable {
@@ -23,12 +19,7 @@ class TextMatchRange extends Equatable {
 }
 
 /// Direct reference parsed from a user query (e.g., "2:255", "البقرة 255", "ص 604").
-enum QuranReferenceType {
-  surah,
-  ayah,
-  page,
-  globalAyah,
-}
+enum QuranReferenceType { surah, ayah, page, globalAyah }
 
 /// Represents a parsed direct reference targeting a specific Quran location.
 class QuranParsedReference extends Equatable {
@@ -52,14 +43,14 @@ class QuranParsedReference extends Equatable {
 
   @override
   List<Object?> get props => [
-        type,
-        title,
-        subtitle,
-        page,
-        surah,
-        ayah,
-        globalAyah,
-      ];
+    type,
+    title,
+    subtitle,
+    page,
+    surah,
+    ayah,
+    globalAyah,
+  ];
 }
 
 /// Domain search result representing a matched Ayah in the Quran.
@@ -86,20 +77,21 @@ class QuranAyahSearchResult extends Equatable {
   final List<TextMatchRange> matchRanges;
   final int relevanceScore;
 
-  QuranPoint get point => QuranPoint(surah: surah, ayah: ayah, global: globalAyah);
+  QuranPoint get point =>
+      QuranPoint(surah: surah, ayah: ayah, global: globalAyah);
 
   @override
   List<Object?> get props => [
-        globalAyah,
-        surah,
-        surahName,
-        ayah,
-        page,
-        originalText,
-        normalizedText,
-        matchRanges,
-        relevanceScore,
-      ];
+    globalAyah,
+    surah,
+    surahName,
+    ayah,
+    page,
+    originalText,
+    normalizedText,
+    matchRanges,
+    relevanceScore,
+  ];
 }
 
 /// Combined container for search output.
@@ -126,10 +118,10 @@ class QuranSearchResults extends Equatable {
 
   @override
   List<Object?> get props => [
-        query,
-        directReference,
-        matchedSurahs,
-        matchedAyahs,
-        totalMatches,
-      ];
+    query,
+    directReference,
+    matchedSurahs,
+    matchedAyahs,
+    totalMatches,
+  ];
 }

@@ -80,45 +80,44 @@ class QuranState extends Equatable {
     AudioRepeatState? repeatState,
     String? error,
     bool clearError = false,
-  }) =>
-      QuranState(
-        status: status ?? this.status,
-        data: data ?? this.data,
-        mode: mode ?? this.mode,
-        query: query ?? this.query,
-        results: results ?? this.results,
-        currentPage: currentPage ?? this.currentPage,
-        lastRead: lastRead ?? this.lastRead,
-        bookmarks: bookmarks ?? this.bookmarks,
-        fontSize: fontSize ?? this.fontSize,
-        audioStatus: audioStatus ?? this.audioStatus,
-        audioGlobalAyah: identical(audioGlobalAyah, _unset)
-            ? this.audioGlobalAyah
-            : audioGlobalAyah as int?,
-        activeStation: identical(activeStation, _unset)
-            ? this.activeStation
-            : activeStation as QuranAudioStation?,
-        repeatConfig: repeatConfig ?? this.repeatConfig,
-        repeatState: repeatState ?? this.repeatState,
-        error: clearError ? null : error ?? this.error,
-      );
+  }) => QuranState(
+    status: status ?? this.status,
+    data: data ?? this.data,
+    mode: mode ?? this.mode,
+    query: query ?? this.query,
+    results: results ?? this.results,
+    currentPage: currentPage ?? this.currentPage,
+    lastRead: lastRead ?? this.lastRead,
+    bookmarks: bookmarks ?? this.bookmarks,
+    fontSize: fontSize ?? this.fontSize,
+    audioStatus: audioStatus ?? this.audioStatus,
+    audioGlobalAyah: identical(audioGlobalAyah, _unset)
+        ? this.audioGlobalAyah
+        : audioGlobalAyah as int?,
+    activeStation: identical(activeStation, _unset)
+        ? this.activeStation
+        : activeStation as QuranAudioStation?,
+    repeatConfig: repeatConfig ?? this.repeatConfig,
+    repeatState: repeatState ?? this.repeatState,
+    error: clearError ? null : error ?? this.error,
+  );
 
   @override
   List<Object?> get props => [
-        status,
-        data,
-        mode,
-        query,
-        results,
-        currentPage,
-        lastRead,
-        bookmarks,
-        fontSize,
-        audioStatus,
-        audioGlobalAyah,
-        activeStation,
-        repeatConfig,
-        repeatState,
-        error,
-      ];
+    status,
+    data,
+    mode,
+    query,
+    results,
+    currentPage,
+    lastRead,
+    bookmarks,
+    fontSize,
+    audioStatus,
+    audioGlobalAyah,
+    activeStation,
+    repeatConfig,
+    repeatState,
+    error,
+  ];
 }

@@ -5,8 +5,8 @@ import 'tafsir_state.dart';
 
 class TafsirCubit extends Cubit<TafsirState> {
   TafsirCubit({TafsirRepository? repository})
-      : _repository = repository ?? TafsirRepository(),
-        super(const TafsirState());
+    : _repository = repository ?? TafsirRepository(),
+      super(const TafsirState());
 
   final TafsirRepository _repository;
 
@@ -15,7 +15,9 @@ class TafsirCubit extends Cubit<TafsirState> {
   /// If [sourceId] is omitted, defaults to the repository's default source or currently selected source.
   Future<void> loadTafsir(int globalAyah, {String? sourceId}) async {
     final effectiveSourceId =
-        sourceId ?? state.selectedSource?.id ?? TafsirRepository.defaultSourceId;
+        sourceId ??
+        state.selectedSource?.id ??
+        TafsirRepository.defaultSourceId;
 
     emit(
       state.copyWith(

@@ -15,7 +15,7 @@ class AdaptiveMurajaahEngine {
 
   /// Computes the subsequent review interval and target due date for an Ayah based on the given outcome.
   ({int intervalDays, DateTime nextReviewAt, int consecutiveSuccesses})
-      calculateNextInterval({
+  calculateNextInterval({
     required MemorizationItem item,
     required ReviewOutcome outcome,
     DateTime? now,
@@ -40,8 +40,10 @@ class AdaptiveMurajaahEngine {
         );
 
       case ReviewOutcome.good:
-        final ladderIndex =
-            item.consecutiveSuccesses.clamp(0, goodIntervalLadder.length - 1);
+        final ladderIndex = item.consecutiveSuccesses.clamp(
+          0,
+          goodIntervalLadder.length - 1,
+        );
         final interval = goodIntervalLadder[ladderIndex];
         return (
           intervalDays: interval,
@@ -50,8 +52,10 @@ class AdaptiveMurajaahEngine {
         );
 
       case ReviewOutcome.easy:
-        final ladderIndex =
-            item.consecutiveSuccesses.clamp(0, easyIntervalLadder.length - 1);
+        final ladderIndex = item.consecutiveSuccesses.clamp(
+          0,
+          easyIntervalLadder.length - 1,
+        );
         final interval = easyIntervalLadder[ladderIndex];
         return (
           intervalDays: interval,
@@ -152,7 +156,10 @@ class AdaptiveMurajaahEngine {
 
     var reviewGapWeight = 0.0;
     if (item.lastReviewedAt != null) {
-      final gapDays = current.difference(item.lastReviewedAt!).inDays.clamp(0, 30);
+      final gapDays = current
+          .difference(item.lastReviewedAt!)
+          .inDays
+          .clamp(0, 30);
       reviewGapWeight = gapDays * 1.5;
     } else {
       reviewGapWeight = 20.0; // Never reviewed
@@ -161,7 +168,8 @@ class AdaptiveMurajaahEngine {
     // Damping factor for solid retention
     final damping = (item.consecutiveSuccesses.clamp(0, 5)) * 4.0;
 
-    var total = overdueWeight +
+    var total =
+        overdueWeight +
         weaknessWeight +
         mistakeWeight +
         recentFailureWeight +

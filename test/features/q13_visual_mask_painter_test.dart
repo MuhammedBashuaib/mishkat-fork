@@ -23,6 +23,21 @@ void main() {
     const lightMaskColor = Color(0xFFF6F1E8);
     const darkMaskColor = Color(0xFF121C17);
 
+    test(
+      'All 6236 Ayahs have an exact number position inside their geometry',
+      () {
+        for (var global = 1; global <= 6236; global++) {
+          final ayah = layoutRepo.getAyah(global)!;
+          expect(ayah.numberCenter, isNotNull, reason: 'Ayah $global');
+          expect(
+            ayah.contains(ayah.numberCenter!),
+            isTrue,
+            reason: 'Ayah $global',
+          );
+        }
+      },
+    );
+
     test('1. Empty maskedAyahs produces no drawing commands', () {
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
@@ -58,45 +73,51 @@ void main() {
       expect(picture, isNotNull);
     });
 
-    test('3. Multiple Ayahs paint sequentially without clipping each other', () {
-      final pageGeom = layoutRepo.getPageGeometry(3)!;
-      final ayah13 = layoutRepo.getAyah(13)!;
-      final ayah14 = layoutRepo.getAyah(14)!;
+    test(
+      '3. Multiple Ayahs paint sequentially without clipping each other',
+      () {
+        final pageGeom = layoutRepo.getPageGeometry(3)!;
+        final ayah13 = layoutRepo.getAyah(13)!;
+        final ayah14 = layoutRepo.getAyah(14)!;
 
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
 
-      final painter = VisualMaskPainter(
-        maskedAyahs: [ayah13, ayah14],
-        viewBox: pageGeom.viewBox,
-        mapper: mapper,
-        maskColor: lightMaskColor,
-      );
+        final painter = VisualMaskPainter(
+          maskedAyahs: [ayah13, ayah14],
+          viewBox: pageGeom.viewBox,
+          mapper: mapper,
+          maskColor: lightMaskColor,
+        );
 
-      painter.paint(canvas, contentSize);
-      final picture = recorder.endRecording();
-      expect(picture, isNotNull);
-    });
+        painter.paint(canvas, contentSize);
+        final picture = recorder.endRecording();
+        expect(picture, isNotNull);
+      },
+    );
 
-    test('4. Polygon geometry on Page 2 (Ayah 9) paints valid polygon Path', () {
-      final pageGeom = layoutRepo.getPageGeometry(2)!;
-      final ayah9 = layoutRepo.getAyah(9)!;
-      expect(ayah9.segments.first, isA<AyahPolygonSegment>());
+    test(
+      '4. Polygon geometry on Page 2 (Ayah 9) paints valid polygon Path',
+      () {
+        final pageGeom = layoutRepo.getPageGeometry(2)!;
+        final ayah9 = layoutRepo.getAyah(9)!;
+        expect(ayah9.segments.first, isA<AyahPolygonSegment>());
 
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
 
-      final painter = VisualMaskPainter(
-        maskedAyahs: [ayah9],
-        viewBox: pageGeom.viewBox,
-        mapper: mapper,
-        maskColor: lightMaskColor,
-      );
+        final painter = VisualMaskPainter(
+          maskedAyahs: [ayah9],
+          viewBox: pageGeom.viewBox,
+          mapper: mapper,
+          maskColor: lightMaskColor,
+        );
 
-      painter.paint(canvas, contentSize);
-      final picture = recorder.endRecording();
-      expect(picture, isNotNull);
-    });
+        painter.paint(canvas, contentSize);
+        final picture = recorder.endRecording();
+        expect(picture, isNotNull);
+      },
+    );
 
     test('5. Polygon geometry on Page 1 (Ayah 4) paints valid Path with offset viewBox', () {
       final pageGeom = layoutRepo.getPageGeometry(1)!;

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_widget_prayer_times_widget_label">مواقيت الصلاة</string>
+    <string name="home_widget_prayer_times_widget_description">الصلاة القادمة ومواقيت اليوم من مشكاة</string>
+</resources>

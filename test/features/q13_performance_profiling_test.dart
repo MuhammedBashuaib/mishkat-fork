@@ -24,19 +24,45 @@ void main() {
       const maskColor = Color(0xFFF6F1E8);
 
       // Scenarios to benchmark
-      final scenarios = <({
-        String name,
-        int page,
-        int globalAyah,
-        MaskBoundaryMode mode,
-      })>[
-        (name: 'Rect Single-Line (Page 1, Ayah 2)', page: 1, globalAyah: 2, mode: MaskBoundaryMode.raw),
-        (name: 'Polygon 8-Vertex Path (Page 2, Ayah 9)', page: 2, globalAyah: 9, mode: MaskBoundaryMode.raw),
-        (name: 'Rect Standard Multi-Line (Page 3, Ayah 14)', page: 3, globalAyah: 14, mode: MaskBoundaryMode.raw),
-        (name: 'Rect Long 8-Line Ayah (Page 76, Ayah 488)', page: 76, globalAyah: 488, mode: MaskBoundaryMode.raw),
-        (name: 'Rect Micro-Inset Mode (Page 3, Ayah 14)', page: 3, globalAyah: 14, mode: MaskBoundaryMode.microInset),
-        (name: 'Rect Rounded Corners Mode (Page 3, Ayah 14)', page: 3, globalAyah: 14, mode: MaskBoundaryMode.rounded),
-      ];
+      final scenarios =
+          <({String name, int page, int globalAyah, MaskBoundaryMode mode})>[
+            (
+              name: 'Rect Single-Line (Page 1, Ayah 2)',
+              page: 1,
+              globalAyah: 2,
+              mode: MaskBoundaryMode.raw,
+            ),
+            (
+              name: 'Polygon 8-Vertex Path (Page 2, Ayah 9)',
+              page: 2,
+              globalAyah: 9,
+              mode: MaskBoundaryMode.raw,
+            ),
+            (
+              name: 'Rect Standard Multi-Line (Page 3, Ayah 14)',
+              page: 3,
+              globalAyah: 14,
+              mode: MaskBoundaryMode.raw,
+            ),
+            (
+              name: 'Rect Long 8-Line Ayah (Page 76, Ayah 488)',
+              page: 76,
+              globalAyah: 488,
+              mode: MaskBoundaryMode.raw,
+            ),
+            (
+              name: 'Rect Micro-Inset Mode (Page 3, Ayah 14)',
+              page: 3,
+              globalAyah: 14,
+              mode: MaskBoundaryMode.microInset,
+            ),
+            (
+              name: 'Rect Rounded Corners Mode (Page 3, Ayah 14)',
+              page: 3,
+              globalAyah: 14,
+              mode: MaskBoundaryMode.rounded,
+            ),
+          ];
 
       final results = <String, Map<String, double>>{};
 
@@ -73,10 +99,14 @@ void main() {
         }
 
         timingsMicros.sort();
-        final median = timingsMicros[(timingsMicros.length * 0.5).toInt()] / 1000.0;
-        final p90 = timingsMicros[(timingsMicros.length * 0.9).toInt()] / 1000.0;
-        final p95 = timingsMicros[(timingsMicros.length * 0.95).toInt()] / 1000.0;
-        final p99 = timingsMicros[(timingsMicros.length * 0.99).toInt()] / 1000.0;
+        final median =
+            timingsMicros[(timingsMicros.length * 0.5).toInt()] / 1000.0;
+        final p90 =
+            timingsMicros[(timingsMicros.length * 0.9).toInt()] / 1000.0;
+        final p95 =
+            timingsMicros[(timingsMicros.length * 0.95).toInt()] / 1000.0;
+        final p99 =
+            timingsMicros[(timingsMicros.length * 0.99).toInt()] / 1000.0;
         final maxVal = timingsMicros.last / 1000.0;
 
         results[sc.name] = {
@@ -88,18 +118,30 @@ void main() {
         };
 
         // Assert isolated painter completes well under the 2.0 ms SLA budget
-        expect(median, lessThan(0.5), reason: '${sc.name} median paint must be < 0.5 ms');
-        expect(p95, lessThan(1.0), reason: '${sc.name} p95 paint must be < 1.0 ms');
+        expect(
+          median,
+          lessThan(0.5),
+          reason: '${sc.name} median paint must be < 0.5 ms',
+        );
+        expect(
+          p95,
+          lessThan(1.0),
+          reason: '${sc.name} p95 paint must be < 1.0 ms',
+        );
       }
 
       print('=== Isolated VisualMaskPainter Paint Performance (ms) ===');
       for (final entry in results.entries) {
         final m = entry.value;
-        print('${entry.key}: median=${m['median']}ms, p90=${m['p90']}ms, p95=${m['p95']}ms, p99=${m['p99']}ms, max=${m['max']}ms');
+        print(
+          '${entry.key}: median=${m['median']}ms, p90=${m['p90']}ms, p95=${m['p95']}ms, p99=${m['p99']}ms, max=${m['max']}ms',
+        );
       }
     });
 
-    testWidgets('2. Realistic Interaction Frame Timing & Jank Profile', (tester) async {
+    testWidgets('2. Realistic Interaction Frame Timing & Jank Profile', (
+      tester,
+    ) async {
       final ayah14 = layoutRepo.getAyah(14)!;
       const testSize = Size(390, 700);
 
@@ -153,7 +195,8 @@ void main() {
       }
 
       frameDurationsMicros.sort();
-      final medianMs = frameDurationsMicros[(totalFrames * 0.5).toInt()] / 1000.0;
+      final medianMs =
+          frameDurationsMicros[(totalFrames * 0.5).toInt()] / 1000.0;
       final p90Ms = frameDurationsMicros[(totalFrames * 0.9).toInt()] / 1000.0;
       final p95Ms = frameDurationsMicros[(totalFrames * 0.95).toInt()] / 1000.0;
       final p99Ms = frameDurationsMicros[(totalFrames * 0.99).toInt()] / 1000.0;
@@ -172,8 +215,12 @@ void main() {
       print('p95 frame:    ${p95Ms.toStringAsFixed(2)} ms');
       print('p99 frame:    ${p99Ms.toStringAsFixed(2)} ms');
       print('Max frame:    ${maxMs.toStringAsFixed(2)} ms');
-      print('Slow frames (>16.67ms): $slowFrames (${slowPercent.toStringAsFixed(1)}%)');
-      print('Jank frames (>33.33ms): $jankFrames (${jankPercent.toStringAsFixed(1)}%)');
+      print(
+        'Slow frames (>16.67ms): $slowFrames (${slowPercent.toStringAsFixed(1)}%)',
+      );
+      print(
+        'Jank frames (>33.33ms): $jankFrames (${jankPercent.toStringAsFixed(1)}%)',
+      );
 
       // Assert interaction frame median is well within the 60 Hz budget (16.67 ms)
       expect(medianMs, lessThan(16.67));

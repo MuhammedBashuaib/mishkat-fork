@@ -23,6 +23,21 @@
 		A10000000000000000000005 /* adhan5.caf in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* adhan5.caf */; };
 		A10000000000000000000006 /* adhan6.caf in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* adhan6.caf */; };
 		B74996490F1AE8F70C0E7CB3 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 81679C47659432E8356B92FC /* Pods_Runner.framework */; };
+		6D92C371D7D79858A553C13F /* PrayerTimesWidgetHomeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E1767CEEDB1CB36778E502B0 /* PrayerTimesWidgetHomeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5667C3FCF4E84F8197AA0802 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E56BDD6DBF5EBFC4EB3E8F87 /* WidgetKit.framework */; };
+		461A3D4D515D2D2CC2CD38A3 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08035238A0148EA5AA4228A2 /* SwiftUI.framework */; };
+		E70908F5EBF5B26A5D71C81B /* Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF4819661A8FF0D6AB52E90 /* Widget.swift */; };
+		E5BF88F5F33265AA5AEB5A23 /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DF147E0F3648ED0AB7E9C8 /* WidgetBundle.swift */; };
+		8FA88D4B5A8BA77CF3C8B041 /* AdhkarWidgetHomeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8E89AC1AE72A88C93024C694 /* AdhkarWidgetHomeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DC3B35D037860D1B68C3E84E /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37F2CCD73002C5987DF71229 /* WidgetKit.framework */; };
+		EC6191F7C26B6EC0BDF9F3F5 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 184CCE9C6A2C018F737CFD2E /* SwiftUI.framework */; };
+		663261DF7BF7B716B705114D /* Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90CFB6A2D62E33B7866B2EB4 /* Widget.swift */; };
+		A7B9E1DF5DDD5D567232B475 /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24C669AAB1137B57FDACE0EC /* WidgetBundle.swift */; };
+		0C798989DB90ECE07960030F /* QiblaWidgetHomeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 96C3FD76B60EEA8701C324E8 /* QiblaWidgetHomeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E3203DECC10D6AF9DCBEB9E2 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7716BCBDECF9BEA49E70E7E7 /* WidgetKit.framework */; };
+		EA43875D18A71AFCF91B3D0B /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A6DD8009390C32510A56C42 /* SwiftUI.framework */; };
+		49B31ED5CCD137FAA09084B3 /* Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFEB62CE4153B51D3C822588 /* Widget.swift */; };
+		F4BD9ED56022923AF899CA8B /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0179BA6523A643D2736C330 /* WidgetBundle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +47,27 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+		BDF67620850BAC2DBC65748E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B46C562DFC2267062DF75E6F;
+			remoteInfo = PrayerTimesWidgetHomeWidget;
+		};
+		D0478204A96A7E970F166F7A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6E68C97317146523B345771;
+			remoteInfo = AdhkarWidgetHomeWidget;
+		};
+		1EAE8F383A64E97D3F5D3356 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4039637D3E3CDF9E7BE9091F;
+			remoteInfo = QiblaWidgetHomeWidget;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -44,6 +80,39 @@
 			files = (
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F32D61E68EFF6DCD059333C0 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				6D92C371D7D79858A553C13F /* PrayerTimesWidgetHomeWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		80AAF9F234F517775D302B64 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				8FA88D4B5A8BA77CF3C8B041 /* AdhkarWidgetHomeWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CB6AE7BEE50B5BDD8988D718 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				0C798989DB90ECE07960030F /* QiblaWidgetHomeWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -79,6 +148,28 @@
 		C20CC9392288CD1AF1E18DAD /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		C8A5BD4CBE9CA07DF13784DF /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		FA1A4C796591E2581E3F5E4B /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
+		68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = HomeWidget.xcconfig; path = Flutter/HomeWidget.xcconfig; sourceTree = "<group>"; };
+		E1767CEEDB1CB36778E502B0 /* PrayerTimesWidgetHomeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PrayerTimesWidgetHomeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E56BDD6DBF5EBFC4EB3E8F87 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		08035238A0148EA5AA4228A2 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		61A07FC3227B57D4D2EAC731 /* PrayerTimesWidgetHomeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PrayerTimesWidgetHomeWidget.entitlements; sourceTree = "<group>"; };
+		EAF4819661A8FF0D6AB52E90 /* Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widget.swift; sourceTree = "<group>"; };
+		17DF147E0F3648ED0AB7E9C8 /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
+		06FC91B1744BC6721650CCB7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		8E89AC1AE72A88C93024C694 /* AdhkarWidgetHomeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AdhkarWidgetHomeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		37F2CCD73002C5987DF71229 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		184CCE9C6A2C018F737CFD2E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		B907AA5554CE0EE8F735880B /* AdhkarWidgetHomeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AdhkarWidgetHomeWidget.entitlements; sourceTree = "<group>"; };
+		90CFB6A2D62E33B7866B2EB4 /* Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widget.swift; sourceTree = "<group>"; };
+		24C669AAB1137B57FDACE0EC /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
+		CB7A6B8B08A1403EEBB9BED9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		96C3FD76B60EEA8701C324E8 /* QiblaWidgetHomeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QiblaWidgetHomeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7716BCBDECF9BEA49E70E7E7 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		4A6DD8009390C32510A56C42 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		902E89EB62D39554628EBC49 /* QiblaWidgetHomeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = QiblaWidgetHomeWidget.entitlements; sourceTree = "<group>"; };
+		DFEB62CE4153B51D3C822588 /* Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widget.swift; sourceTree = "<group>"; };
+		D0179BA6523A643D2736C330 /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
+		56B27AC9AE4C0AF2780F6C37 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,6 +186,33 @@
 			buildActionMask = 2147483647;
 			files = (
 				44C388B38560C972F1E01D24 /* Pods_RunnerTests.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF8D6D02CEC43C5598FFD0C8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				461A3D4D515D2D2CC2CD38A3 /* SwiftUI.framework in Frameworks */,
+				5667C3FCF4E84F8197AA0802 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4619F4E9D972E7F784DEDEC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EC6191F7C26B6EC0BDF9F3F5 /* SwiftUI.framework in Frameworks */,
+				DC3B35D037860D1B68C3E84E /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6DD886E265A3BD751A2DA230 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EA43875D18A71AFCF91B3D0B /* SwiftUI.framework in Frameworks */,
+				E3203DECC10D6AF9DCBEB9E2 /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -116,6 +234,7 @@
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
 				9740EEB31CF90195004384FC /* Generated.xcconfig */,
+				68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */,
 			);
 			name = Flutter;
 			sourceTree = "<group>";
@@ -129,6 +248,12 @@
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				A184A781F02A5A8A7A928C8F /* Pods */,
 				D223EC5ED835D347B4C56219 /* Frameworks */,
+				61A07FC3227B57D4D2EAC731 /* PrayerTimesWidgetHomeWidget.entitlements */,
+				33492C6B7379CE52AB5A7F95 /* PrayerTimesWidgetHomeWidget */,
+				B907AA5554CE0EE8F735880B /* AdhkarWidgetHomeWidget.entitlements */,
+				F348189D2151E7DED00588BF /* AdhkarWidgetHomeWidget */,
+				902E89EB62D39554628EBC49 /* QiblaWidgetHomeWidget.entitlements */,
+				0F23C36375963212CA522BB5 /* QiblaWidgetHomeWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -137,6 +262,9 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
+				E1767CEEDB1CB36778E502B0 /* PrayerTimesWidgetHomeWidget.appex */,
+				8E89AC1AE72A88C93024C694 /* AdhkarWidgetHomeWidget.appex */,
+				96C3FD76B60EEA8701C324E8 /* QiblaWidgetHomeWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -193,6 +321,36 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		33492C6B7379CE52AB5A7F95 /* PrayerTimesWidgetHomeWidget */ = {
+			isa = PBXGroup;
+			children = (
+				EAF4819661A8FF0D6AB52E90 /* Widget.swift */,
+				17DF147E0F3648ED0AB7E9C8 /* WidgetBundle.swift */,
+				06FC91B1744BC6721650CCB7 /* Info.plist */,
+			);
+			path = PrayerTimesWidgetHomeWidget;
+			sourceTree = "<group>";
+		};
+		F348189D2151E7DED00588BF /* AdhkarWidgetHomeWidget */ = {
+			isa = PBXGroup;
+			children = (
+				90CFB6A2D62E33B7866B2EB4 /* Widget.swift */,
+				24C669AAB1137B57FDACE0EC /* WidgetBundle.swift */,
+				CB7A6B8B08A1403EEBB9BED9 /* Info.plist */,
+			);
+			path = AdhkarWidgetHomeWidget;
+			sourceTree = "<group>";
+		};
+		0F23C36375963212CA522BB5 /* QiblaWidgetHomeWidget */ = {
+			isa = PBXGroup;
+			children = (
+				DFEB62CE4153B51D3C822588 /* Widget.swift */,
+				D0179BA6523A643D2736C330 /* WidgetBundle.swift */,
+				56B27AC9AE4C0AF2780F6C37 /* Info.plist */,
+			);
+			path = QiblaWidgetHomeWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -225,17 +383,75 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
-				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				F32D61E68EFF6DCD059333C0 /* Embed Foundation Extensions */,
+				80AAF9F234F517775D302B64 /* Embed Foundation Extensions */,
+				CB6AE7BEE50B5BDD8988D718 /* Embed Foundation Extensions */,
 				590160C700D7E75E7BEA9D18 /* [CP] Embed Pods Frameworks */,
+				F9547D5676EA19394581C6E1 /* [CP] Copy Pods Resources */,
+				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				185545F13F75905017362DE7 /* PBXTargetDependency */,
+				DD2658CB7B3CF2747C7DFC49 /* PBXTargetDependency */,
+				E3B1C009995D59482C43D907 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
+		};
+		B46C562DFC2267062DF75E6F /* PrayerTimesWidgetHomeWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F4C39776B36FC29BF0A30F1C /* Build configuration list for PBXNativeTarget "PrayerTimesWidgetHomeWidget" */;
+			buildPhases = (
+				08768D1BC1995A4674AB4E55 /* Sources */,
+				AF8D6D02CEC43C5598FFD0C8 /* Frameworks */,
+				5416B9A0AF5DA3F1FE24212E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PrayerTimesWidgetHomeWidget;
+			productName = PrayerTimesWidgetHomeWidget;
+			productReference = E1767CEEDB1CB36778E502B0 /* PrayerTimesWidgetHomeWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		D6E68C97317146523B345771 /* AdhkarWidgetHomeWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 426BE8C2C11A04CD926EF330 /* Build configuration list for PBXNativeTarget "AdhkarWidgetHomeWidget" */;
+			buildPhases = (
+				B645E84DF65CF592BF74B47F /* Sources */,
+				D4619F4E9D972E7F784DEDEC /* Frameworks */,
+				2D357884F514A2CB3894045A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AdhkarWidgetHomeWidget;
+			productName = AdhkarWidgetHomeWidget;
+			productReference = 8E89AC1AE72A88C93024C694 /* AdhkarWidgetHomeWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		4039637D3E3CDF9E7BE9091F /* QiblaWidgetHomeWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 966B1B6E2DEDF333FD7BA24C /* Build configuration list for PBXNativeTarget "QiblaWidgetHomeWidget" */;
+			buildPhases = (
+				69EEB1B37AC612DE665BDF75 /* Sources */,
+				6DD886E265A3BD751A2DA230 /* Frameworks */,
+				4E3CCEB8C4A08E0929265EB6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QiblaWidgetHomeWidget;
+			productName = QiblaWidgetHomeWidget;
+			productReference = 96C3FD76B60EEA8701C324E8 /* QiblaWidgetHomeWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -272,6 +488,9 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
+				B46C562DFC2267062DF75E6F /* PrayerTimesWidgetHomeWidget */,
+				D6E68C97317146523B345771 /* AdhkarWidgetHomeWidget */,
+				4039637D3E3CDF9E7BE9091F /* QiblaWidgetHomeWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -298,6 +517,27 @@
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5416B9A0AF5DA3F1FE24212E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D357884F514A2CB3894045A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4E3CCEB8C4A08E0929265EB6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -350,13 +590,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -400,6 +636,23 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		F9547D5676EA19394581C6E1 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -421,6 +674,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		08768D1BC1995A4674AB4E55 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E70908F5EBF5B26A5D71C81B /* Widget.swift in Sources */,
+				E5BF88F5F33265AA5AEB5A23 /* WidgetBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B645E84DF65CF592BF74B47F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				663261DF7BF7B716B705114D /* Widget.swift in Sources */,
+				A7B9E1DF5DDD5D567232B475 /* WidgetBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		69EEB1B37AC612DE665BDF75 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				49B31ED5CCD137FAA09084B3 /* Widget.swift in Sources */,
+				F4BD9ED56022923AF899CA8B /* WidgetBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -428,6 +708,21 @@
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+		185545F13F75905017362DE7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B46C562DFC2267062DF75E6F /* PrayerTimesWidgetHomeWidget */;
+			targetProxy = BDF67620850BAC2DBC65748E /* PBXContainerItemProxy */;
+		};
+		DD2658CB7B3CF2747C7DFC49 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6E68C97317146523B345771 /* AdhkarWidgetHomeWidget */;
+			targetProxy = D0478204A96A7E970F166F7A /* PBXContainerItemProxy */;
+		};
+		E3B1C009995D59482C43D907 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4039637D3E3CDF9E7BE9091F /* QiblaWidgetHomeWidget */;
+			targetProxy = 1EAE8F383A64E97D3F5D3356 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -510,6 +805,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = Z6WLFR3247;
@@ -697,6 +993,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = Z6WLFR3247;
@@ -722,6 +1019,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = Z6WLFR3247;
@@ -739,6 +1037,249 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		0E23024F4E44139243D5FC3D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PrayerTimesWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = PrayerTimesWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PrayerTimesWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AAE0B881514D9CB4C531E047 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PrayerTimesWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = PrayerTimesWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PrayerTimesWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		5C2C9885D3329F649E995A6F /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PrayerTimesWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = PrayerTimesWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PrayerTimesWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
+		};
+		7B974F91E7DF631EE4D454A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = AdhkarWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = AdhkarWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AdhkarWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.AdhkarWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		01EE701B6FDCB18820A75DE9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = AdhkarWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = AdhkarWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AdhkarWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.AdhkarWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		16917FAFE4827D78FE66AB71 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = AdhkarWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = AdhkarWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AdhkarWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.AdhkarWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
+		};
+		27DE9BBF6CC6E6527E9E38ED /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = QiblaWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = QiblaWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = QiblaWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.QiblaWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5C8D5BF90FDBCA7447E0C6A7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = QiblaWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = QiblaWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = QiblaWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.QiblaWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		1139F9C59285F70439B1E51F /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = QiblaWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = QiblaWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = QiblaWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.QiblaWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
 		};
 /* End XCBuildConfiguration section */
 
@@ -769,6 +1310,36 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F4C39776B36FC29BF0A30F1C /* Build configuration list for PBXNativeTarget "PrayerTimesWidgetHomeWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0E23024F4E44139243D5FC3D /* Debug */,
+				AAE0B881514D9CB4C531E047 /* Release */,
+				5C2C9885D3329F649E995A6F /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		426BE8C2C11A04CD926EF330 /* Build configuration list for PBXNativeTarget "AdhkarWidgetHomeWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7B974F91E7DF631EE4D454A7 /* Debug */,
+				01EE701B6FDCB18820A75DE9 /* Release */,
+				16917FAFE4827D78FE66AB71 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		966B1B6E2DEDF333FD7BA24C /* Build configuration list for PBXNativeTarget "QiblaWidgetHomeWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				27DE9BBF6CC6E6527E9E38ED /* Debug */,
+				5C8D5BF90FDBCA7447E0C6A7 /* Release */,
+				1139F9C59285F70439B1E51F /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

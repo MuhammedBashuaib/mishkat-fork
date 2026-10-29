@@ -47,7 +47,13 @@ class VisualMaskPainter extends CustomPainter {
       final neighborPaint = Paint()
         ..color = neighborHighlightColor!
         ..style = PaintingStyle.fill;
-      _paintAyahGeometry(canvas, size, neighborAyah!, neighborPaint, isMask: false);
+      _paintAyahGeometry(
+        canvas,
+        size,
+        neighborAyah!,
+        neighborPaint,
+        isMask: false,
+      );
     }
 
     // 2. Paint opaque visual mask over target Ayah
@@ -183,8 +189,11 @@ class MushafVisualRecallPrototypeState
     _zoomScale = widget.initialZoom;
 
     if (_zoomScale != 1.0) {
-      _transformationController.value =
-          Matrix4.diagonal3Values(_zoomScale, _zoomScale, 1.0);
+      _transformationController.value = Matrix4.diagonal3Values(
+        _zoomScale,
+        _zoomScale,
+        1.0,
+      );
     }
 
     if (_targetGlobalAyah == null) {
@@ -236,7 +245,11 @@ class MushafVisualRecallPrototypeState
   void setZoom(double scale) {
     setState(() {
       _zoomScale = scale;
-      _transformationController.value = Matrix4.diagonal3Values(scale, scale, 1.0);
+      _transformationController.value = Matrix4.diagonal3Values(
+        scale,
+        scale,
+        1.0,
+      );
     });
   }
 
@@ -263,7 +276,8 @@ class MushafVisualRecallPrototypeState
         : const Color(0x352563EB); // translucent blue in light
 
     final pageGeom = widget.layoutRepository.getPageGeometry(_currentPage);
-    final viewBox = pageGeom?.viewBox ??
+    final viewBox =
+        pageGeom?.viewBox ??
         (_currentPage <= 2
             ? const Rect.fromLTWH(-53.3109, -198.4777, 345, 550)
             : const Rect.fromLTWH(0, 0, 345, 550));
@@ -307,8 +321,9 @@ class MushafVisualRecallPrototypeState
                                 'assets/mushaf/pages/${_currentPage.toString().padLeft(3, '0')}.svg',
                                 fit: BoxFit.contain,
                                 colorFilter: svgColorFilter,
-                                placeholderBuilder: (_) =>
-                                    const Center(child: CircularProgressIndicator()),
+                                placeholderBuilder: (_) => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                               ),
 
                               // Layer 2: Prototype Visual Mask & Neighbor Highlight
@@ -334,7 +349,9 @@ class MushafVisualRecallPrototypeState
 
               // 2. Prototype Control Strip
               Container(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                color: isDark
+                    ? const Color(0xFF1E293B)
+                    : const Color(0xFFF1F5F9),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -371,7 +388,9 @@ class MushafVisualRecallPrototypeState
                           ElevatedButton.icon(
                             onPressed: toggleMask,
                             icon: Icon(
-                              _isMasked ? Icons.visibility : Icons.visibility_off,
+                              _isMasked
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
                               size: 16,
                             ),
                             label: Text(
@@ -383,7 +402,10 @@ class MushafVisualRecallPrototypeState
                                   ? const Color(0xFF059669)
                                   : const Color(0xFFDC2626),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                             ),
                           ),
                         ],
@@ -398,25 +420,37 @@ class MushafVisualRecallPrototypeState
                         children: [
                           const Text('تكبير: ', style: TextStyle(fontSize: 11)),
                           ChoiceChip(
-                            label: const Text('1.0×', style: TextStyle(fontSize: 11)),
+                            label: const Text(
+                              '1.0×',
+                              style: TextStyle(fontSize: 11),
+                            ),
                             selected: _zoomScale == 1.0,
                             onSelected: (_) => setZoom(1.0),
                           ),
                           const SizedBox(width: 4),
                           ChoiceChip(
-                            label: const Text('1.5×', style: TextStyle(fontSize: 11)),
+                            label: const Text(
+                              '1.5×',
+                              style: TextStyle(fontSize: 11),
+                            ),
                             selected: _zoomScale == 1.5,
                             onSelected: (_) => setZoom(1.5),
                           ),
                           const SizedBox(width: 4),
                           ChoiceChip(
-                            label: const Text('2.0×', style: TextStyle(fontSize: 11)),
+                            label: const Text(
+                              '2.0×',
+                              style: TextStyle(fontSize: 11),
+                            ),
                             selected: _zoomScale == 2.0,
                             onSelected: (_) => setZoom(2.0),
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode, size: 20),
+                            icon: Icon(
+                              isDark ? Icons.light_mode : Icons.dark_mode,
+                              size: 20,
+                            ),
                             tooltip: 'تغيير المظهر',
                             onPressed: () => setThemeMode(
                               isDark ? ThemeMode.light : ThemeMode.dark,

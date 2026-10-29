@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,22 +22,27 @@ void main() {
     for (final path in cairoFiles) {
       final file = File(path);
       if (file.existsSync()) {
-        cairoLoader.addFont(Future.value(ByteData.view(file.readAsBytesSync().buffer)));
+        cairoLoader.addFont(
+          Future.value(ByteData.view(file.readAsBytesSync().buffer)),
+        );
       }
     }
     await cairoLoader.load();
   });
 
   group('AppTheme Global Cairo Typography Scale Tests', () {
-    test('Font family and fallbacks are Cairo in both light and dark themes', () {
-      final light = AppTheme.light();
-      final dark = AppTheme.dark();
+    test(
+      'Font family and fallbacks are Cairo in both light and dark themes',
+      () {
+        final light = AppTheme.light();
+        final dark = AppTheme.dark();
 
-      expect(light.textTheme.bodyMedium?.fontFamily, 'Cairo');
-      expect(dark.textTheme.bodyMedium?.fontFamily, 'Cairo');
-      expect(light.textTheme.displayLarge?.fontFamily, 'Cairo');
-      expect(dark.textTheme.displayLarge?.fontFamily, 'Cairo');
-    });
+        expect(light.textTheme.bodyMedium?.fontFamily, 'Cairo');
+        expect(dark.textTheme.bodyMedium?.fontFamily, 'Cairo');
+        expect(light.textTheme.displayLarge?.fontFamily, 'Cairo');
+        expect(dark.textTheme.displayLarge?.fontFamily, 'Cairo');
+      },
+    );
 
     test('Exact semantic scale values in light theme', () {
       final theme = AppTheme.light();
@@ -173,96 +179,104 @@ void main() {
     const widths = [320.0, 360.0, 390.0, 430.0];
 
     for (final width in widths) {
-      testWidgets('MishkatPrayerSchedule renders with 0 overflow at width: ${width}px', (tester) async {
-        tester.view.physicalSize = Size(width * 2, 800 * 2);
-        tester.view.devicePixelRatio = 2.0;
+      testWidgets(
+        'MishkatPrayerSchedule renders with 0 overflow at width: ${width}px',
+        (tester) async {
+          tester.view.physicalSize = Size(width * 2, 800 * 2);
+          tester.view.devicePixelRatio = 2.0;
 
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light(),
-            home: Scaffold(
-              body: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: MishkatPrayerSchedule(
-                  schedule: sampleSchedule,
-                  cityName: 'الرياض',
-                  onLocationTap: () {},
-                ),
-              ),
-            ),
-          ),
-        );
-
-        await tester.pumpAndSettle();
-
-        expect(tester.takeException(), isNull);
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
-      });
-
-      testWidgets('Mishkat widgets render with 0 overflow at width: ${width}px with accessibility scale 1.25', (tester) async {
-        tester.view.physicalSize = Size(width * 2, 800 * 2);
-        tester.view.devicePixelRatio = 2.0;
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light(),
-            builder: (context, child) {
-              return MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: const TextScaler.linear(1.25),
-                ),
-                child: child!,
-              );
-            },
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: Padding(
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light(),
+              home: Scaffold(
+                body: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      const MishkatSectionHeader(
-                        title: 'القسم الرئيسي للقرآن الكريم',
-                        trailing: Text('عرض الكل'),
-                      ),
-                      const SizedBox(height: 12),
-                      MishkatShortcutTile(
-                        icon: Icons.menu_book_rounded,
-                        title: 'المصحف الشريف بالقراءات',
-                        subtitle: 'متابعة التلاوة والحفظ اليومي',
-                        trailing: const Icon(Icons.arrow_back_ios_new_rounded, size: 14),
-                        onTap: () {},
-                      ),
-                      const SizedBox(height: 12),
-                      MishkatPrimaryAction(
-                        label: 'متابعة القراءة من سورة البقرة',
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        onPressed: () {},
-                      ),
-                      const SizedBox(height: 12),
-                      MishkatSecondaryAction(
-                        label: 'جدول المراجعة والتكرار',
-                        icon: const Icon(Icons.repeat_rounded),
-                        onPressed: () {},
-                      ),
-                    ],
+                  child: MishkatPrayerSchedule(
+                    schedule: sampleSchedule,
+                    cityName: 'الرياض',
+                    onLocationTap: () {},
                   ),
                 ),
               ),
             ),
-          ),
-        );
+          );
 
-        await tester.pumpAndSettle();
+          await tester.pumpAndSettle();
 
-        expect(tester.takeException(), isNull);
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
-      });
+          expect(tester.takeException(), isNull);
+          addTearDown(() {
+            tester.view.resetPhysicalSize();
+            tester.view.resetDevicePixelRatio();
+          });
+        },
+      );
+
+      testWidgets(
+        'Mishkat widgets render with 0 overflow at width: ${width}px with accessibility scale 1.25',
+        (tester) async {
+          tester.view.physicalSize = Size(width * 2, 800 * 2);
+          tester.view.devicePixelRatio = 2.0;
+
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light(),
+              builder: (context, child) {
+                return MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: const TextScaler.linear(1.25)),
+                  child: child!,
+                );
+              },
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        const MishkatSectionHeader(
+                          title: 'القسم الرئيسي للقرآن الكريم',
+                          trailing: Text('عرض الكل'),
+                        ),
+                        const SizedBox(height: 12),
+                        MishkatShortcutTile(
+                          icon: Icons.menu_book_rounded,
+                          title: 'المصحف الشريف بالقراءات',
+                          subtitle: 'متابعة التلاوة والحفظ اليومي',
+                          trailing: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 14,
+                          ),
+                          onTap: () {},
+                        ),
+                        const SizedBox(height: 12),
+                        MishkatPrimaryAction(
+                          label: 'متابعة القراءة من سورة البقرة',
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          onPressed: () {},
+                        ),
+                        const SizedBox(height: 12),
+                        MishkatSecondaryAction(
+                          label: 'جدول المراجعة والتكرار',
+                          icon: const Icon(Icons.repeat_rounded),
+                          onPressed: () {},
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull);
+          addTearDown(() {
+            tester.view.resetPhysicalSize();
+            tester.view.resetDevicePixelRatio();
+          });
+        },
+      );
     }
   });
 }

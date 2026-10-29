@@ -15,6 +15,7 @@ import '../../../adhkar/presentation/pages/adhkar_reader_page.dart';
 import '../../../adhkar/presentation/widgets/dua_editor_sheet.dart';
 import '../../../khatma/presentation/cubit/khatma_cubit.dart';
 import '../../../khatma/presentation/cubit/khatma_state.dart';
+import '../../../home_widgets/presentation/pages/home_widgets_page.dart';
 import '../../../prayer_times/domain/models/prayer_models.dart';
 import '../../../quran/presentation/cubit/quran_cubit.dart';
 import '../../../quran/presentation/pages/quran_reader_page.dart';
@@ -108,6 +109,15 @@ class _HomeAppBar extends StatelessWidget {
           ],
         ),
         const Spacer(),
+        MishkatIconButton(
+          tooltip: 'ودجت مشكاة',
+          icon: const Icon(Icons.widgets_outlined),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => const HomeWidgetsPage()),
+          ),
+        ),
+        const SizedBox(width: MishkatSpacing.xs),
         MishkatIconButton(
           tooltip: 'الإعدادات',
           icon: const Icon(Icons.settings_outlined),

@@ -5,7 +5,9 @@ import '../../data/models/quran_search_models.dart';
 class QuranSearchNormalizer {
   const QuranSearchNormalizer._();
 
-  static final RegExp _diacriticsRegex = RegExp(r'[\u064B-\u065F\u06D6-\u06ED]');
+  static final RegExp _diacriticsRegex = RegExp(
+    r'[\u064B-\u065F\u06D6-\u06ED]',
+  );
 
   /// Converts Eastern Arabic numerals (٠-٩) to ASCII digits (0-9).
   static String convertArabicDigits(String input) {
@@ -62,7 +64,9 @@ class QuranSearchNormalizer {
 
   /// Normalizes [original] while simultaneously constructing a synchronized index map
   /// that tracks each character in the normalized output back to its 0-based index in [original].
-  static ({String normalized, List<int> indexMap}) normalizeWithMap(String original) {
+  static ({String normalized, List<int> indexMap}) normalizeWithMap(
+    String original,
+  ) {
     if (original.isEmpty) {
       return (normalized: '', indexMap: const <int>[]);
     }
@@ -94,7 +98,10 @@ class QuranSearchNormalizer {
       }
 
       var normChar = char;
-      if (normChar == 'أ' || normChar == 'إ' || normChar == 'آ' || normChar == 'ٱ') {
+      if (normChar == 'أ' ||
+          normChar == 'إ' ||
+          normChar == 'آ' ||
+          normChar == 'ٱ') {
         normChar = 'ا';
       } else if (normChar == 'ؤ') {
         normChar = 'و';
@@ -107,7 +114,9 @@ class QuranSearchNormalizer {
       normChar = normChar.toLowerCase();
 
       // Collapse multiple whitespace
-      if (normChar == ' ' && normalizedChars.isNotEmpty && normalizedChars.last == ' ') {
+      if (normChar == ' ' &&
+          normalizedChars.isNotEmpty &&
+          normalizedChars.last == ' ') {
         continue;
       }
 
@@ -126,10 +135,7 @@ class QuranSearchNormalizer {
       indexMap.removeAt(0);
     }
 
-    return (
-      normalized: normalizedChars.join(),
-      indexMap: indexMap,
-    );
+    return (normalized: normalizedChars.join(), indexMap: indexMap);
   }
 
   /// Finds all match ranges of [normalizedQuery] in [originalText] and maps them

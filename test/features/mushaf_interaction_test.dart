@@ -29,36 +29,42 @@ void main() {
   });
 
   group('MushafCoordinateMapper - Unit Tests', () {
-    test('Standard page viewBox (345x550) destination rect maintains aspect ratio', () {
-      const viewBox = Rect.fromLTWH(0, 0, 345, 550);
-      const contentSize = Size(400, 800);
-      final destRect = mapper.getSvgDestinationRect(
-        contentSize: contentSize,
-        viewBox: viewBox,
-      );
+    test(
+      'Standard page viewBox (345x550) destination rect maintains aspect ratio',
+      () {
+        const viewBox = Rect.fromLTWH(0, 0, 345, 550);
+        const contentSize = Size(400, 800);
+        final destRect = mapper.getSvgDestinationRect(
+          contentSize: contentSize,
+          viewBox: viewBox,
+        );
 
-      // Available size = 400 - 16 = 384, 800 - 16 = 784
-      // Aspect ratio: 345 / 550 = 0.62727
-      // 384 / 0.62727 = 612.174 < 784 => Width constrained
-      expect(destRect.width, closeTo(384.0, 1e-2));
-      expect(destRect.height, closeTo(384.0 * (550 / 345), 1e-2));
-      // Centered vertically inside [8, 8, 384, 784]
-      expect(destRect.left, 8.0);
-      expect(destRect.top, greaterThan(8.0));
-    });
+        // Available size = 400 - 16 = 384, 800 - 16 = 784
+        // Aspect ratio: 345 / 550 = 0.62727
+        // 384 / 0.62727 = 612.174 < 784 => Width constrained
+        expect(destRect.width, closeTo(384.0, 1e-2));
+        expect(destRect.height, closeTo(384.0 * (550 / 345), 1e-2));
+        // Centered vertically inside [8, 8, 384, 784]
+        expect(destRect.left, 8.0);
+        expect(destRect.top, greaterThan(8.0));
+      },
+    );
 
-    test('Ornamental page viewBox (Pages 1-2: offset origin) preserves dimensions', () {
-      const viewBox = Rect.fromLTWH(-53.3109, -198.4777, 345, 550);
-      const contentSize = Size(360, 700);
-      final destRect = mapper.getSvgDestinationRect(
-        contentSize: contentSize,
-        viewBox: viewBox,
-      );
+    test(
+      'Ornamental page viewBox (Pages 1-2: offset origin) preserves dimensions',
+      () {
+        const viewBox = Rect.fromLTWH(-53.3109, -198.4777, 345, 550);
+        const contentSize = Size(360, 700);
+        final destRect = mapper.getSvgDestinationRect(
+          contentSize: contentSize,
+          viewBox: viewBox,
+        );
 
-      expect(destRect.width, greaterThan(0));
-      expect(destRect.height, greaterThan(0));
-      expect(destRect.width / destRect.height, closeTo(345 / 550, 1e-3));
-    });
+        expect(destRect.width, greaterThan(0));
+        expect(destRect.height, greaterThan(0));
+        expect(destRect.width / destRect.height, closeTo(345 / 550, 1e-3));
+      },
+    );
 
     test('Round-trip coordinate transformation: viewBox -> local -> viewBox is exact', () {
       const viewBox = Rect.fromLTWH(0, 0, 345, 550);
@@ -88,33 +94,36 @@ void main() {
       }
     });
 
-    test('Round-trip coordinate transformation on Page 1 offset viewBox is exact', () {
-      const viewBox = Rect.fromLTWH(-53.3109, -198.4777, 345, 550);
-      const contentSize = Size(430, 932);
+    test(
+      'Round-trip coordinate transformation on Page 1 offset viewBox is exact',
+      () {
+        const viewBox = Rect.fromLTWH(-53.3109, -198.4777, 345, 550);
+        const contentSize = Size(430, 932);
 
-      final testPoints = [
-        const Offset(0.0, 0.0),
-        const Offset(-40.0, -180.0),
-        const Offset(100.0, 50.0),
-        const Offset(250.0, 300.0),
-      ];
+        final testPoints = [
+          const Offset(0.0, 0.0),
+          const Offset(-40.0, -180.0),
+          const Offset(100.0, 50.0),
+          const Offset(250.0, 300.0),
+        ];
 
-      for (final pt in testPoints) {
-        final local = mapper.viewBoxToLocal(
-          viewBoxCoordinate: pt,
-          contentSize: contentSize,
-          viewBox: viewBox,
-        );
-        final roundTrip = mapper.localToViewBox(
-          localPosition: local,
-          contentSize: contentSize,
-          viewBox: viewBox,
-        );
-        expect(roundTrip, isNotNull);
-        expect(roundTrip!.dx, closeTo(pt.dx, 1e-2));
-        expect(roundTrip.dy, closeTo(pt.dy, 1e-2));
-      }
-    });
+        for (final pt in testPoints) {
+          final local = mapper.viewBoxToLocal(
+            viewBoxCoordinate: pt,
+            contentSize: contentSize,
+            viewBox: viewBox,
+          );
+          final roundTrip = mapper.localToViewBox(
+            localPosition: local,
+            contentSize: contentSize,
+            viewBox: viewBox,
+          );
+          expect(roundTrip, isNotNull);
+          expect(roundTrip!.dx, closeTo(pt.dx, 1e-2));
+          expect(roundTrip.dy, closeTo(pt.dy, 1e-2));
+        }
+      },
+    );
 
     test('Taps in empty letterbox margins return null (no false hits)', () {
       const viewBox = Rect.fromLTWH(0, 0, 345, 550);
@@ -200,18 +209,21 @@ void main() {
       expect(cubit.state.isActionSheetOpen, isFalse);
     });
 
-    test('onPageChanged clears selection when navigating to different page', () {
-      final ayah = layoutRepo.getAyah(1)!; // page 1
-      cubit.selectAyah(ayah);
+    test(
+      'onPageChanged clears selection when navigating to different page',
+      () {
+        final ayah = layoutRepo.getAyah(1)!; // page 1
+        cubit.selectAyah(ayah);
 
-      // Navigate to page 1: selection preserved
-      cubit.onPageChanged(1);
-      expect(cubit.state.hasSelection, isTrue);
+        // Navigate to page 1: selection preserved
+        cubit.onPageChanged(1);
+        expect(cubit.state.hasSelection, isTrue);
 
-      // Navigate to page 2: selection cleared
-      cubit.onPageChanged(2);
-      expect(cubit.state.hasSelection, isFalse);
-    });
+        // Navigate to page 2: selection cleared
+        cubit.onPageChanged(2);
+        expect(cubit.state.hasSelection, isFalse);
+      },
+    );
 
     test('setPlayingAyah manages playing state separately from selection (Q5 foundation)', () {
       final ayah1 = layoutRepo.getAyah(1)!;
@@ -228,7 +240,9 @@ void main() {
   });
 
   group('MushafInteractionLayer - Widget & Hit-Testing Interactions', () {
-    testWidgets('Tap on Ayah selects it via MushafInteractionCubit', (tester) async {
+    testWidgets('Tap on Ayah selects it via MushafInteractionCubit', (
+      tester,
+    ) async {
       final cubit = MushafInteractionCubit(layoutRepository: layoutRepo);
       const contentSize = Size(360, 600);
       final pageGeom = layoutRepo.getPageGeometry(3)!;
@@ -309,7 +323,9 @@ void main() {
       cubit.close();
     });
 
-    testWidgets('Long press on Ayah selects it and requests Action Sheet', (tester) async {
+    testWidgets('Long press on Ayah selects it and requests Action Sheet', (
+      tester,
+    ) async {
       final cubit = MushafInteractionCubit(layoutRepository: layoutRepo);
       const contentSize = Size(360, 600);
       final pageGeom = layoutRepo.getPageGeometry(3)!;
@@ -350,7 +366,9 @@ void main() {
       cubit.close();
     });
 
-    testWidgets('Long press on empty area does NOT open Action Sheet', (tester) async {
+    testWidgets('Long press on empty area does NOT open Action Sheet', (
+      tester,
+    ) async {
       final cubit = MushafInteractionCubit(layoutRepository: layoutRepo);
       const contentSize = Size(360, 600);
       final pageGeom = layoutRepo.getPageGeometry(3)!;
@@ -387,7 +405,9 @@ void main() {
       cubit.close();
     });
 
-    testWidgets('Double tap triggers onDoubleTap callback (zoom reset)', (tester) async {
+    testWidgets('Double tap triggers onDoubleTap callback (zoom reset)', (
+      tester,
+    ) async {
       final cubit = MushafInteractionCubit(layoutRepository: layoutRepo);
       var doubleTapCalled = false;
 
@@ -422,7 +442,9 @@ void main() {
   });
 
   group('AyahActionSheet - UI & Actions', () {
-    testWidgets('renders Surah, Ayah number, Arabic text, and action buttons', (tester) async {
+    testWidgets('renders Surah, Ayah number, Arabic text, and action buttons', (
+      tester,
+    ) async {
       final ayah1 = layoutRepo.getAyah(1)!; // 1:1 Al-Fatihah
       final storage = LocalStorageService();
       final audioService = QuranAudioService();
@@ -439,10 +461,7 @@ void main() {
           home: Scaffold(
             body: BlocProvider.value(
               value: quranCubit,
-              child: AyahActionSheet(
-                ayah: ayah1,
-                quranData: quranData,
-              ),
+              child: AyahActionSheet(ayah: ayah1, quranData: quranData),
             ),
           ),
         ),
@@ -454,14 +473,20 @@ void main() {
       expect(find.textContaining('صفحة 1'), findsOneWidget);
 
       // Verify Arabic text
-      expect(find.text('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ'), findsOneWidget);
+      expect(
+        find.text('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ'),
+        findsOneWidget,
+      );
 
       // Verify Actions
       expect(find.text('تشغيل التلاوة'), findsOneWidget);
       expect(find.text('نسخ'), findsOneWidget);
       expect(find.text('التفسير'), findsOneWidget);
       expect(find.text('حفظ'), findsOneWidget);
-      expect(find.byIcon(Icons.bookmark_border_rounded), findsOneWidget); // Live bookmark action in Q7
+      expect(
+        find.byIcon(Icons.bookmark_border_rounded),
+        findsOneWidget,
+      ); // Live bookmark action in Q7
     });
   });
 
@@ -471,7 +496,9 @@ void main() {
       final p1 = layoutRepo.getPageGeometry(1)!;
       final ayah4 = layoutRepo.getAyah(4)!;
 
-      final polySegment = ayah4.segments.firstWhere((s) => s is AyahPolygonSegment) as AyahPolygonSegment;
+      final polySegment = ayah4.segments.firstWhere(
+        (s) => s is AyahPolygonSegment,
+      ) as AyahPolygonSegment;
       final localPath = mapper.viewBoxPathToLocal(
         points: polySegment.points,
         contentSize: contentSize,
@@ -489,7 +516,9 @@ void main() {
       final p2 = layoutRepo.getPageGeometry(2)!;
       final ayah9 = layoutRepo.getAyah(9)!;
 
-      final polySegment = ayah9.segments.firstWhere((s) => s is AyahPolygonSegment) as AyahPolygonSegment;
+      final polySegment = ayah9.segments.firstWhere(
+        (s) => s is AyahPolygonSegment,
+      ) as AyahPolygonSegment;
       final localPath = mapper.viewBoxPathToLocal(
         points: polySegment.points,
         contentSize: contentSize,
@@ -524,15 +553,24 @@ void main() {
           viewBox: pageGeom.viewBox,
         );
 
-        expect(viewBoxCoord, isNotNull, reason: 'Failed localToViewBox for Ayah $g');
+        expect(
+          viewBoxCoord,
+          isNotNull,
+          reason: 'Failed localToViewBox for Ayah $g',
+        );
 
         // 3. Hit-test against pre-computed geometry
         final hit = pageGeom.findAyahAt(viewBoxCoord!);
-        expect(hit, isNotNull, reason: 'Hit test returned null for Ayah $g on page ${ayah.page}');
+        expect(
+          hit,
+          isNotNull,
+          reason: 'Hit test returned null for Ayah $g on page ${ayah.page}',
+        );
         expect(
           hit!.globalAyah,
           g,
-          reason: 'Hit test returned wrong Ayah ${hit.globalAyah} instead of $g',
+          reason:
+              'Hit test returned wrong Ayah ${hit.globalAyah} instead of $g',
         );
       }
     });

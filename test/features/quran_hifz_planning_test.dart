@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -49,7 +50,10 @@ class DummyAudioService implements QuranAudioService {
   Duration get currentPosition => Duration.zero;
 
   @override
-  Future<void> playAyah({required String reciter, required int globalAyah}) async {}
+  Future<void> playAyah({
+    required String reciter,
+    required int globalAyah,
+  }) async {}
 
   @override
   Future<void> pause() async {}
@@ -97,7 +101,8 @@ class InMemoryLocalStorageService implements LocalStorageService {
   }
 
   @override
-  int readInt(String key, [int fallback = 0]) => (val(key) as num?)?.toInt() ?? fallback;
+  int readInt(String key, [int fallback = 0]) =>
+      (val(key) as num?)?.toInt() ?? fallback;
 
   dynamic val(String key) => _store[key];
 
@@ -189,7 +194,13 @@ void main() {
       expect(journey.isEmpty, isFalse);
       expect(journey.allAyahs, [10, 11, 12, 13, 14, 15]);
 
-      final overridden = journey.copyWithTargetOverride(5, [13, 14, 15, 16, 17]);
+      final overridden = journey.copyWithTargetOverride(5, [
+        13,
+        14,
+        15,
+        16,
+        17,
+      ]);
       expect(overridden.targetToday, 5);
       expect(overridden.newHifzQueue.length, 5);
       expect(overridden.totalAyahs, 8);
@@ -529,7 +540,9 @@ void main() {
             globalAyah: i,
             status: MemorizationStatus.memorized,
             updatedAt: now.subtract(const Duration(days: 10)),
-            nextReviewAt: now.subtract(const Duration(days: 5)), // > 24 hours overdue
+            nextReviewAt: now.subtract(
+              const Duration(days: 5),
+            ), // > 24 hours overdue
           ),
       ];
 
@@ -598,51 +611,54 @@ void main() {
       expect(journey.isRecoveryMode, isTrue);
     });
 
-    test('Enforces strict deduplication across due, weak, and new segments', () {
-      // Ayah 5 is both due and marked needsRevision
-      final items = [
-        MemorizationItem(
-          globalAyah: 5,
-          status: MemorizationStatus.needsRevision,
-          mistakeCount: 4,
-          updatedAt: now,
-          nextReviewAt: now.subtract(const Duration(hours: 3)), // due
-        ),
-        MemorizationItem(
-          globalAyah: 6,
-          status: MemorizationStatus.needsRevision,
-          mistakeCount: 3,
-          updatedAt: now,
-        ),
-      ];
+    test(
+      'Enforces strict deduplication across due, weak, and new segments',
+      () {
+        // Ayah 5 is both due and marked needsRevision
+        final items = [
+          MemorizationItem(
+            globalAyah: 5,
+            status: MemorizationStatus.needsRevision,
+            mistakeCount: 4,
+            updatedAt: now,
+            nextReviewAt: now.subtract(const Duration(hours: 3)), // due
+          ),
+          MemorizationItem(
+            globalAyah: 6,
+            status: MemorizationStatus.needsRevision,
+            mistakeCount: 3,
+            updatedAt: now,
+          ),
+        ];
 
-      final plan = MemorizationPlan(
-        id: 'plan_test',
-        title: 'خطة حفظ',
-        startGlobalAyah: 5,
-        endGlobalAyah: 10,
-        dailyTarget: 3,
-        createdAt: now,
-      );
+        final plan = MemorizationPlan(
+          id: 'plan_test',
+          title: 'خطة حفظ',
+          startGlobalAyah: 5,
+          endGlobalAyah: 10,
+          dailyTarget: 3,
+          createdAt: now,
+        );
 
-      final journey = engine.calculateDailyJourney(
-        items: items,
-        history: [],
-        activePlan: plan,
-        now: now,
-      );
+        final journey = engine.calculateDailyJourney(
+          items: items,
+          history: [],
+          activePlan: plan,
+          now: now,
+        );
 
-      // Ayah 5 is in due queue
-      expect(journey.dueMurajaahQueue.contains(5), isTrue);
-      // Ayah 5 MUST NOT appear in weak queue
-      expect(journey.weakAyahsQueue.contains(5), isFalse);
-      // Ayah 5 MUST NOT appear in new Hifz queue
-      expect(journey.newHifzQueue.contains(5), isFalse);
+        // Ayah 5 is in due queue
+        expect(journey.dueMurajaahQueue.contains(5), isTrue);
+        // Ayah 5 MUST NOT appear in weak queue
+        expect(journey.weakAyahsQueue.contains(5), isFalse);
+        // Ayah 5 MUST NOT appear in new Hifz queue
+        expect(journey.newHifzQueue.contains(5), isFalse);
 
-      // Entire journey queue must be completely unique
-      final all = journey.allAyahs;
-      expect(all.toSet().length, all.length);
-    });
+        // Entire journey queue must be completely unique
+        final all = journey.allAyahs;
+        expect(all.toSet().length, all.length);
+      },
+    );
 
     test('Enforces strict global capacity bounding (<= 30 Ayahs total)', () {
       final items = [
@@ -848,7 +864,9 @@ void main() {
       final forecast = cubit.state.calculateCompletionForecast(plan, now: now);
       expect(forecast.targetBasedDays, greaterThan(0));
 
-      final suggestion = cubit.state.calculatePlanAdaptationSuggestion(now: now);
+      final suggestion = cubit.state.calculatePlanAdaptationSuggestion(
+        now: now,
+      );
       // Fresh plan -> null
       expect(suggestion, isNull);
     });
@@ -886,7 +904,10 @@ void main() {
       cubit.startJourneySegmentSession(newSegment);
       expect(cubit.state.activeSession, isNotNull);
       expect(cubit.state.activeSession!.queue, newSegment.queue);
-      expect(cubit.state.activeSession!.sessionType, MemorizationSessionType.memorization);
+      expect(
+        cubit.state.activeSession!.sessionType,
+        MemorizationSessionType.memorization,
+      );
     });
 
     test('applyPlanAdaptation updates plan target cleanly', () async {
@@ -939,80 +960,90 @@ void main() {
       await quranCubit.close();
     });
 
-    testWidgets('QuranMemorizationPage renders Daily Journey Card and segments', (tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'QuranMemorizationPage renders Daily Journey Card and segments',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await memorizationCubit.createPlan(
-        title: 'خطة سورة الفاتحة',
-        startGlobalAyah: 1,
-        endGlobalAyah: 7,
-        dailyTarget: 3,
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiBlocProvider(
-            providers: [
-              BlocProvider<QuranCubit>.value(value: quranCubit),
-              BlocProvider<QuranMemorizationCubit>.value(value: memorizationCubit),
-            ],
-            child: const QuranMemorizationPage(),
-          ),
-        ),
-      );
-
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      // Verify Daily Journey Card header
-      expect(find.text('وردك اليومي المقترح'), findsOneWidget);
-      // Verify segment chips
-      expect(find.text('المراجعة المستحقة'), findsOneWidget);
-      expect(find.text('تثبيت المواضع الضعيفة'), findsOneWidget);
-      expect(find.text('الحفظ الجديد'), findsOneWidget);
-      // Verify Start unified journey button
-      expect(find.textContaining('ابدأ ورد اليوم المتكامل'), findsOneWidget);
-    });
-
-    testWidgets('QuranMemorizationPage renders Recovery Mode banner when triggered', (tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      // Seed 16 overdue items to trigger recovery mode
-      for (var i = 1; i <= 16; i++) {
-        await memorizationCubit.recordReviewOutcome(
-          globalAyah: i,
-          outcome: ReviewOutcome.failed,
-          now: now.subtract(const Duration(days: 5)),
+        await memorizationCubit.createPlan(
+          title: 'خطة سورة الفاتحة',
+          startGlobalAyah: 1,
+          endGlobalAyah: 7,
+          dailyTarget: 3,
         );
-      }
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiBlocProvider(
-            providers: [
-              BlocProvider<QuranCubit>.value(value: quranCubit),
-              BlocProvider<QuranMemorizationCubit>.value(value: memorizationCubit),
-            ],
-            child: const QuranMemorizationPage(),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MultiBlocProvider(
+              providers: [
+                BlocProvider<QuranCubit>.value(value: quranCubit),
+                BlocProvider<QuranMemorizationCubit>.value(
+                  value: memorizationCubit,
+                ),
+              ],
+              child: const QuranMemorizationPage(),
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      // Verify Recovery Mode badge/indicator
-      expect(find.text('وضع التعويض الهادئ'), findsWidgets);
-    });
+        // Verify Daily Journey Card header
+        expect(find.text('وردك اليومي المقترح'), findsOneWidget);
+        // Verify segment chips
+        expect(find.text('المراجعة المستحقة'), findsOneWidget);
+        expect(find.text('تثبيت المواضع الضعيفة'), findsOneWidget);
+        expect(find.text('الحفظ الجديد'), findsOneWidget);
+        // Verify Start unified journey button
+        expect(find.textContaining('ابدأ ورد اليوم المتكامل'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'QuranMemorizationPage renders Recovery Mode banner when triggered',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        // Seed 16 overdue items to trigger recovery mode
+        for (var i = 1; i <= 16; i++) {
+          await memorizationCubit.recordReviewOutcome(
+            globalAyah: i,
+            outcome: ReviewOutcome.failed,
+            now: now.subtract(const Duration(days: 5)),
+          );
+        }
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MultiBlocProvider(
+              providers: [
+                BlocProvider<QuranCubit>.value(value: quranCubit),
+                BlocProvider<QuranMemorizationCubit>.value(
+                  value: memorizationCubit,
+                ),
+              ],
+              child: const QuranMemorizationPage(),
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // Verify Recovery Mode badge/indicator
+        expect(find.text('وضع التعويض الهادئ'), findsWidgets);
+      },
+    );
   });
 }

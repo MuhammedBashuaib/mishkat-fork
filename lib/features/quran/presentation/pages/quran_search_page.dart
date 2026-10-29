@@ -20,10 +20,7 @@ import 'quran_reader_page.dart';
 
 /// Full-featured Quran Search & Deep Navigation page.
 class QuranSearchPage extends StatefulWidget {
-  const QuranSearchPage({
-    super.key,
-    this.initialQuery,
-  });
+  const QuranSearchPage({super.key, this.initialQuery});
 
   final String? initialQuery;
 
@@ -66,7 +63,9 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
     final quranData = quranCubit.state.data;
     if (quranData == null) return;
 
-    final point = globalAyah != null ? quranData.pointForGlobal(globalAyah) : null;
+    final point = globalAyah != null
+        ? quranData.pointForGlobal(globalAyah)
+        : null;
     await quranCubit.openPage(page, point: point);
 
     if (!context.mounted) return;
@@ -98,7 +97,9 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
   Future<void> _playAyah(BuildContext context, int globalAyah) async {
     final quranCubit = context.read<QuranCubit>();
     final point = quranCubit.state.data?.pointForGlobal(globalAyah);
-    final surahName = point != null ? quranCubit.state.data?.chapter(point.surah).name : '';
+    final surahName = point != null
+        ? quranCubit.state.data?.chapter(point.surah).name
+        : '';
 
     await quranCubit.playAyah(globalAyah, continuous: true, autoScroll: true);
     if (context.mounted) {
@@ -112,9 +113,7 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
   Widget build(BuildContext context) {
     final quranData = context.read<QuranCubit>().state.data;
     if (quranData == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return BlocProvider(
@@ -125,7 +124,8 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
             storage: LocalStorageService(),
           ),
         );
-        if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
+        if (widget.initialQuery != null &&
+            widget.initialQuery!.trim().isNotEmpty) {
           cubit.onQueryChanged(widget.initialQuery!, immediate: true);
         }
         return cubit;
@@ -137,7 +137,8 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
             builder: (context) {
               return TextField(
                 controller: _textController,
-                autofocus: widget.initialQuery == null || widget.initialQuery!.isEmpty,
+                autofocus:
+                    widget.initialQuery == null || widget.initialQuery!.isEmpty,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: 'ابحث عن آية، سورة، أو اكتب رقم 2:255',
@@ -145,7 +146,9 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   filled: false,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: MishkatSpacing.md),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: MishkatSpacing.md,
+                  ),
                   suffixIcon: _textController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear_rounded),
@@ -162,7 +165,10 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
                   context.read<QuranSearchCubit>().onQueryChanged(val);
                 },
                 onSubmitted: (val) {
-                  context.read<QuranSearchCubit>().onQueryChanged(val, immediate: true);
+                  context.read<QuranSearchCubit>().onQueryChanged(
+                    val,
+                    immediate: true,
+                  );
                 },
               );
             },
@@ -174,28 +180,34 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
               builder: (context, state) {
                 return SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: MishkatSpacing.md, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: MishkatSpacing.md,
+                    vertical: 6,
+                  ),
                   child: Row(
                     children: [
                       _FilterChip(
                         label: 'الكل',
                         selected: state.filter == QuranSearchFilter.all,
-                        onSelected: () =>
-                            context.read<QuranSearchCubit>().setFilter(QuranSearchFilter.all),
+                        onSelected: () => context
+                            .read<QuranSearchCubit>()
+                            .setFilter(QuranSearchFilter.all),
                       ),
                       const SizedBox(width: MishkatSpacing.xs),
                       _FilterChip(
                         label: 'الآيات',
                         selected: state.filter == QuranSearchFilter.ayahs,
-                        onSelected: () =>
-                            context.read<QuranSearchCubit>().setFilter(QuranSearchFilter.ayahs),
+                        onSelected: () => context
+                            .read<QuranSearchCubit>()
+                            .setFilter(QuranSearchFilter.ayahs),
                       ),
                       const SizedBox(width: MishkatSpacing.xs),
                       _FilterChip(
                         label: 'السور',
                         selected: state.filter == QuranSearchFilter.surahs,
-                        onSelected: () =>
-                            context.read<QuranSearchCubit>().setFilter(QuranSearchFilter.surahs),
+                        onSelected: () => context
+                            .read<QuranSearchCubit>()
+                            .setFilter(QuranSearchFilter.surahs),
                       ),
                     ],
                   ),
@@ -212,7 +224,10 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
                 onSelectQuery: (q) {
                   _textController.text = q;
                   setState(() {});
-                  context.read<QuranSearchCubit>().onQueryChanged(q, immediate: true);
+                  context.read<QuranSearchCubit>().onQueryChanged(
+                    q,
+                    immediate: true,
+                  );
                 },
                 onRemoveRecent: (q) =>
                     context.read<QuranSearchCubit>().removeRecentSearch(q),
@@ -243,7 +258,8 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
               return ContentStatePanel(
                 icon: Icons.search_off_rounded,
                 title: 'لا توجد نتائج',
-                message: 'لم يتم العثور على نتائج تطابق "${state.query}". جرّب صيغة أخرى أو اكتب اسم السورة.',
+                message:
+                    'لم يتم العثور على نتائج تطابق "${state.query}". جرّب صيغة أخرى أو اكتب اسم السورة.',
               );
             }
 
@@ -270,9 +286,9 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
                   Text(
                     'السور (${results.matchedSurahs.length})',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: context.mishkat.textSecondary,
-                        ),
+                      fontWeight: FontWeight.w800,
+                      color: context.mishkat.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: MishkatSpacing.xs),
                   for (final chapter in results.matchedSurahs)
@@ -296,7 +312,9 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: context.mishkat.primarySoft,
-                                borderRadius: BorderRadius.circular(MishkatRadius.sm),
+                                borderRadius: BorderRadius.circular(
+                                  MishkatRadius.sm,
+                                ),
                               ),
                               child: Text(
                                 '${chapter.number}',
@@ -314,7 +332,9 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
                                 children: [
                                   Text(
                                     'سورة ${chapter.name}',
-                                    style: const TextStyle(fontWeight: FontWeight.w800),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                   Text(
                                     '${chapter.revelationType} · ${chapter.ayahs.length} آية · صفحة ${chapter.page}',
@@ -342,9 +362,9 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
                   Text(
                     'الآيات الكريمة (${results.matchedAyahs.length})',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: context.mishkat.textSecondary,
-                        ),
+                      fontWeight: FontWeight.w800,
+                      color: context.mishkat.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: MishkatSpacing.sm),
                   for (final ayahResult in results.matchedAyahs)
@@ -355,8 +375,10 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
                         page: ayahResult.page,
                         globalAyah: ayahResult.globalAyah,
                       ),
-                      onTapTafsir: () => _openTafsir(context, ayahResult.globalAyah),
-                      onTapPlay: () => _playAyah(context, ayahResult.globalAyah),
+                      onTapTafsir: () =>
+                          _openTafsir(context, ayahResult.globalAyah),
+                      onTapPlay: () =>
+                          _playAyah(context, ayahResult.globalAyah),
                     ),
                 ],
               ],

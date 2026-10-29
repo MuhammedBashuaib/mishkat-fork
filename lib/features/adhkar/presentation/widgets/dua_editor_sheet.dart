@@ -10,11 +10,7 @@ import '../cubit/adhkar_cubit.dart';
 
 /// Modal bottom sheet for adding or editing a personal dua/supplication.
 class DuaEditorSheet extends StatefulWidget {
-  const DuaEditorSheet({
-    super.key,
-    this.index,
-    this.item,
-  });
+  const DuaEditorSheet({super.key, this.index, this.item});
 
   final int? index;
   final DhikrItem? item;
@@ -37,10 +33,7 @@ class DuaEditorSheet extends StatefulWidget {
       ),
       builder: (sheetContext) => BlocProvider.value(
         value: cubit,
-        child: DuaEditorSheet(
-          index: index,
-          item: item,
-        ),
+        child: DuaEditorSheet(index: index, item: item),
       ),
     );
   }
@@ -88,11 +81,11 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
 
     try {
       await context.read<AdhkarCubit>().saveCustom(
-            index: widget.index,
-            title: title,
-            text: text,
-            count: count,
-          );
+        index: widget.index,
+        title: title,
+        text: text,
+        count: count,
+      );
       if (mounted) {
         context.showMessage(
           _isEdit ? 'تم تحديث الدعاء بنجاح.' : 'تمت إضافة الدعاء إلى أدعيتك.',
@@ -156,10 +149,8 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
                 Expanded(
                   child: Text(
                     _isEdit ? 'تعديل الدعاء' : 'إضافة دعاء جديد',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                        ),
+                    style: Theme.of(context).textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w800, fontSize: 18),
                   ),
                 ),
               ],

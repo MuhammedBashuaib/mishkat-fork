@@ -42,6 +42,14 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   QuranData? _quranData;
   bool _isProcessingPermission = false;
   bool _isRestartingRecognition = false;
+  bool _isStartingRecognition = false;
+  bool _isRefreshingPermission = false;
+  bool _isClosing = false;
+  int _captureOperation = 0;
+  int _busyRestartAttempts = 0;
+
+  bool _isCurrentOperation(int operation) =>
+      !isClosed && !_isClosing && operation == _captureOperation;
 
   int _committedTargetIndex = 0;
   List<RecitationWordAlignment> _committedAlignedWords = const [];
@@ -55,6 +63,9 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     int? endGlobalAyah,
     String? planId,
   }) async {
+    if (isClosed || _isClosing) return;
+    final operation = ++_captureOperation;
+    _busyRestartAttempts = 0;
     _durationTimer?.cancel();
     _durationTimer = null;
     _recognitionRestartTimer?.cancel();
@@ -63,6 +74,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     try {
       await speechService.cancelListening();
     } catch (_) {}
+    if (!_isCurrentOperation(operation)) return;
     _committedTargetIndex = 0;
     _committedAlignedWords = const [];
     _committedDiscrepancies = const [];
@@ -79,6 +91,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
     try {
       _quranData ??= await quranRepository.load();
+      if (!_isCurrentOperation(operation)) return;
       final chapters = _quranData!.chapters;
 
       final chapter = chapters.firstWhere(
@@ -112,10 +125,12 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
           'oral_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
 
       final hasPerm = await speechService.hasPermission();
+      if (!_isCurrentOperation(operation)) return;
       var lifecycle = OralRecitationLifecycle.permissionDenied;
       String? errorMessage;
       if (hasPerm) {
         final available = await speechService.initialize();
+        if (!_isCurrentOperation(operation)) return;
         if (available) {
           lifecycle = OralRecitationLifecycle.ready;
         } else {
@@ -153,6 +168,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         ),
       );
     } catch (e) {
+      if (!_isCurrentOperation(operation)) return;
       emit(
         state.copyWith(
           lifecycle: OralRecitationLifecycle.error,
@@ -165,7 +181,8 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   /// Requests native microphone permission and initializes the speech recognition engine.
   /// Prevents concurrent requests and transitions through explicit states.
   Future<void> requestPermissionAndInitialize() async {
-    if (_isProcessingPermission || isClosed) return;
+    if (_isProcessingPermission || isClosed || _isClosing) return;
+    final operation = _captureOperation;
     _isProcessingPermission = true;
 
     try {
@@ -179,10 +196,12 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
       // 2. Check current microphone permission status
       var hasPerm = await speechService.hasPermission();
+      if (!_isCurrentOperation(operation)) return;
 
       // 3. If not yet granted, invoke native permission request
       if (!hasPerm) {
         final permission = await speechService.requestPermission();
+        if (!_isCurrentOperation(operation)) return;
         hasPerm = permission.isGranted;
 
         if (!hasPerm && permission.requiresSettings) {
@@ -196,7 +215,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         }
       }
 
-      if (isClosed) return;
+      if (!_isCurrentOperation(operation)) return;
 
       if (!hasPerm) {
         // Permission was denied
@@ -227,10 +246,11 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
       // 5. Initialize the speech recognition engine
       final isAvailable = await speechService.initialize();
-      if (isClosed) return;
+      if (!_isCurrentOperation(operation)) return;
 
       if (!isAvailable) {
         final stillHasPerm = await speechService.hasPermission();
+        if (!_isCurrentOperation(operation)) return;
         if (!stillHasPerm) {
           emit(
             state.copyWith(
@@ -258,7 +278,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         ),
       );
     } catch (e) {
-      if (isClosed) return;
+      if (!_isCurrentOperation(operation)) return;
       emit(
         state.copyWith(
           lifecycle: OralRecitationLifecycle.error,
@@ -298,158 +318,185 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
   /// Re-evaluates permission status and engine availability (e.g. after returning from Settings).
   Future<void> checkAndRefreshPermission() async {
-    if (isClosed || state.lifecycle.isListening) return;
-    final shouldRemainPaused = state.lifecycle.isPaused;
-
-    final hasPerm = await speechService.hasPermission();
-    if (!hasPerm) {
-      if (state.lifecycle ==
-          OralRecitationLifecycle.permissionPermanentlyDenied) {
-        return;
-      }
-      emit(
-        state.copyWith(
-          lifecycle: OralRecitationLifecycle.permissionDenied,
-          errorMessage:
-              'نحتاج إلى إذن الميكروفون حتى نتمكن من الاستماع إلى تلاوتك.',
-        ),
-      );
+    if (isClosed ||
+        _isClosing ||
+        _isRefreshingPermission ||
+        _isProcessingPermission ||
+        _isStartingRecognition ||
+        state.lifecycle.isIdle ||
+        state.lifecycle.isListening ||
+        state.lifecycle.isCompleted) {
       return;
     }
-
-    final isAvailable = await speechService.initialize();
-    if (isClosed) return;
-
-    if (isAvailable) {
-      if (state.lifecycle.isLanguageUnavailable) {
-        final hasArabic = await speechService.hasArabicLocale();
-        if (isClosed) return;
-        if (hasArabic == false) {
-          emit(
-            state.copyWith(
-              lifecycle: OralRecitationLifecycle.languageUnavailable,
-              errorMessage: 'العربية لم تظهر بعد ضمن لغات التعرف الصوتي. أضف العربية أو نزّل حزمة التعرف دون اتصال ثم أعد الفحص.',
-            ),
-          );
-          return;
-        }
+    final operation = _captureOperation;
+    final lifecycle = state.lifecycle;
+    bool canRefresh() =>
+        _isCurrentOperation(operation) &&
+        state.lifecycle == lifecycle &&
+        !_isStartingRecognition &&
+        !_isProcessingPermission;
+    _isRefreshingPermission = true;
+    try {
+      final hasPerm = await speechService.hasPermission();
+      if (!canRefresh()) return;
+      if (!hasPerm) {
+        if (lifecycle.isPermissionPermanentlyDenied) return;
+        emit(
+          state.copyWith(
+            lifecycle: OralRecitationLifecycle.permissionDenied,
+            errorMessage:
+                'نحتاج إلى إذن الميكروفون حتى نتمكن من الاستماع إلى تلاوتك.',
+          ),
+        );
+        return;
       }
+
+      final isAvailable = await speechService.initialize();
+      if (!canRefresh()) return;
+      if (isAvailable) {
+        if (lifecycle.isLanguageUnavailable) {
+          final hasArabic = await speechService.hasArabicLocale();
+          if (!canRefresh()) return;
+          if (hasArabic == false) {
+            emit(
+              state.copyWith(
+                lifecycle: OralRecitationLifecycle.languageUnavailable,
+                errorMessage: 'العربية لم تظهر بعد ضمن لغات التعرف الصوتي. أضف العربية إلى خدمة التعرف على الكلام ثم أعد الفحص.',
+              ),
+            );
+            return;
+          }
+        }
+        emit(
+          state.copyWith(
+            lifecycle: lifecycle.isPaused
+                ? OralRecitationLifecycle.paused
+                : OralRecitationLifecycle.ready,
+            clearError: true,
+          ),
+        );
+      } else {
+        emit(
+          state.copyWith(
+            lifecycle: OralRecitationLifecycle.recognizerUnavailable,
+            errorMessage: 'خدمة التعرف الصوتي غير جاهزة على هذا الجهاز. فعّل خدمة التعرف على الكلام ثم أعد المحاولة.',
+          ),
+        );
+      }
+    } catch (_) {
+      if (canRefresh()) {
+        emit(
+          state.copyWith(
+            errorMessage: 'تعذّر فحص الميكروفون. حاول بدء التسميع مرة أخرى.',
+          ),
+        );
+      }
+    } finally {
+      _isRefreshingPermission = false;
+    }
+  }
+
+  /// Begins capture once, including when resuming after a platform failure.
+  Future<void> startRecitation() async {
+    if (isClosed ||
+        _isClosing ||
+        _isStartingRecognition ||
+        _isRestartingRecognition ||
+        _isProcessingPermission ||
+        state.targetWords.isEmpty ||
+        state.lifecycle.isListening ||
+        state.lifecycle.isCompleted) {
+      return;
+    }
+    _isStartingRecognition = true;
+    final operation = ++_captureOperation;
+    _busyRestartAttempts = 0;
+    _recognitionRestartTimer?.cancel();
+    _recognitionRestartTimer = null;
+    try {
+      // Release playback before acquiring the microphone.
+      try {
+        await audioService?.stop();
+      } catch (_) {}
+      if (!_isCurrentOperation(operation)) return;
+
+      if (!state.lifecycle.isReady) {
+        await requestPermissionAndInitialize();
+        if (!_isCurrentOperation(operation) || !state.lifecycle.isReady) return;
+      }
+
+      _cancelSubscriptions();
+      _resultSubscription = speechService.resultsStream.listen(_onSpeechResult);
+      _errorSubscription = speechService.errorStream.listen(_onSpeechError);
+      _statusSubscription = speechService.statusStream.listen(_onSpeechStatus);
+      // Accept synchronous native callbacks during startup.
       emit(
         state.copyWith(
-          lifecycle: shouldRemainPaused
-              ? OralRecitationLifecycle.paused
-              : OralRecitationLifecycle.ready,
+          lifecycle: OralRecitationLifecycle.listening,
           clearError: true,
         ),
       );
-    } else {
-      emit(
-        state.copyWith(
-          lifecycle: OralRecitationLifecycle.recognizerUnavailable,
-          errorMessage: 'خدمة التعرف الصوتي غير جاهزة على هذا الجهاز. فعّل خدمة التعرف على الكلام أو نزّل حزمة اللغة العربية ثم أعد المحاولة.',
-        ),
+      final ok = await speechService.startListening(
+        localeId: 'ar_SA',
+        contextualPhrases: _recognitionHints(),
       );
+      if (!_isCurrentOperation(operation) || !state.lifecycle.isListening) {
+        // A late native start must not turn the mic back on after pause/exit.
+        try {
+          await speechService.cancelListening();
+        } catch (_) {}
+        return;
+      }
+      if (!ok) {
+        // Preserve the specific failure delivered by the adapter. Transient
+        // failures may already have queued a safe restart.
+        if (_recognitionRestartTimer != null) return;
+        _cancelSubscriptions();
+        emit(
+          state.copyWith(
+            lifecycle: OralRecitationLifecycle.error,
+            errorMessage: 'تعذر تشغيل الميكروفون وبدء الاستماع. حاول مرة أخرى.',
+          ),
+        );
+        return;
+      }
+      _startDurationTimer();
+    } catch (_) {
+      if (_isCurrentOperation(operation) && state.lifecycle.isListening) {
+        _onSpeechError(
+          const SpeechRecognitionFailure(
+            type: SpeechRecognitionFailureType.audio,
+            message: 'تعذّر تشغيل الميكروفون. تأكد من إتاحته ثم اضغط متابعة.',
+          ),
+        );
+      }
+    } finally {
+      _isStartingRecognition = false;
     }
   }
 
-  /// Begins real microphone capture and speech alignment.
-  Future<void> startRecitation() async {
-    if (state.targetWords.isEmpty) return;
-    if (state.lifecycle.isListening) return;
-
-    // 1. Audio policy: Stop any background Quran recitation playback
-    if (audioService != null) {
-      try {
-        await audioService!.stop();
-      } catch (_) {}
-    }
-
-    // 2. Ensure permission & engine readiness before starting
-    if (!state.lifecycle.isReady) {
-      await requestPermissionAndInitialize();
-      if (!state.lifecycle.isReady) return;
-    }
-
-    // 3. Setup listeners
-    _cancelSubscriptions();
-
-    _resultSubscription = speechService.resultsStream.listen(_onSpeechResult);
-    _errorSubscription = speechService.errorStream.listen(_onSpeechError);
-    _statusSubscription = speechService.statusStream.listen(_onSpeechStatus);
-
-    // 4. Enter listening before awaiting the native callback. Some engines
-    // emit their first status/result synchronously with the listen request;
-    // those events must not be discarded while the state is still `ready`.
-    emit(
-      state.copyWith(
-        lifecycle: OralRecitationLifecycle.listening,
-        clearError: true,
-      ),
-    );
-
-    final ok = await speechService.startListening(
-      localeId: 'ar_SA',
-      contextualPhrases: _recognitionHints(),
-    );
-    if (!ok) {
-      _cancelSubscriptions();
-      emit(
-        state.copyWith(
-          lifecycle: OralRecitationLifecycle.error,
-          errorMessage: 'تعذر تشغيل الميكروفون وبدء الاستماع. حاول مرة أخرى.',
-        ),
-      );
+  /// Pauses capture, including an in-flight native startup.
+  Future<void> pauseRecitation() async {
+    if (isClosed ||
+        _isClosing ||
+        state.lifecycle.isCompleted ||
+        (!state.lifecycle.isListening && !_isStartingRecognition)) {
       return;
     }
-
-    if (state.lifecycle.isListening) {
-      _startDurationTimer();
-    }
-  }
-
-  /// Pauses microphone capture and pauses the timer.
-  Future<void> pauseRecitation() async {
-    if (!state.lifecycle.isListening) return;
-
+    ++_captureOperation;
     _durationTimer?.cancel();
+    _durationTimer = null;
     _recognitionRestartTimer?.cancel();
     _recognitionRestartTimer = null;
     emit(state.copyWith(lifecycle: OralRecitationLifecycle.paused));
-    await speechService.stopListening();
+    try {
+      await speechService.stopListening();
+    } catch (_) {}
   }
 
-  /// Resumes microphone capture from a paused state.
   Future<void> resumeRecitation() async {
     if (!state.lifecycle.isPaused) return;
-
-    if (audioService != null) {
-      try {
-        await audioService!.stop();
-      } catch (_) {}
-    }
-
-    // As with the initial start, do not leave a window where native callbacks
-    // arrive while the Cubit still reports `paused`.
-    emit(
-      state.copyWith(
-        lifecycle: OralRecitationLifecycle.listening,
-        clearError: true,
-      ),
-    );
-    final ok = await speechService.startListening(
-      localeId: 'ar_SA',
-      contextualPhrases: _recognitionHints(),
-    );
-    if (ok && state.lifecycle.isListening) {
-      _startDurationTimer();
-    } else if (!ok) {
-      emit(
-        state.copyWith(
-          lifecycle: OralRecitationLifecycle.paused,
-          errorMessage: 'تعذّر استئناف الاستماع. تأكد من جاهزية الميكروفون وحزمة اللغة العربية.',
-        ),
-      );
-    }
+    await startRecitation();
   }
 
   /// Reveals the authoritative Uthmani text for a specific Ayah during the session.
@@ -466,6 +513,8 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
   /// Manually finishes the oral recitation session and builds the honest summary.
   Future<void> finishSession() async {
+    if (isClosed || _isClosing || state.lifecycle.isCompleted) return;
+    ++_captureOperation;
     _durationTimer?.cancel();
     _durationTimer = null;
     _recognitionRestartTimer?.cancel();
@@ -540,10 +589,11 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   }
 
   void _onSpeechResult(SpeechRecognitionResultData result) {
-    if (isClosed || !state.hasActiveSession) return;
+    if (isClosed || _isClosing || !state.lifecycle.isListening) return;
 
     final transcript = result.recognizedWords.trim();
     if (transcript.isEmpty) return;
+    _busyRestartAttempts = 0;
 
     // Deduplicate identical repeated callbacks if transcript hasn't changed
     if (transcript == _lastProcessedTranscript && !result.isFinal) {
@@ -613,7 +663,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   }
 
   void _onSpeechError(SpeechRecognitionFailure failure) {
-    if (isClosed) return;
+    if (isClosed || _isClosing || !state.lifecycle.isListening) return;
 
     // Silence/no-match and a recognizer-busy race are normal boundaries of a
     // native speech session, especially on Android. Keep the UI listening and
@@ -622,7 +672,10 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         failure.type == SpeechRecognitionFailureType.noMatch ||
         failure.type == SpeechRecognitionFailureType.timeout ||
         failure.type == SpeechRecognitionFailureType.busy;
-    if (recoverable && state.lifecycle.isListening) {
+    final exhaustedBusyRetries =
+        failure.type == SpeechRecognitionFailureType.busy &&
+        ++_busyRestartAttempts > 3;
+    if (recoverable && !exhaustedBusyRetries) {
       _scheduleRecognitionRestart();
       return;
     }
@@ -631,8 +684,9 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     _durationTimer = null;
     _recognitionRestartTimer?.cancel();
     _recognitionRestartTimer = null;
+    // End capture on every fatal error, including network/audio failures.
+    unawaited(speechService.cancelListening().catchError((Object _) {}));
     if (failure.type == SpeechRecognitionFailureType.languageUnavailable) {
-      unawaited(speechService.cancelListening());
       emit(
         state.copyWith(
           lifecycle: OralRecitationLifecycle.languageUnavailable,
@@ -643,7 +697,6 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     }
 
     if (failure.type == SpeechRecognitionFailureType.permissionDenied) {
-      unawaited(speechService.cancelListening());
       emit(
         state.copyWith(
           lifecycle: failure.isPermanent
@@ -658,13 +711,15 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     emit(
       state.copyWith(
         lifecycle: OralRecitationLifecycle.paused,
-        errorMessage: failure.message,
+        errorMessage: exhaustedBusyRetries
+            ? 'خدمة التعرف الصوتي لا تستجيب. أغلق أي تطبيق يستخدم الميكروفون ثم اضغط متابعة، أو غيّر خدمة الإدخال الصوتي من إعدادات الجهاز.'
+            : failure.message,
       ),
     );
   }
 
   void _onSpeechStatus(String status) {
-    if (isClosed) return;
+    if (isClosed || _isClosing || !state.lifecycle.isListening) return;
     if (kDebugMode) {
       debugPrint(
         '[Q14_CUBIT_STATUS] status="$status" listening=${state.lifecycle.isListening}',
@@ -711,28 +766,53 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   }
 
   Future<void> _restartRecognition() async {
-    if (_isRestartingRecognition || isClosed || !state.lifecycle.isListening) {
+    if (isClosed || _isClosing || !state.lifecycle.isListening) {
+      return;
+    }
+    if (_isStartingRecognition || _isRestartingRecognition) {
+      _scheduleRecognitionRestart();
       return;
     }
     _isRestartingRecognition = true;
+    final operation = _captureOperation;
     try {
       // Ensure the prior timed-out/error cycle releases the native recognizer
       // before the next listen call. This prevents Android's error_busy loop.
       try {
         await speechService.cancelListening();
       } catch (_) {}
-      if (isClosed || !state.lifecycle.isListening) return;
+      if (!_isCurrentOperation(operation) || !state.lifecycle.isListening) {
+        return;
+      }
       final restarted = await speechService.startListening(
         localeId: 'ar_SA',
         contextualPhrases: _recognitionHints(),
       );
+      if (!_isCurrentOperation(operation) || !state.lifecycle.isListening) {
+        try {
+          await speechService.cancelListening();
+        } catch (_) {}
+        return;
+      }
       if (!restarted && !isClosed && state.lifecycle.isListening) {
+        if (_recognitionRestartTimer != null) return;
         _durationTimer?.cancel();
         _durationTimer = null;
         emit(
           state.copyWith(
             lifecycle: OralRecitationLifecycle.paused,
             errorMessage: 'توقف الاستماع. اضغط متابعة، وتأكد من جاهزية حزمة اللغة العربية على الجهاز.',
+          ),
+        );
+      } else if (restarted) {
+        _startDurationTimer();
+      }
+    } catch (_) {
+      if (_isCurrentOperation(operation)) {
+        _onSpeechError(
+          const SpeechRecognitionFailure(
+            type: SpeechRecognitionFailureType.audio,
+            message: 'تعذّر استئناف الميكروفون. اضغط متابعة للمحاولة مجددًا.',
           ),
         );
       }
@@ -824,6 +904,8 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
   @override
   Future<void> close() async {
+    _isClosing = true;
+    ++_captureOperation;
     _durationTimer?.cancel();
     _recognitionRestartTimer?.cancel();
     _cancelSubscriptions();

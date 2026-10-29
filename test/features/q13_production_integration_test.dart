@@ -116,13 +116,7 @@ class FakeLocationService implements LocationService {
 
   @override
   NearbyCity closestCity(double latitude, double longitude) {
-    return const NearbyCity(
-      'المكلا، حضرموت',
-      14.5425,
-      49.1242,
-      'MWL',
-      0,
-    );
+    return const NearbyCity('المكلا، حضرموت', 14.5425, 49.1242, 'MWL', 0);
   }
 }
 
@@ -134,7 +128,9 @@ class FakeNotificationService implements LocalNotificationService {
   Future<bool> requestPermission() async => true;
 
   @override
-  Future<void> scheduleAll(List<ScheduledAppNotification> notifications) async {}
+  Future<void> scheduleAll(
+    List<ScheduledAppNotification> notifications,
+  ) async {}
 
   @override
   Future<void> cancelAll() async {}
@@ -184,7 +180,10 @@ class FakeQuranAudioService implements QuranAudioService {
   bool get isPlaying => isPlayingState;
 
   @override
-  Future<void> playAyah({required String reciter, required int globalAyah}) async {
+  Future<void> playAyah({
+    required String reciter,
+    required int globalAyah,
+  }) async {
     playedAyahs.add(globalAyah);
     isPlayingState = true;
     emitState(PlayerState(true, ProcessingState.ready));
@@ -279,10 +278,12 @@ void main() {
     });
 
     BuildContext getReaderInnerContext(WidgetTester tester) {
-      return tester.element(find.descendant(
-        of: find.byType(QuranReaderPage),
-        matching: find.byType(Scaffold),
-      ));
+      return tester.element(
+        find.descendant(
+          of: find.byType(QuranReaderPage),
+          matching: find.byType(Scaffold),
+        ),
+      );
     }
 
     Widget buildAppHarness({
@@ -315,49 +316,53 @@ void main() {
     // ============================================================
     // GROUP 1: Provider Architecture (1 - 5)
     // ============================================================
-    testWidgets('1, 2, 3, 4. Production tree provides VisualRecallCubit with injected cubit, audio, and storage',
-        (tester) async {
-      QuranVisualRecallCubit? resolvedCubit;
+    testWidgets(
+      '1, 2, 3, 4. Production tree provides VisualRecallCubit with injected cubit, audio, and storage',
+      (tester) async {
+        QuranVisualRecallCubit? resolvedCubit;
 
-      await tester.pumpWidget(
-        buildAppHarness(
-          child: Builder(
-            builder: (context) {
-              return ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const QuranReaderPage(initialGlobalAyah: 1),
-                    ),
-                  );
-                },
-                child: const Text('Open Reader'),
-              );
-            },
+        await tester.pumpWidget(
+          buildAppHarness(
+            child: Builder(
+              builder: (context) {
+                return ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const QuranReaderPage(initialGlobalAyah: 1),
+                      ),
+                    );
+                  },
+                  child: const Text('Open Reader'),
+                );
+              },
+            ),
           ),
-        ),
-      );
+        );
 
-      // Open QuranReaderPage
-      await tester.tap(find.text('Open Reader'));
-      await tester.pumpAndSettle();
+        // Open QuranReaderPage
+        await tester.tap(find.text('Open Reader'));
+        await tester.pumpAndSettle();
 
-      // Verify QuranReaderPage is in tree
-      expect(find.byType(QuranReaderPage), findsOneWidget);
+        // Verify QuranReaderPage is in tree
+        expect(find.byType(QuranReaderPage), findsOneWidget);
 
-      // Inspect resolved Cubit within Reader subtree
-      final readerContext = getReaderInnerContext(tester);
-      resolvedCubit = readerContext.read<QuranVisualRecallCubit>();
+        // Inspect resolved Cubit within Reader subtree
+        final readerContext = getReaderInnerContext(tester);
+        resolvedCubit = readerContext.read<QuranVisualRecallCubit>();
 
-      // Assertions 1-4
-      expect(resolvedCubit, isNotNull);
-      expect(resolvedCubit.memorizationCubit, equals(memoCubit));
-      expect(resolvedCubit.audioService, equals(quranCubit.audioService));
-      expect(resolvedCubit.storage, equals(memoRepo.storage));
-    });
+        // Assertions 1-4
+        expect(resolvedCubit, isNotNull);
+        expect(resolvedCubit.memorizationCubit, equals(memoCubit));
+        expect(resolvedCubit.audioService, equals(quranCubit.audioService));
+        expect(resolvedCubit.storage, equals(memoRepo.storage));
+      },
+    );
 
-    testWidgets('5. Cubit disposed correctly when reader route is popped',
-        (tester) async {
+    testWidgets('5. Cubit disposed correctly when reader route is popped', (
+      tester,
+    ) async {
       QuranVisualRecallCubit? capturedCubit;
 
       await tester.pumpWidget(
@@ -368,7 +373,8 @@ void main() {
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const QuranReaderPage(initialGlobalAyah: 1),
+                      builder: (_) =>
+                          const QuranReaderPage(initialGlobalAyah: 1),
                     ),
                   );
                 },
@@ -398,59 +404,62 @@ void main() {
     // ============================================================
     // GROUP 2: Q11 Daily Journey Integration (6 - 11)
     // ============================================================
-    testWidgets('6, 7, 8, 9, 10. Journey segment exposes Visual Recall and launches reader with queue',
-        (tester) async {
-      tester.view.physicalSize = const Size(800, 1400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      '6, 7, 8, 9, 10. Journey segment exposes Visual Recall and launches reader with queue',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      // Create active plan and due ayahs
-      final plan = await memoCubit.createPlan(
-        title: 'خطة حفظ سورة الفاتحة',
-        startGlobalAyah: 1,
-        endGlobalAyah: 7,
-        dailyTarget: 7,
-      );
-      expect(plan, isNotNull);
+        // Create active plan and due ayahs
+        final plan = await memoCubit.createPlan(
+          title: 'خطة حفظ سورة الفاتحة',
+          startGlobalAyah: 1,
+          endGlobalAyah: 7,
+          dailyTarget: 7,
+        );
+        expect(plan, isNotNull);
 
-      await tester.pumpWidget(
-        buildAppHarness(
-          child: const QuranMemorizationPage(),
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          buildAppHarness(child: const QuranMemorizationPage()),
+        );
+        await tester.pumpAndSettle();
 
-      // Find the Journey start button
-      final journeyButtonFinder = find.textContaining('ابدأ ورد اليوم المتكامل');
-      expect(journeyButtonFinder, findsOneWidget);
+        // Find the Journey start button
+        final journeyButtonFinder = find.textContaining(
+          'ابدأ ورد اليوم المتكامل',
+        );
+        expect(journeyButtonFinder, findsOneWidget);
 
-      // Tap start journey button to open practice mode sheet
-      await tester.tap(journeyButtonFinder);
-      await tester.pumpAndSettle();
+        // Tap start journey button to open practice mode sheet
+        await tester.tap(journeyButtonFinder);
+        await tester.pumpAndSettle();
 
-      // Requirement 6: Sheet exposes both choices
-      expect(find.text('التسميع في المصحف (بصري)'), findsOneWidget);
-      expect(find.text('التسميع بالبطاقات (تقليدي)'), findsOneWidget);
+        // Requirement 6: Sheet exposes both choices
+        expect(find.text('التسميع في المصحف (بصري)'), findsOneWidget);
+        expect(find.text('التسميع بالبطاقات (تقليدي)'), findsOneWidget);
 
-      // Tap 'التسميع في المصحف (بصري)'
-      await tester.tap(find.text('التسميع في المصحف (بصري)'));
-      await tester.pumpAndSettle();
+        // Tap 'التسميع في المصحف (بصري)'
+        await tester.tap(find.text('التسميع في المصحف (بصري)'));
+        await tester.pumpAndSettle();
 
-      // Requirements 7, 8, 9, 10: QuranReaderPage opens and Visual Recall is active
-      expect(find.byType(QuranReaderPage), findsOneWidget);
-      final readerContext = getReaderInnerContext(tester);
-      final recall = readerContext.read<QuranVisualRecallCubit>();
+        // Requirements 7, 8, 9, 10: QuranReaderPage opens and Visual Recall is active
+        expect(find.byType(QuranReaderPage), findsOneWidget);
+        final readerContext = getReaderInnerContext(tester);
+        final recall = readerContext.read<QuranVisualRecallCubit>();
 
-      expect(recall.state.hasActiveSession, isTrue);
-      expect(recall.state.queue, equals([1, 2, 3, 4, 5, 6, 7]));
-      expect(recall.state.currentGlobalAyah, 1);
-    });
+        expect(recall.state.hasActiveSession, isTrue);
+        expect(recall.state.queue, equals([1, 2, 3, 4, 5, 6, 7]));
+        expect(recall.state.currentGlobalAyah, 1);
+      },
+    );
 
-    testWidgets('11. Traditional session still works from journey sheet',
-        (tester) async {
+    testWidgets('11. Traditional session still works from journey sheet', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -466,13 +475,13 @@ void main() {
       );
 
       await tester.pumpWidget(
-        buildAppHarness(
-          child: const QuranMemorizationPage(),
-        ),
+        buildAppHarness(child: const QuranMemorizationPage()),
       );
       await tester.pumpAndSettle();
 
-      final journeyButtonFinder = find.textContaining('ابدأ ورد اليوم المتكامل');
+      final journeyButtonFinder = find.textContaining(
+        'ابدأ ورد اليوم المتكامل',
+      );
       await tester.tap(journeyButtonFinder);
       await tester.pumpAndSettle();
 
@@ -488,266 +497,274 @@ void main() {
     // ============================================================
     // GROUP 3: Single Ayah Entry (12 - 15)
     // ============================================================
-    testWidgets('12, 13, 14, 15. AyahActionSheet exposes Visual Recall and starts single ayah recall',
-        (tester) async {
-      tester.view.physicalSize = const Size(800, 1400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      '12, 13, 14, 15. AyahActionSheet exposes Visual Recall and starts single ayah recall',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await tester.pumpWidget(
-        buildAppHarness(
-          child: const QuranReaderPage(initialGlobalAyah: 1),
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          buildAppHarness(child: const QuranReaderPage(initialGlobalAyah: 1)),
+        );
+        await tester.pumpAndSettle();
 
-      final readerContext = getReaderInnerContext(tester);
-      final recall = readerContext.read<QuranVisualRecallCubit>();
-      final interaction = readerContext.read<MushafInteractionCubit>();
+        final readerContext = getReaderInnerContext(tester);
+        final recall = readerContext.read<QuranVisualRecallCubit>();
+        final interaction = readerContext.read<MushafInteractionCubit>();
 
-      // Select Ayah 3 on Page 1 and request opening action sheet
-      interaction.selectAyahByGlobal(3, openActionSheet: true);
-      await tester.pumpAndSettle();
+        // Select Ayah 3 on Page 1 and request opening action sheet
+        interaction.selectAyahByGlobal(3, openActionSheet: true);
+        await tester.pumpAndSettle();
 
-      // AyahActionSheet opens with options
-      expect(find.text('تسميع الآية'), findsOneWidget);
-      expect(find.text('تحديد مقطع'), findsOneWidget);
+        // AyahActionSheet opens with options
+        expect(find.text('تسميع الآية'), findsOneWidget);
+        expect(find.text('تحديد مقطع'), findsOneWidget);
 
-      // Tap 'تسميع الآية'
-      await tester.tap(find.text('تسميع الآية'));
-      await tester.pumpAndSettle();
+        // Tap 'تسميع الآية'
+        await tester.tap(find.text('تسميع الآية'));
+        await tester.pumpAndSettle();
 
-      // Requirements 13, 14, 15: Session queue contains exactly one ayah [3]
-      expect(recall.state.hasActiveSession, isTrue);
-      expect(recall.state.queue, equals([3]));
-      expect(recall.state.currentGlobalAyah, 3);
-      expect(find.byType(VisualRecallBottomBar), findsOneWidget);
-    });
+        // Requirements 13, 14, 15: Session queue contains exactly one ayah [3]
+        expect(recall.state.hasActiveSession, isTrue);
+        expect(recall.state.queue, equals([3]));
+        expect(recall.state.currentGlobalAyah, 3);
+        expect(find.byType(VisualRecallBottomBar), findsOneWidget);
+      },
+    );
 
     // ============================================================
     // GROUP 4: Range Selection (16 - 19)
     // ============================================================
-    testWidgets('16, 17, 18, 19. Range selection configures sequential queue and excludes outside ayahs',
-        (tester) async {
-      tester.view.physicalSize = const Size(800, 1400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      '16, 17, 18, 19. Range selection configures sequential queue and excludes outside ayahs',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await tester.pumpWidget(
-        buildAppHarness(
-          child: const QuranReaderPage(initialGlobalAyah: 1),
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          buildAppHarness(child: const QuranReaderPage(initialGlobalAyah: 1)),
+        );
+        await tester.pumpAndSettle();
 
-      final readerContext = getReaderInnerContext(tester);
-      final recall = readerContext.read<QuranVisualRecallCubit>();
-      final interaction = readerContext.read<MushafInteractionCubit>();
+        final readerContext = getReaderInnerContext(tester);
+        final recall = readerContext.read<QuranVisualRecallCubit>();
+        final interaction = readerContext.read<MushafInteractionCubit>();
 
-      // Select Ayah 2 and request opening action sheet
-      interaction.selectAyahByGlobal(2, openActionSheet: true);
-      await tester.pumpAndSettle();
+        // Select Ayah 2 and request opening action sheet
+        interaction.selectAyahByGlobal(2, openActionSheet: true);
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('تحديد مقطع'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('تحديد مقطع'));
+        await tester.pumpAndSettle();
 
-      // Requirement 16: Range selection is active
-      expect(recall.state.isRangeSelecting, isTrue);
-      expect(recall.state.rangeSelectionStart, 2);
+        // Requirement 16: Range selection is active
+        expect(recall.state.isRangeSelecting, isTrue);
+        expect(recall.state.rangeSelectionStart, 2);
 
-      // Complete range up to Ayah 5
-      recall.updateRangeEnd(5);
-      await recall.confirmRangeSelection();
-      await tester.pumpAndSettle();
+        // Complete range up to Ayah 5
+        recall.updateRangeEnd(5);
+        await recall.confirmRangeSelection();
+        await tester.pumpAndSettle();
 
-      // Requirements 17, 18, 19:
-      expect(recall.state.hasActiveSession, isTrue);
-      expect(recall.state.queue, equals([2, 3, 4, 5]));
-      expect(recall.state.queue.contains(1), isFalse);
-      expect(recall.state.queue.contains(6), isFalse);
-      expect(recall.state.activeMaskedGlobals, equals({2, 3, 4, 5}));
-    });
+        // Requirements 17, 18, 19:
+        expect(recall.state.hasActiveSession, isTrue);
+        expect(recall.state.queue, equals([2, 3, 4, 5]));
+        expect(recall.state.queue.contains(1), isFalse);
+        expect(recall.state.queue.contains(6), isFalse);
+        expect(recall.state.activeMaskedGlobals, equals({2, 3, 4, 5}));
+      },
+    );
 
     // ============================================================
     // GROUP 5: Runtime Flow (20 - 25)
     // ============================================================
-    testWidgets('20, 21, 22, 23, 24, 25. Masking, reveal, assessment, advancement, completion, retry',
-        (tester) async {
-      tester.view.physicalSize = const Size(800, 1400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      '20, 21, 22, 23, 24, 25. Masking, reveal, assessment, advancement, completion, retry',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await tester.pumpWidget(
-        buildAppHarness(
-          child: const QuranReaderPage(
-            initialGlobalAyah: 1,
-            visualRecallInitialQueue: [1, 2],
+        await tester.pumpWidget(
+          buildAppHarness(
+            child: const QuranReaderPage(
+              initialGlobalAyah: 1,
+              visualRecallInitialQueue: [1, 2],
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      final readerContext = getReaderInnerContext(tester);
-      final recall = readerContext.read<QuranVisualRecallCubit>();
+        final readerContext = getReaderInnerContext(tester);
+        final recall = readerContext.read<QuranVisualRecallCubit>();
 
-      // Requirement 20: Mask visible
-      expect(recall.state.activeMaskedGlobals.contains(1), isTrue);
+        // Requirement 20: Mask visible
+        expect(recall.state.activeMaskedGlobals.contains(1), isTrue);
 
-      // Requirement 21: Reveal works
-      await tester.tap(find.text('إظهار الآية'));
-      await tester.pumpAndSettle();
-      expect(recall.state.isCurrentAyahRevealed, isTrue);
-      expect(recall.state.isEvaluating, isTrue);
+        // Requirement 21: Reveal works
+        await tester.tap(find.text('إظهار الآية'));
+        await tester.pumpAndSettle();
+        expect(recall.state.isCurrentAyahRevealed, isTrue);
+        expect(recall.state.isEvaluating, isTrue);
 
-      // Requirement 22 & 23: Assessment and queue advance
-      await tester.tap(find.text('أعرفها ومتقنة'));
-      await tester.pumpAndSettle();
-      expect(recall.state.currentGlobalAyah, 2);
-      expect(recall.state.isCurrentAyahRevealed, isFalse);
+        // Requirement 22 & 23: Assessment and queue advance
+        await tester.tap(find.text('أعرفها ومتقنة'));
+        await tester.pumpAndSettle();
+        expect(recall.state.currentGlobalAyah, 2);
+        expect(recall.state.isCurrentAyahRevealed, isFalse);
 
-      // Reveal second ayah and simulate failure on write to trigger retry banner
-      await tester.tap(find.text('إظهار الآية'));
-      await tester.pumpAndSettle();
+        // Reveal second ayah and simulate failure on write to trigger retry banner
+        await tester.tap(find.text('إظهار الآية'));
+        await tester.pumpAndSettle();
 
-      storage.failOnWrite = true;
-      await tester.tap(find.text('تحتاج مراجعة'));
-      await tester.pumpAndSettle();
+        storage.failOnWrite = true;
+        await tester.tap(find.text('تحتاج مراجعة'));
+        await tester.pumpAndSettle();
 
-      // Error banner with retry is displayed
-      expect(find.text('إعادة المحاولة'), findsOneWidget);
-      expect(recall.state.error, isNotNull);
+        // Error banner with retry is displayed
+        expect(find.text('إعادة المحاولة'), findsOneWidget);
+        expect(recall.state.error, isNotNull);
 
-      // Requirement 25: Retry works
-      storage.failOnWrite = false;
-      await tester.tap(find.text('إعادة المحاولة'));
-      await tester.pumpAndSettle();
+        // Requirement 25: Retry works
+        storage.failOnWrite = false;
+        await tester.tap(find.text('إعادة المحاولة'));
+        await tester.pumpAndSettle();
 
-      // Requirement 24: Completion works
-      expect(recall.state.isCompleted, isTrue);
-      expect(find.textContaining('اكتملت الجلسة بنجاح'), findsOneWidget);
-    });
+        // Requirement 24: Completion works
+        expect(recall.state.isCompleted, isTrue);
+        expect(find.textContaining('اكتملت الجلسة بنجاح'), findsOneWidget);
+      },
+    );
 
     // ============================================================
     // GROUP 6: Last Read Hard Invariant (26 - 30)
     // ============================================================
-    testWidgets('26, 27, 28, 29, 30. Last Read writes = 0 across start, reveal, assess, complete, audio',
-        (tester) async {
-      storage.writeOperations.clear();
-      final initialLastReadWrites = storage.quranLastReadWrites;
-      expect(initialLastReadWrites, 0);
+    testWidgets(
+      '26, 27, 28, 29, 30. Last Read writes = 0 across start, reveal, assess, complete, audio',
+      (tester) async {
+        storage.writeOperations.clear();
+        final initialLastReadWrites = storage.quranLastReadWrites;
+        expect(initialLastReadWrites, 0);
 
-      await tester.pumpWidget(
-        buildAppHarness(
-          child: const QuranReaderPage(
-            initialGlobalAyah: 1,
-            visualRecallInitialQueue: [1, 2],
+        await tester.pumpWidget(
+          buildAppHarness(
+            child: const QuranReaderPage(
+              initialGlobalAyah: 1,
+              visualRecallInitialQueue: [1, 2],
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      final readerContext = getReaderInnerContext(tester);
-      final recall = readerContext.read<QuranVisualRecallCubit>();
+        final readerContext = getReaderInnerContext(tester);
+        final recall = readerContext.read<QuranVisualRecallCubit>();
 
-      // 26. Start does not write lastRead
-      expect(storage.quranLastReadWrites, 0);
+        // 26. Start does not write lastRead
+        expect(storage.quranLastReadWrites, 0);
 
-      // 27. Reveal does not write lastRead
-      recall.revealCurrentAyah();
-      await tester.pumpAndSettle();
-      expect(storage.quranLastReadWrites, 0);
+        // 27. Reveal does not write lastRead
+        recall.revealCurrentAyah();
+        await tester.pumpAndSettle();
+        expect(storage.quranLastReadWrites, 0);
 
-      // 28. Assessment does not write lastRead
-      await recall.recordKnown();
-      await tester.pumpAndSettle();
-      expect(storage.quranLastReadWrites, 0);
+        // 28. Assessment does not write lastRead
+        await recall.recordKnown();
+        await tester.pumpAndSettle();
+        expect(storage.quranLastReadWrites, 0);
 
-      // 30. Audio does not write lastRead
-      await recall.playCurrentAyahAudio();
-      await tester.pumpAndSettle();
-      expect(storage.quranLastReadWrites, 0);
+        // 30. Audio does not write lastRead
+        await recall.playCurrentAyahAudio();
+        await tester.pumpAndSettle();
+        expect(storage.quranLastReadWrites, 0);
 
-      // 29. Completion does not write lastRead
-      recall.revealCurrentAyah();
-      await recall.recordKnown();
-      await tester.pumpAndSettle();
-      expect(recall.state.isCompleted, isTrue);
-      expect(storage.quranLastReadWrites, 0);
-    });
+        // 29. Completion does not write lastRead
+        recall.revealCurrentAyah();
+        await recall.recordKnown();
+        await tester.pumpAndSettle();
+        expect(recall.state.isCompleted, isTrue);
+        expect(storage.quranLastReadWrites, 0);
+      },
+    );
 
     // ============================================================
     // GROUP 7: Lifecycle & State Hygiene (31 - 36)
     // ============================================================
-    testWidgets('31, 32, 33, 34, 35, 36. Navigation cleanup, fresh session, timers, no leakage',
-        (tester) async {
-      await tester.pumpWidget(
-        buildAppHarness(
-          child: Builder(
-            builder: (context) {
-              return ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const QuranReaderPage(
-                        initialGlobalAyah: 1,
-                        visualRecallInitialQueue: [1, 2],
+    testWidgets(
+      '31, 32, 33, 34, 35, 36. Navigation cleanup, fresh session, timers, no leakage',
+      (tester) async {
+        await tester.pumpWidget(
+          buildAppHarness(
+            child: Builder(
+              builder: (context) {
+                return ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const QuranReaderPage(
+                          initialGlobalAyah: 1,
+                          visualRecallInitialQueue: [1, 2],
+                        ),
                       ),
-                    ),
-                  );
-                },
-                child: const Text('Open Reader Session'),
-              );
-            },
+                    );
+                  },
+                  child: const Text('Open Reader Session'),
+                );
+              },
+            ),
           ),
-        ),
-      );
+        );
 
-      // Open route
-      await tester.tap(find.text('Open Reader Session'));
-      await tester.pumpAndSettle();
+        // Open route
+        await tester.tap(find.text('Open Reader Session'));
+        await tester.pumpAndSettle();
 
-      final readerContext = getReaderInnerContext(tester);
-      final recall = readerContext.read<QuranVisualRecallCubit>();
-      expect(recall.state.hasActiveSession, isTrue);
+        final readerContext = getReaderInnerContext(tester);
+        final recall = readerContext.read<QuranVisualRecallCubit>();
+        expect(recall.state.hasActiveSession, isTrue);
 
-      // Play audio and start tardid timer
-      await recall.playCurrentAyahAudio();
-      expect(recall.state.isAudioPlaying, isTrue);
+        // Play audio and start tardid timer
+        await recall.playCurrentAyahAudio();
+        expect(recall.state.isAudioPlaying, isTrue);
 
-      // 31. Back navigation cleans session & disposes cubit
-      await tester.tap(find.byTooltip('العودة إلى الفهرس'));
-      await tester.pumpAndSettle();
+        // 31. Back navigation cleans session & disposes cubit
+        await tester.tap(find.byTooltip('العودة إلى الفهرس'));
+        await tester.pumpAndSettle();
 
-      // 33, 34, 35. Cubit closed, timers canceled, audio stopped
-      expect(recall.isClosed, isTrue);
-      expect(find.byType(QuranReaderPage), findsNothing);
+        // 33, 34, 35. Cubit closed, timers canceled, audio stopped
+        expect(recall.isClosed, isTrue);
+        expect(find.byType(QuranReaderPage), findsNothing);
 
-      // 32, 36. Reopening creates fresh unpolluted session
-      await tester.tap(find.text('Open Reader Session'));
-      await tester.pumpAndSettle();
+        // 32, 36. Reopening creates fresh unpolluted session
+        await tester.tap(find.text('Open Reader Session'));
+        await tester.pumpAndSettle();
 
-      final newReaderContext = getReaderInnerContext(tester);
-      final newRecall = newReaderContext.read<QuranVisualRecallCubit>();
-      expect(newRecall, isNot(equals(recall)));
-      expect(newRecall.isClosed, isFalse);
-      expect(newRecall.state.hasActiveSession, isTrue);
-      expect(newRecall.state.currentGlobalAyah, 1);
-      expect(newRecall.state.isCompleted, isFalse);
-    });
+        final newReaderContext = getReaderInnerContext(tester);
+        final newRecall = newReaderContext.read<QuranVisualRecallCubit>();
+        expect(newRecall, isNot(equals(recall)));
+        expect(newRecall.isClosed, isFalse);
+        expect(newRecall.state.hasActiveSession, isTrue);
+        expect(newRecall.state.currentGlobalAyah, 1);
+        expect(newRecall.state.isCompleted, isFalse);
+      },
+    );
 
     // ============================================================
     // GROUP 8: Visual Validation Artifacts (10 Production Screenshots)
     // ============================================================
-    testWidgets('Generate 10 real production integration screenshots', (tester) async {
+    testWidgets('Generate 10 real production integration screenshots', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -761,12 +778,15 @@ void main() {
               key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
           if (boundary != null) {
             final image = await boundary.toImage(pixelRatio: 1.0);
-            final byteData =
-                await image.toByteData(format: ui.ImageByteFormat.png);
+            final byteData = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
             if (byteData != null) {
               final file = File('screenshots/production_integration/$filename');
               await file.writeAsBytes(byteData.buffer.asUint8List());
-              print('Saved production screenshot: $filename (${byteData.lengthInBytes} bytes)');
+              print(
+                'Saved production screenshot: $filename (${byteData.lengthInBytes} bytes)',
+              );
             }
           }
         });
@@ -784,9 +804,7 @@ void main() {
       await tester.pumpWidget(
         RepaintBoundary(
           key: key1,
-          child: buildAppHarness(
-            child: const QuranMemorizationPage(),
-          ),
+          child: buildAppHarness(child: const QuranMemorizationPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -848,7 +866,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       final ctx6 = getReaderInnerContext(tester);
-      ctx6.read<MushafInteractionCubit>().selectAyahByGlobal(1, openActionSheet: true);
+      ctx6.read<MushafInteractionCubit>().selectAyahByGlobal(
+        1,
+        openActionSheet: true,
+      );
       await tester.pumpAndSettle();
       await saveScreenshot(key6, '06_single_ayah_entry.png');
 

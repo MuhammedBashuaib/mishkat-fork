@@ -25,7 +25,8 @@ class QuranSearchResultTile extends StatelessWidget {
   final VoidCallback onTapPlay;
 
   void _copyToClipboard(BuildContext context) {
-    final text = '﴿ ${result.originalText} ﴾ [${result.surahName}: ${result.ayah}]';
+    final text =
+        '﴿ ${result.originalText} ﴾ [${result.surahName}: ${result.ayah}]';
     Clipboard.setData(ClipboardData(text: text));
     context.showMessage('تم نسخ الآية الكريمة');
   }
@@ -114,10 +115,7 @@ class QuranSearchResultTile extends StatelessWidget {
             // Ayah Text with Highlight
             Directionality(
               textDirection: TextDirection.rtl,
-              child: Text.rich(
-                highlightedSpan,
-                textAlign: TextAlign.right,
-              ),
+              child: Text.rich(highlightedSpan, textAlign: TextAlign.right),
             ),
             const SizedBox(height: MishkatSpacing.sm),
 
@@ -132,7 +130,10 @@ class QuranSearchResultTile extends StatelessWidget {
                   label: const Text('المصحف', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                   ),
                 ),
                 OutlinedButton.icon(
@@ -141,7 +142,10 @@ class QuranSearchResultTile extends StatelessWidget {
                   label: const Text('التفسير', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                   ),
                 ),
                 OutlinedButton.icon(
@@ -150,7 +154,10 @@ class QuranSearchResultTile extends StatelessWidget {
                   label: const Text('استماع', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                   ),
                 ),
               ],

@@ -28,7 +28,9 @@ class MushafAyahOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (selectedAyah == null && playingAyah == null && bookmarkedAyahs.isEmpty) {
+    if (selectedAyah == null &&
+        playingAyah == null &&
+        bookmarkedAyahs.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -101,7 +103,8 @@ class MushafAyahHighlightPainter extends CustomPainter {
       _paintBookmarkIndicator(canvas, size, bookmarked);
     }
 
-    final isUnified = selectedAyah != null &&
+    final isUnified =
+        selectedAyah != null &&
         playingAyah != null &&
         selectedAyah!.globalAyah == playingAyah!.globalAyah;
 
@@ -110,9 +113,7 @@ class MushafAyahHighlightPainter extends CustomPainter {
         ..color = unifiedColor
         ..style = PaintingStyle.fill;
       final strokePaint = Paint()
-        ..color = isDark
-            ? const Color(0x99F59E0B)
-            : const Color(0x88D97706)
+        ..color = isDark ? const Color(0x99F59E0B) : const Color(0x88D97706)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2;
       _paintAyah(canvas, size, selectedAyah!, fillPaint, strokePaint);
@@ -124,9 +125,7 @@ class MushafAyahHighlightPainter extends CustomPainter {
         ..color = playbackColor
         ..style = PaintingStyle.fill;
       final strokePaint = Paint()
-        ..color = isDark
-            ? const Color(0x80F59E0B)
-            : const Color(0x60D97706)
+        ..color = isDark ? const Color(0x80F59E0B) : const Color(0x60D97706)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
       _paintAyah(canvas, size, playingAyah!, fillPaint, strokePaint);
@@ -151,11 +150,13 @@ class MushafAyahHighlightPainter extends CustomPainter {
         viewBox: viewBox,
       );
     } else if (first is AyahPolygonSegment) {
-      localRect = mapper.viewBoxPathToLocal(
-        points: first.points,
-        contentSize: size,
-        viewBox: viewBox,
-      ).getBounds();
+      localRect = mapper
+          .viewBoxPathToLocal(
+            points: first.points,
+            contentSize: size,
+            viewBox: viewBox,
+          )
+          .getBounds();
     } else {
       localRect = mapper.viewBoxRectToLocal(
         viewBoxRect: ayah.bounds,

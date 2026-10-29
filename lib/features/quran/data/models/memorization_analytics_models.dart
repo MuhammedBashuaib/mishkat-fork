@@ -11,11 +11,11 @@ enum TrendDirection {
   insufficientData;
 
   String get label => switch (this) {
-        TrendDirection.increasing => 'في ازدياد',
-        TrendDirection.stable => 'مستقر',
-        TrendDirection.decreasing => 'في تراجع',
-        TrendDirection.insufficientData => 'بيانات غير كافية',
-      };
+    TrendDirection.increasing => 'في ازدياد',
+    TrendDirection.stable => 'مستقر',
+    TrendDirection.decreasing => 'في تراجع',
+    TrendDirection.insufficientData => 'بيانات غير كافية',
+  };
 
   String get arabicLabel => label;
 }
@@ -28,11 +28,11 @@ enum PlanPaceStatus {
   insufficientData;
 
   String get label => switch (this) {
-        PlanPaceStatus.onTrack => 'على المسار',
-        PlanPaceStatus.ahead => 'متقدم',
-        PlanPaceStatus.needsAttention => 'يحتاج اهتماماً',
-        PlanPaceStatus.insufficientData => 'بيانات غير كافية',
-      };
+    PlanPaceStatus.onTrack => 'على المسار',
+    PlanPaceStatus.ahead => 'متقدم',
+    PlanPaceStatus.needsAttention => 'يحتاج اهتماماً',
+    PlanPaceStatus.insufficientData => 'بيانات غير كافية',
+  };
 
   String get arabicLabel => label;
 }
@@ -44,10 +44,10 @@ enum WorkloadLevel {
   heavy;
 
   String get label => switch (this) {
-        WorkloadLevel.light => 'خفيف',
-        WorkloadLevel.moderate => 'متوسط',
-        WorkloadLevel.heavy => 'مرتفع',
-      };
+    WorkloadLevel.light => 'خفيف',
+    WorkloadLevel.moderate => 'متوسط',
+    WorkloadLevel.heavy => 'مرتفع',
+  };
 
   String get arabicLabel => label;
 }
@@ -99,16 +99,16 @@ class OverallMemorizationAnalytics extends Equatable {
 
   @override
   List<Object?> get props => [
-        totalAyahs,
-        memorized,
-        learning,
-        needsRevision,
-        notStarted,
-        coveragePercentage,
-        dueToday,
-        overdue,
-        weak,
-      ];
+    totalAyahs,
+    memorized,
+    learning,
+    needsRevision,
+    notStarted,
+    coveragePercentage,
+    dueToday,
+    overdue,
+    weak,
+  ];
 }
 
 /// Retention and performance analysis derived from retained review history.
@@ -173,20 +173,20 @@ class ReviewRetentionAnalytics extends Equatable {
 
   @override
   List<Object?> get props => [
-        totalReviews,
-        easyCount,
-        goodCount,
-        difficultCount,
-        failedCount,
-        successRate,
-        difficultRate,
-        failureRate,
-        reviewsToday,
-        reviewsThisWeek,
-        reviewsThisMonth,
-        averageReviewsPerActiveDay,
-        hasSufficientData,
-      ];
+    totalReviews,
+    easyCount,
+    goodCount,
+    difficultCount,
+    failedCount,
+    successRate,
+    difficultRate,
+    failureRate,
+    reviewsToday,
+    reviewsThisWeek,
+    reviewsThisMonth,
+    averageReviewsPerActiveDay,
+    hasSufficientData,
+  ];
 }
 
 /// Activity trend over 7-day and 30-day evaluation windows.
@@ -209,13 +209,13 @@ class MurajaahTrendAnalytics extends Equatable {
 
   @override
   List<Object?> get props => [
-        direction,
-        reviewsLast7Days,
-        reviewsPrevious7Days,
-        reviewsLast30Days,
-        reviewsPrevious30Days,
-        description,
-      ];
+    direction,
+    reviewsLast7Days,
+    reviewsPrevious7Days,
+    reviewsLast30Days,
+    reviewsPrevious30Days,
+    description,
+  ];
 }
 
 /// Mastery breakdown for a specific Surah.
@@ -244,15 +244,15 @@ class SurahMemorizationAnalytics extends Equatable {
 
   @override
   List<Object?> get props => [
-        surahNumber,
-        name,
-        totalAyahs,
-        memorizedCount,
-        learningCount,
-        needsRevisionCount,
-        weakCount,
-        completionPercentage,
-      ];
+    surahNumber,
+    name,
+    totalAyahs,
+    memorizedCount,
+    learningCount,
+    needsRevisionCount,
+    weakCount,
+    completionPercentage,
+  ];
 }
 
 /// Mastery breakdown for a canonical Juz ($1 \dots 30$).
@@ -283,16 +283,16 @@ class JuzMemorizationAnalytics extends Equatable {
 
   @override
   List<Object?> get props => [
-        juzNumber,
-        startGlobalAyah,
-        endGlobalAyah,
-        totalAyahs,
-        memorizedCount,
-        learningCount,
-        needsRevisionCount,
-        weakCount,
-        completionPercentage,
-      ];
+    juzNumber,
+    startGlobalAyah,
+    endGlobalAyah,
+    totalAyahs,
+    memorizedCount,
+    learningCount,
+    needsRevisionCount,
+    weakCount,
+    completionPercentage,
+  ];
 }
 
 /// Progress and pacing intelligence for an active memorization plan.
@@ -327,19 +327,19 @@ class PlanProgressAnalytics extends Equatable {
 
   @override
   List<Object?> get props => [
-        plan,
-        totalAyahs,
-        memorizedCount,
-        learningCount,
-        needsRevisionCount,
-        remainingCount,
-        completionPercentage,
-        dailyTarget,
-        estimatedDaysRemaining,
-        currentPace,
-        paceStatus,
-        paceMessage,
-      ];
+    plan,
+    totalAyahs,
+    memorizedCount,
+    learningCount,
+    needsRevisionCount,
+    remainingCount,
+    completionPercentage,
+    dailyTarget,
+    estimatedDaysRemaining,
+    currentPace,
+    paceStatus,
+    paceMessage,
+  ];
 }
 
 /// Workload forecast for upcoming Muraja'ah.
@@ -358,11 +358,11 @@ class ReviewWorkloadForecast extends Equatable {
 
   @override
   List<Object?> get props => [
-        dueTodayCount,
-        dueTomorrowCount,
-        dueNext7DaysCount,
-        workloadLevel,
-      ];
+    dueTodayCount,
+    dueTomorrowCount,
+    dueNext7DaysCount,
+    workloadLevel,
+  ];
 }
 
 /// Focused insight on an individual Ayah requiring attention or consolidation.
@@ -391,16 +391,16 @@ class WeakAyahInsight extends Equatable {
 
   @override
   List<Object?> get props => [
-        globalAyah,
-        surahNumber,
-        surahName,
-        ayahNumber,
-        mistakeCount,
-        scheduleState,
-        lastOutcome,
-        nextReviewAt,
-        priorityScore,
-      ];
+    globalAyah,
+    surahNumber,
+    surahName,
+    ayahNumber,
+    mistakeCount,
+    scheduleState,
+    lastOutcome,
+    nextReviewAt,
+    priorityScore,
+  ];
 }
 
 /// Comprehensive container uniting all memorization and Muraja'ah analytics.
@@ -429,14 +429,14 @@ class ComprehensiveMemorizationAnalytics extends Equatable {
 
   @override
   List<Object?> get props => [
-        overall,
-        retention,
-        trend,
-        forecast,
-        plan,
-        weakAyahs,
-        surahs,
-        juzs,
-        generatedAt,
-      ];
+    overall,
+    retention,
+    trend,
+    forecast,
+    plan,
+    weakAyahs,
+    surahs,
+    juzs,
+    generatedAt,
+  ];
 }

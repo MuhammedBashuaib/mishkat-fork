@@ -43,11 +43,11 @@ enum VisualRecallSessionOrigin {
   plan;
 
   String get label => switch (this) {
-        VisualRecallSessionOrigin.adhoc => 'آية فردية',
-        VisualRecallSessionOrigin.range => 'مقطع محدد',
-        VisualRecallSessionOrigin.dailyJourney => 'الورد اليومي',
-        VisualRecallSessionOrigin.plan => 'خطة الحفظ',
-      };
+    VisualRecallSessionOrigin.adhoc => 'آية فردية',
+    VisualRecallSessionOrigin.range => 'مقطع محدد',
+    VisualRecallSessionOrigin.dailyJourney => 'الورد اليومي',
+    VisualRecallSessionOrigin.plan => 'خطة الحفظ',
+  };
 }
 
 /// Generates a 128-bit cryptographically secure session identifier.
@@ -124,8 +124,7 @@ class VisualRecallSessionCheckpoint extends Equatable {
   static const Duration expirationDuration = Duration(hours: 24);
 
   /// Whether this checkpoint has exceeded its 24-hour expiration window.
-  bool get isExpired =>
-      DateTime.now().difference(savedAt) > expirationDuration;
+  bool get isExpired => DateTime.now().difference(savedAt) > expirationDuration;
 
   /// Total count of Ayahs in this session queue.
   int get totalCount => queue.length;
@@ -133,8 +132,8 @@ class VisualRecallSessionCheckpoint extends Equatable {
   /// Current global Ayah, or null if the queue is finished or empty.
   int? get currentGlobalAyah =>
       (currentIndex >= 0 && currentIndex < queue.length)
-          ? queue[currentIndex]
-          : null;
+      ? queue[currentIndex]
+      : null;
 
   VisualRecallSessionCheckpoint copyWith({
     int? version,
@@ -222,8 +221,10 @@ class VisualRecallSessionCheckpoint extends Equatable {
         ? DateTime.fromMillisecondsSinceEpoch(rawSavedAt.toInt())
         : DateTime.now();
 
-    final currentIndex = ((json['currentIndex'] as num?)?.toInt() ?? 0)
-        .clamp(0, queue.isEmpty ? 0 : queue.length);
+    final currentIndex = ((json['currentIndex'] as num?)?.toInt() ?? 0).clamp(
+      0,
+      queue.isEmpty ? 0 : queue.length,
+    );
 
     return VisualRecallSessionCheckpoint(
       version: (json['version'] as num?)?.toInt() ?? 1,
@@ -241,33 +242,33 @@ class VisualRecallSessionCheckpoint extends Equatable {
   }
 
   Map<String, dynamic> toJson() => {
-        'version': version,
-        'sessionId': sessionId,
-        'origin': origin.name,
-        if (planId != null) 'planId': planId,
-        'queue': queue,
-        'currentIndex': currentIndex,
-        'revealedGlobals': revealedGlobals.toList(),
-        'assessmentOutcomes': assessmentOutcomes.map(
-          (k, v) => MapEntry(k.toString(), v.name),
-        ),
-        'uncommittedReviews': uncommittedReviews,
-        'isAudioSyncEnabled': isAudioSyncEnabled,
-        'savedAt': savedAt.millisecondsSinceEpoch,
-      };
+    'version': version,
+    'sessionId': sessionId,
+    'origin': origin.name,
+    if (planId != null) 'planId': planId,
+    'queue': queue,
+    'currentIndex': currentIndex,
+    'revealedGlobals': revealedGlobals.toList(),
+    'assessmentOutcomes': assessmentOutcomes.map(
+      (k, v) => MapEntry(k.toString(), v.name),
+    ),
+    'uncommittedReviews': uncommittedReviews,
+    'isAudioSyncEnabled': isAudioSyncEnabled,
+    'savedAt': savedAt.millisecondsSinceEpoch,
+  };
 
   @override
   List<Object?> get props => [
-        version,
-        sessionId,
-        origin,
-        planId,
-        queue,
-        currentIndex,
-        revealedGlobals,
-        assessmentOutcomes,
-        uncommittedReviews,
-        isAudioSyncEnabled,
-        savedAt,
-      ];
+    version,
+    sessionId,
+    origin,
+    planId,
+    queue,
+    currentIndex,
+    revealedGlobals,
+    assessmentOutcomes,
+    uncommittedReviews,
+    isAudioSyncEnabled,
+    savedAt,
+  ];
 }

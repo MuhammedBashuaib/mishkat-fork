@@ -18,22 +18,21 @@ enum ReviewOutcome {
 
   /// Human-readable Arabic label.
   String get label => switch (this) {
-        ReviewOutcome.easy => 'سهل',
-        ReviewOutcome.good => 'جيد',
-        ReviewOutcome.difficult => 'صعب',
-        ReviewOutcome.failed => 'لم أتذكر',
-      };
+    ReviewOutcome.easy => 'سهل',
+    ReviewOutcome.good => 'جيد',
+    ReviewOutcome.difficult => 'صعب',
+    ReviewOutcome.failed => 'لم أتذكر',
+  };
 
   /// Alias for design terminology.
   String get arabicLabel => label;
 
   /// Maps outcome to corresponding [MemorizationStatus].
   MemorizationStatus get resultingStatus => switch (this) {
-        ReviewOutcome.easy || ReviewOutcome.good => MemorizationStatus.memorized,
-        ReviewOutcome.difficult ||
-        ReviewOutcome.failed =>
-          MemorizationStatus.needsRevision,
-      };
+    ReviewOutcome.easy || ReviewOutcome.good => MemorizationStatus.memorized,
+    ReviewOutcome.difficult ||
+    ReviewOutcome.failed => MemorizationStatus.needsRevision,
+  };
 
   /// Parses a serialized name safely.
   static ReviewOutcome fromString(String? value) {
@@ -64,12 +63,12 @@ enum AdaptiveScheduleState {
 
   /// Human-readable Arabic label.
   String get label => switch (this) {
-        AdaptiveScheduleState.notDue => 'غير مستحقة',
-        AdaptiveScheduleState.due => 'مستحقة اليوم',
-        AdaptiveScheduleState.overdue => 'متأخرة',
-        AdaptiveScheduleState.weak => 'تحتاج تثبيت',
-        AdaptiveScheduleState.urgent => 'عاجلة',
-      };
+    AdaptiveScheduleState.notDue => 'غير مستحقة',
+    AdaptiveScheduleState.due => 'مستحقة اليوم',
+    AdaptiveScheduleState.overdue => 'متأخرة',
+    AdaptiveScheduleState.weak => 'تحتاج تثبيت',
+    AdaptiveScheduleState.urgent => 'عاجلة',
+  };
 
   String get arabicLabel => label;
 }
@@ -95,13 +94,13 @@ enum AdaptiveMurajaahCategory {
   all;
 
   String get label => switch (this) {
-        AdaptiveMurajaahCategory.dueToday => 'مستحقة اليوم',
-        AdaptiveMurajaahCategory.overdue => 'متأخرة',
-        AdaptiveMurajaahCategory.weak => 'تحتاج تثبيت',
-        AdaptiveMurajaahCategory.recentlyDifficult => 'صعبة مؤخراً',
-        AdaptiveMurajaahCategory.mistakeBased => 'حسب الأخطاء',
-        AdaptiveMurajaahCategory.all => 'شاملة',
-      };
+    AdaptiveMurajaahCategory.dueToday => 'مستحقة اليوم',
+    AdaptiveMurajaahCategory.overdue => 'متأخرة',
+    AdaptiveMurajaahCategory.weak => 'تحتاج تثبيت',
+    AdaptiveMurajaahCategory.recentlyDifficult => 'صعبة مؤخراً',
+    AdaptiveMurajaahCategory.mistakeBased => 'حسب الأخطاء',
+    AdaptiveMurajaahCategory.all => 'شاملة',
+  };
 
   String get arabicLabel => label;
 }
@@ -119,12 +118,12 @@ class MemorizationReviewRecord extends Equatable {
     this.intervalDays = 1,
     this.previousStatus,
     this.resultingStatus,
-  })  : assert(
-          globalAyah >= 1 && globalAyah <= 6236,
-          'globalAyah must be between 1 and 6236, got $globalAyah',
-        ),
-        assert(mistakeCount >= 0, 'mistakeCount must not be negative'),
-        assert(intervalDays >= 0, 'intervalDays must not be negative');
+  }) : assert(
+         globalAyah >= 1 && globalAyah <= 6236,
+         'globalAyah must be between 1 and 6236, got $globalAyah',
+       ),
+       assert(mistakeCount >= 0, 'mistakeCount must not be negative'),
+       assert(intervalDays >= 0, 'intervalDays must not be negative');
 
   /// Unique identifier (e.g. `rev_timestamp_globalAyah`).
   final String id;
@@ -163,7 +162,8 @@ class MemorizationReviewRecord extends Equatable {
     }
     final global = rawGlobal.toInt().clamp(1, 6236);
 
-    final id = (json['id'] as String?) ??
+    final id =
+        (json['id'] as String?) ??
         'rev_${DateTime.now().millisecondsSinceEpoch}_$global';
 
     final outcome = ReviewOutcome.fromString(
@@ -174,9 +174,8 @@ class MemorizationReviewRecord extends Equatable {
     final mistakeCount = (rawMistakes?.toInt() ?? 0).clamp(0, 999999);
 
     final rawReviewed = json['r'] ?? json['reviewedAt'];
-    final reviewedAt = (rawReviewed is String
-            ? DateTime.tryParse(rawReviewed)
-            : null) ??
+    final reviewedAt =
+        (rawReviewed is String ? DateTime.tryParse(rawReviewed) : null) ??
         DateTime.now();
 
     final rawInterval = (json['iv'] ?? json['intervalDays']) as num?;
@@ -185,12 +184,14 @@ class MemorizationReviewRecord extends Equatable {
     final planId = json['p'] as String? ?? json['planId'] as String?;
     final sessionId = json['s'] as String? ?? json['sessionId'] as String?;
 
-    final prevStatusStr = json['ps'] as String? ?? json['previousStatus'] as String?;
+    final prevStatusStr =
+        json['ps'] as String? ?? json['previousStatus'] as String?;
     final previousStatus = prevStatusStr != null
         ? MemorizationStatus.fromString(prevStatusStr)
         : null;
 
-    final resStatusStr = json['rs'] as String? ?? json['resultingStatus'] as String?;
+    final resStatusStr =
+        json['rs'] as String? ?? json['resultingStatus'] as String?;
     final resultingStatus = resStatusStr != null
         ? MemorizationStatus.fromString(resStatusStr)
         : null;
@@ -210,31 +211,31 @@ class MemorizationReviewRecord extends Equatable {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'g': globalAyah,
-        if (planId != null) 'p': planId,
-        if (sessionId != null) 's': sessionId,
-        'o': outcome.name,
-        'm': mistakeCount,
-        'r': reviewedAt.toIso8601String(),
-        'iv': intervalDays,
-        if (previousStatus != null) 'ps': previousStatus!.name,
-        if (resultingStatus != null) 'rs': resultingStatus!.name,
-      };
+    'id': id,
+    'g': globalAyah,
+    if (planId != null) 'p': planId,
+    if (sessionId != null) 's': sessionId,
+    'o': outcome.name,
+    'm': mistakeCount,
+    'r': reviewedAt.toIso8601String(),
+    'iv': intervalDays,
+    if (previousStatus != null) 'ps': previousStatus!.name,
+    if (resultingStatus != null) 'rs': resultingStatus!.name,
+  };
 
   @override
   List<Object?> get props => [
-        id,
-        globalAyah,
-        planId,
-        sessionId,
-        outcome,
-        mistakeCount,
-        reviewedAt,
-        intervalDays,
-        previousStatus,
-        resultingStatus,
-      ];
+    id,
+    globalAyah,
+    planId,
+    sessionId,
+    outcome,
+    mistakeCount,
+    reviewedAt,
+    intervalDays,
+    previousStatus,
+    resultingStatus,
+  ];
 }
 
 /// Explainable priority score components for an individual Ayah.
@@ -261,13 +262,13 @@ class MurajaahPriorityScore extends Equatable {
 
   @override
   List<Object?> get props => [
-        globalAyah,
-        totalScore,
-        overdueWeight,
-        weaknessWeight,
-        mistakeWeight,
-        recentFailureWeight,
-        reviewGapWeight,
-        scheduleState,
-      ];
+    globalAyah,
+    totalScore,
+    overdueWeight,
+    weaknessWeight,
+    mistakeWeight,
+    recentFailureWeight,
+    reviewGapWeight,
+    scheduleState,
+  ];
 }

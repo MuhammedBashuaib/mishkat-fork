@@ -37,6 +37,8 @@ const tasbihDhikrOptions = <TasbihDhikr>[
   ),
 ];
 
+const tasbihCustomDhikrId = 'custom';
+
 class TasbihState extends Equatable {
   const TasbihState({
     this.count = 0,
@@ -45,6 +47,9 @@ class TasbihState extends Equatable {
     this.target = 33,
     this.dhikrId = 'subhan_allah',
     this.hapticsEnabled = true,
+    this.completionSoundEnabled = true,
+    this.customDhikrText = '',
+    this.customDhikrTarget = 33,
     this.sessionDate = '',
   });
 
@@ -54,12 +59,24 @@ class TasbihState extends Equatable {
   final int target;
   final String dhikrId;
   final bool hapticsEnabled;
+  final bool completionSoundEnabled;
+  final String customDhikrText;
+  final int customDhikrTarget;
   final String sessionDate;
 
-  TasbihDhikr get dhikr => tasbihDhikrOptions.firstWhere(
-    (item) => item.id == dhikrId,
-    orElse: () => tasbihDhikrOptions.first,
-  );
+  TasbihDhikr get dhikr {
+    if (dhikrId == tasbihCustomDhikrId && customDhikrText.isNotEmpty) {
+      return TasbihDhikr(
+        id: tasbihCustomDhikrId,
+        text: customDhikrText,
+        suggestedTarget: customDhikrTarget,
+      );
+    }
+    return tasbihDhikrOptions.firstWhere(
+      (item) => item.id == dhikrId,
+      orElse: () => tasbihDhikrOptions.first,
+    );
+  }
 
   bool get completed => count >= target;
   int get remaining => (target - count).clamp(0, target);
@@ -73,6 +90,9 @@ class TasbihState extends Equatable {
     int? target,
     String? dhikrId,
     bool? hapticsEnabled,
+    bool? completionSoundEnabled,
+    String? customDhikrText,
+    int? customDhikrTarget,
     String? sessionDate,
   }) => TasbihState(
     count: count ?? this.count,
@@ -81,6 +101,10 @@ class TasbihState extends Equatable {
     target: target ?? this.target,
     dhikrId: dhikrId ?? this.dhikrId,
     hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
+    completionSoundEnabled:
+        completionSoundEnabled ?? this.completionSoundEnabled,
+    customDhikrText: customDhikrText ?? this.customDhikrText,
+    customDhikrTarget: customDhikrTarget ?? this.customDhikrTarget,
     sessionDate: sessionDate ?? this.sessionDate,
   );
 
@@ -92,6 +116,9 @@ class TasbihState extends Equatable {
     target,
     dhikrId,
     hapticsEnabled,
+    completionSoundEnabled,
+    customDhikrText,
+    customDhikrTarget,
     sessionDate,
   ];
 }

@@ -68,7 +68,8 @@ class HifzPlanningEngine {
 
     // 2. Check for Recovery Mode trigger
     final daysSinceLastReview = _calculateDaysSinceLastReview(history, current);
-    final isRecoveryMode = overdueList.length >= recoveryOverdueThreshold ||
+    final isRecoveryMode =
+        overdueList.length >= recoveryOverdueThreshold ||
         (daysSinceLastReview != null &&
             daysSinceLastReview >= recoveryInactivityDaysThreshold &&
             overdueList.isNotEmpty);
@@ -80,7 +81,11 @@ class HifzPlanningEngine {
 
     var memorizedInPlan = 0;
     if (activePlan != null) {
-      for (var g = activePlan.startGlobalAyah; g <= activePlan.endGlobalAyah; g++) {
+      for (
+        var g = activePlan.startGlobalAyah;
+        g <= activePlan.endGlobalAyah;
+        g++
+      ) {
         final it = itemMap[g];
         if (it != null && it.status == MemorizationStatus.memorized) {
           memorizedInPlan++;
@@ -151,12 +156,15 @@ class HifzPlanningEngine {
     }
 
     // Segment C: New Hifz (sourced from active plan un-memorized sequence)
-    final hasUnmemorizedInPlan = activePlan != null &&
-        activePlan.isActive &&
-        !activePlan.isCompleted;
+    final hasUnmemorizedInPlan =
+        activePlan != null && activePlan.isActive && !activePlan.isCompleted;
     if (hasUnmemorizedInPlan) {
       final unmemorizedPlanAyahs = <int>[];
-      for (var g = activePlan.startGlobalAyah; g <= activePlan.endGlobalAyah; g++) {
+      for (
+        var g = activePlan.startGlobalAyah;
+        g <= activePlan.endGlobalAyah;
+        g++
+      ) {
         final it = itemMap[g];
         if (it == null || it.status != MemorizationStatus.memorized) {
           unmemorizedPlanAyahs.add(g);
@@ -191,7 +199,8 @@ class HifzPlanningEngine {
     );
 
     // Step 7: Re-check final total and deduplication
-    final finalTotal = allocatedDueQueue.length +
+    final finalTotal =
+        allocatedDueQueue.length +
         allocatedWeakQueue.length +
         allocatedNewQueue.length;
     assert(finalTotal <= maxDailyJourneyAyahs);
@@ -271,7 +280,9 @@ class HifzPlanningEngine {
       return (baseDailyTarget >= 2) ? 2 : 1;
     }
 
-    if (workloadLevel == WorkloadLevel.heavy || dueCount > 30 || urgentCount > 3) {
+    if (workloadLevel == WorkloadLevel.heavy ||
+        dueCount > 30 ||
+        urgentCount > 3) {
       return (baseDailyTarget * 0.4).floor().clamp(1, baseDailyTarget);
     }
 
@@ -323,7 +334,8 @@ class HifzPlanningEngine {
     required int maxLimit,
     bool preserveNewHifz = false,
   }) {
-    var total = allocatedDueQueue.length +
+    var total =
+        allocatedDueQueue.length +
         allocatedWeakQueue.length +
         allocatedNewQueue.length;
     if (total <= maxLimit) return;
@@ -425,10 +437,13 @@ class HifzPlanningEngine {
     // Calculate unique active days in the last 14 days
     final activeDaysSet = <String>{};
     final recentWindowCutoff = current.subtract(const Duration(days: 14));
-    final recentPlanReviews = planReviews.where((r) => r.reviewedAt.isAfter(recentWindowCutoff)).toList();
+    final recentPlanReviews = planReviews
+        .where((r) => r.reviewedAt.isAfter(recentWindowCutoff))
+        .toList();
 
     for (final r in recentPlanReviews) {
-      final dateKey = '${r.reviewedAt.year}-${r.reviewedAt.month}-${r.reviewedAt.day}';
+      final dateKey =
+          '${r.reviewedAt.year}-${r.reviewedAt.month}-${r.reviewedAt.day}';
       activeDaysSet.add(dateKey);
     }
 
@@ -456,27 +471,31 @@ class HifzPlanningEngine {
 
     // Only suggest adaptation if pace diverges significantly from dailyTarget
     // Case 1: Target is too ambitious (sustained pace <= 55% of target and pace differs by >= 2)
-    if (sustainedPace <= (plan.dailyTarget * 0.55) && (plan.dailyTarget - roundedPace) >= 2) {
+    if (sustainedPace <= (plan.dailyTarget * 0.55) &&
+        (plan.dailyTarget - roundedPace) >= 2) {
       return PlanAdaptationSuggestion(
         planId: plan.id,
         planTitle: plan.title,
         currentTarget: plan.dailyTarget,
         recommendedTarget: roundedPace,
         sustainedPace: sustainedPace,
-        reason: 'لوحظ أن وتيرة إنجازك الفعلية هي حوالي $roundedPace آيات يومياً. تخفيف الورد يضمن المداومة دون انقطاع، وأحب الأعمال إلى الله أدومها وإن قل.',
+        reason:
+            'لوحظ أن وتيرة إنجازك الفعلية هي حوالي $roundedPace آيات يومياً. تخفيف الورد يضمن المداومة دون انقطاع، وأحب الأعمال إلى الله أدومها وإن قل.',
         actionText: 'تعديل الورد إلى $roundedPace آيات يومياً',
       );
     }
 
     // Case 2: User is consistently moving much faster (sustained pace >= 1.6x target and diff >= 2)
-    if (sustainedPace >= (plan.dailyTarget * 1.6) && (roundedPace - plan.dailyTarget) >= 2) {
+    if (sustainedPace >= (plan.dailyTarget * 1.6) &&
+        (roundedPace - plan.dailyTarget) >= 2) {
       return PlanAdaptationSuggestion(
         planId: plan.id,
         planTitle: plan.title,
         currentTarget: plan.dailyTarget,
         recommendedTarget: roundedPace,
         sustainedPace: sustainedPace,
-        reason: 'ما شاء الله، وتيرة حفظك الفعلية أعلى من الورد المحدد وتصل إلى $roundedPace آيات يومياً. يمكنك رفع الورد لاختصار مدة الختم.',
+        reason:
+            'ما شاء الله، وتيرة حفظك الفعلية أعلى من الورد المحدد وتصل إلى $roundedPace آيات يومياً. يمكنك رفع الورد لاختصار مدة الختم.',
         actionText: 'زيادة الورد إلى $roundedPace آيات يومياً',
       );
     }
@@ -543,7 +562,8 @@ class HifzPlanningEngine {
         } else if (paceDays < targetDays) {
           paceComparison = 'أنت تتقدم أسرع من الجدول الزمني المستهدف';
         } else {
-          paceComparison = 'الوتيرة الواقعية تتطلب وقتاً أطول قليلاً لضمان التثبيت';
+          paceComparison =
+              'الوتيرة الواقعية تتطلب وقتاً أطول قليلاً لضمان التثبيت';
         }
       }
     }

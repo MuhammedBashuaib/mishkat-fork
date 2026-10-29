@@ -24,28 +24,33 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun openVoiceInputSettings(): Boolean {
-        val voiceSettings = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)
-        if (voiceSettings.resolveActivity(packageManager) != null) {
-            return try {
-                startActivity(voiceSettings)
-                true
-            } catch (_: ActivityNotFoundException) {
-                openApplicationSettings()
-            }
+        // Android package visibility can hide a resolvable Settings activity
+        // from resolveActivity(). Launch directly and handle OEM differences.
+        for (action in listOf(
+            Settings.ACTION_VOICE_INPUT_SETTINGS,
+            Settings.ACTION_INPUT_METHOD_SETTINGS,
+        )) {
+            if (startSettingsActivity(Intent(action))) return true
         }
         return openApplicationSettings()
     }
 
     private fun openApplicationSettings(): Boolean {
+        return startSettingsActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:$packageName"),
+            ),
+        )
+    }
+
+    private fun startSettingsActivity(intent: Intent): Boolean {
         return try {
-            startActivity(
-                Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.parse("package:$packageName"),
-                ),
-            )
+            startActivity(intent)
             true
         } catch (_: ActivityNotFoundException) {
+            false
+        } catch (_: SecurityException) {
             false
         }
     }

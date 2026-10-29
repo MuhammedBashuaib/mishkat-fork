@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -52,13 +53,10 @@ class _MishkatCompassWidgetState extends State<MishkatCompassWidget>
       duration: const Duration(milliseconds: 220),
     );
 
-    _headingAnimation = Tween<double>(
-      begin: initialHeading,
-      end: initialHeading,
-    ).animate(CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOutCubic,
-    ));
+    _headingAnimation =
+        Tween<double>(begin: initialHeading, end: initialHeading).animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
   }
 
   @override
@@ -74,13 +72,9 @@ class _MishkatCompassWidgetState extends State<MishkatCompassWidget>
       final start = _currentContinuousHeading;
       final end = _currentContinuousHeading + delta;
 
-      _headingAnimation = Tween<double>(
-        begin: start,
-        end: end,
-      ).animate(CurvedAnimation(
-        parent: _animController,
-        curve: Curves.easeOutCubic,
-      ));
+      _headingAnimation = Tween<double>(begin: start, end: end).animate(
+        CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+      );
 
       _animController.forward(from: 0.0);
     }
@@ -99,9 +93,7 @@ class _MishkatCompassWidgetState extends State<MishkatCompassWidget>
         ? context.mishkat.primary
         : context.mishkat.primary;
     final goldColor = context.mishkat.gold;
-    final surfaceColor = isDark
-        ? context.mishkat.surface
-        : Colors.white;
+    final surfaceColor = isDark ? context.mishkat.surface : Colors.white;
     final borderColor = isDark
         ? context.mishkat.borderSubtle
         : context.mishkat.border;
@@ -110,7 +102,10 @@ class _MishkatCompassWidgetState extends State<MishkatCompassWidget>
     return LayoutBuilder(
       builder: (context, constraints) {
         // Responsively bound compass diameter: safe for 320px screens and tablet layouts
-        final availableSize = math.min(constraints.maxWidth, constraints.maxHeight);
+        final availableSize = math.min(
+          constraints.maxWidth,
+          constraints.maxHeight,
+        );
         final diameter = availableSize.isFinite && availableSize > 0
             ? math.min(availableSize, 310.0)
             : 280.0;
@@ -227,9 +222,11 @@ class _CompassPainter extends CustomPainter {
       final angle = (degree - effectiveHeading - 90) * math.pi / 180;
 
       final tickLength = isMajor ? 12.0 : (isMedium ? 7.0 : 3.5);
-      final start = center +
+      final start =
+          center +
           Offset(math.cos(angle), math.sin(angle)) * (dialRadius - tickLength);
-      final end = center + Offset(math.cos(angle), math.sin(angle)) * dialRadius;
+      final end =
+          center + Offset(math.cos(angle), math.sin(angle)) * dialRadius;
 
       Color tickColor;
       if (degree == 0) {
@@ -251,7 +248,8 @@ class _CompassPainter extends CustomPainter {
 
       // Degree labels at 30° increments (skip cardinal 0, 90, 180, 270)
       if (isMajor && degree % 90 != 0) {
-        final labelPos = center +
+        final labelPos =
+            center +
             Offset(math.cos(angle), math.sin(angle)) * (dialRadius - 22);
         _drawCenteredText(
           canvas: canvas,
@@ -271,8 +269,8 @@ class _CompassPainter extends CustomPainter {
     // 4. Cardinal Direction Labels (ش, ق, ج, غ)
     // ─────────────────────────────────────────────────────────────────────────
     final cardinals = <int, String>{
-      0: 'ش',   // North
-      90: 'ق',  // East
+      0: 'ش', // North
+      90: 'ق', // East
       180: 'ج', // South
       270: 'غ', // West
     };
@@ -281,8 +279,8 @@ class _CompassPainter extends CustomPainter {
       final deg = entry.key;
       final label = entry.value;
       final angle = (deg - effectiveHeading - 90) * math.pi / 180;
-      final labelPos = center +
-          Offset(math.cos(angle), math.sin(angle)) * (dialRadius - 25);
+      final labelPos =
+          center + Offset(math.cos(angle), math.sin(angle)) * (dialRadius - 25);
 
       final isNorth = deg == 0;
       _drawCenteredText(
@@ -299,12 +297,15 @@ class _CompassPainter extends CustomPainter {
 
       // True North Triangular Badge at 0°
       if (isNorth) {
-        final triTip = center +
+        final triTip =
+            center +
             Offset(math.cos(angle), math.sin(angle)) * (dialRadius - 2);
-        final triBase1 = center +
+        final triBase1 =
+            center +
             Offset(math.cos(angle - 0.08), math.sin(angle - 0.08)) *
                 (dialRadius - 12);
-        final triBase2 = center +
+        final triBase2 =
+            center +
             Offset(math.cos(angle + 0.08), math.sin(angle + 0.08)) *
                 (dialRadius - 12);
 
@@ -341,10 +342,15 @@ class _CompassPainter extends CustomPainter {
   }
 
   /// Draws a subtle, elegant 8-point Islamic rosette watermark in the dial center.
-  void _drawIslamicGeometricWatermark(Canvas canvas, Offset center, double radius) {
+  void _drawIslamicGeometricWatermark(
+    Canvas canvas,
+    Offset center,
+    double radius,
+  ) {
     final watermarkPaint = Paint()
-      ..color = (isDark ? primary : const Color(0xFF0B3D32))
-          .withValues(alpha: 0.045)
+      ..color = (isDark ? primary : const Color(0xFF0B3D32)).withValues(
+        alpha: 0.045,
+      )
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -354,37 +360,53 @@ class _CompassPainter extends CustomPainter {
 
     // Two interlocked squares forming an 8-pointed Islamic star
     final half = radius * 0.55;
-    final r1 = Rect.fromCenter(center: center, width: half * 2, height: half * 2);
+    final r1 = Rect.fromCenter(
+      center: center,
+      width: half * 2,
+      height: half * 2,
+    );
     canvas.drawRect(r1, watermarkPaint);
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.rotate(math.pi / 4);
-    final r2 = Rect.fromCenter(center: Offset.zero, width: half * 2, height: half * 2);
+    final r2 = Rect.fromCenter(
+      center: Offset.zero,
+      width: half * 2,
+      height: half * 2,
+    );
     canvas.drawRect(r2, watermarkPaint);
     canvas.restore();
   }
 
   /// Draws the distinctive golden/emerald Qibla needle and Kaaba marker.
-  void _drawQiblaNeedle(Canvas canvas, Offset center, double angle, double dialRadius) {
+  void _drawQiblaNeedle(
+    Canvas canvas,
+    Offset center,
+    double angle,
+    double dialRadius,
+  ) {
     final needleLength = dialRadius - 38;
-    final tip = center + Offset(math.cos(angle), math.sin(angle)) * needleLength;
+    final tip =
+        center + Offset(math.cos(angle), math.sin(angle)) * needleLength;
 
     // Perpendicular angle for needle base width
     final perpAngle = angle + math.pi / 2;
     const baseWidth = 5.0;
     const midWidth = 3.0;
 
-    final baseLeft = center +
-        Offset(math.cos(perpAngle), math.sin(perpAngle)) * baseWidth;
-    final baseRight = center -
-        Offset(math.cos(perpAngle), math.sin(perpAngle)) * baseWidth;
+    final baseLeft =
+        center + Offset(math.cos(perpAngle), math.sin(perpAngle)) * baseWidth;
+    final baseRight =
+        center - Offset(math.cos(perpAngle), math.sin(perpAngle)) * baseWidth;
 
     final midDist = needleLength * 0.65;
-    final midLeft = center +
+    final midLeft =
+        center +
         Offset(math.cos(angle), math.sin(angle)) * midDist +
         Offset(math.cos(perpAngle), math.sin(perpAngle)) * midWidth;
-    final midRight = center +
+    final midRight =
+        center +
         Offset(math.cos(angle), math.sin(angle)) * midDist -
         Offset(math.cos(perpAngle), math.sin(perpAngle)) * midWidth;
 
@@ -405,7 +427,9 @@ class _CompassPainter extends CustomPainter {
 
     // Two-tone gold shading for 3D depth
     final goldBright = aligned ? const Color(0xFFD4AF37) : gold;
-    final goldDark = aligned ? const Color(0xFFB8860B) : const Color(0xFF8A6720);
+    final goldDark = aligned
+        ? const Color(0xFFB8860B)
+        : const Color(0xFF8A6720);
 
     canvas.drawPath(
       needleLeftPath,
@@ -421,8 +445,8 @@ class _CompassPainter extends CustomPainter {
     );
 
     // Kaaba Marker at the outer dial rim
-    final kaabaCenter = center +
-        Offset(math.cos(angle), math.sin(angle)) * (dialRadius - 10);
+    final kaabaCenter =
+        center + Offset(math.cos(angle), math.sin(angle)) * (dialRadius - 10);
 
     // Glow if aligned
     if (aligned && isListening) {
@@ -436,8 +460,15 @@ class _CompassPainter extends CustomPainter {
     }
 
     // Kaaba Badge (Golden border + dark cuboid silhouette with golden Kiswah band)
-    final kaabaRect = Rect.fromCenter(center: kaabaCenter, width: 18, height: 18);
-    final kaabaRRect = RRect.fromRectAndRadius(kaabaRect, const Radius.circular(3.5));
+    final kaabaRect = Rect.fromCenter(
+      center: kaabaCenter,
+      width: 18,
+      height: 18,
+    );
+    final kaabaRRect = RRect.fromRectAndRadius(
+      kaabaRect,
+      const Radius.circular(3.5),
+    );
 
     // Outer gold border of badge
     canvas.drawRRect(
@@ -501,7 +532,9 @@ class _CompassPainter extends CustomPainter {
       center,
       9,
       Paint()
-        ..color = aligned && isListening ? primary : (isDark ? primary : const Color(0xFF0B3D32))
+        ..color = aligned && isListening
+            ? primary
+            : (isDark ? primary : const Color(0xFF0B3D32))
         ..style = PaintingStyle.fill,
     );
 
@@ -516,7 +549,11 @@ class _CompassPainter extends CustomPainter {
   }
 
   /// Draws the fixed top chevron target representing the phone's forward direction.
-  void _drawTopTargetIndicator(Canvas canvas, Offset center, double outerRadius) {
+  void _drawTopTargetIndicator(
+    Canvas canvas,
+    Offset center,
+    double outerRadius,
+  ) {
     final topOffset = center - Offset(0, outerRadius + 1);
 
     final targetPaint = Paint()

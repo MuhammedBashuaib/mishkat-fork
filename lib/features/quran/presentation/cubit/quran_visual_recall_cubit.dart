@@ -26,8 +26,8 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
     this.audioService,
     this.reciter = 'ar.alafasy',
     this.defaultTardidDelaySeconds = 3,
-  })  : layoutRepository = layoutRepository ?? MushafLayoutRepository(),
-        super(const QuranVisualRecallState()) {
+  }) : layoutRepository = layoutRepository ?? MushafLayoutRepository.instance,
+       super(const QuranVisualRecallState()) {
     _initAudioListener();
   }
 
@@ -76,10 +76,7 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
 
       // If current Ayah was already manually revealed, keep revealed
       if (state.revealedGlobals.contains(current)) {
-        emit(state.copyWith(
-          isAudioPlaying: false,
-          isAudioPaused: false,
-        ));
+        emit(state.copyWith(isAudioPlaying: false, isAudioPaused: false));
         return;
       }
 
@@ -88,13 +85,15 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
       _cancelTimedMaskTimer();
       final delay = defaultTardidDelaySeconds;
 
-      emit(state.copyWith(
-        isAudioPlaying: false,
-        isAudioPaused: false,
-        isTimedMaskActive: true,
-        remainingMaskDuration: delay,
-        timerGeneration: token,
-      ));
+      emit(
+        state.copyWith(
+          isAudioPlaying: false,
+          isAudioPaused: false,
+          isTimedMaskActive: true,
+          remainingMaskDuration: delay,
+          timerGeneration: token,
+        ),
+      );
 
       _tardidTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (isClosed ||
@@ -110,10 +109,9 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
           timer.cancel();
           _tardidTimer = null;
           // Timer expires: reveal Ayah and enter evaluating phase for self-assessment!
-          emit(state.copyWith(
-            isTimedMaskActive: false,
-            remainingMaskDuration: 0,
-          ));
+          emit(
+            state.copyWith(isTimedMaskActive: false, remainingMaskDuration: 0),
+          );
           revealCurrentAyah();
         } else {
           emit(state.copyWith(remainingMaskDuration: remaining));
@@ -121,16 +119,10 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
       });
     } else if (player.playing) {
       if (!state.isAudioPlaying) {
-        emit(state.copyWith(
-          isAudioPlaying: true,
-          isAudioPaused: false,
-        ));
+        emit(state.copyWith(isAudioPlaying: true, isAudioPaused: false));
       }
     } else if (state.isAudioPlaying && !player.playing) {
-      emit(state.copyWith(
-        isAudioPlaying: false,
-        isAudioPaused: true,
-      ));
+      emit(state.copyWith(isAudioPlaying: false, isAudioPaused: true));
     }
   }
 
@@ -160,12 +152,15 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
 
       // Reconcile against durable history in QuranMemorizationCubit
       final history = memorizationCubit.state.history;
-      final reconciledOutcomes = Map<int, ReviewOutcome>.from(checkpoint.assessmentOutcomes);
+      final reconciledOutcomes = Map<int, ReviewOutcome>.from(
+        checkpoint.assessmentOutcomes,
+      );
 
       for (final g in checkpoint.queue) {
         if (!reconciledOutcomes.containsKey(g)) {
           final recorded = history.cast<dynamic>().firstWhere(
-            (r) => (r.sessionId == checkpoint.sessionId && r.globalAyah == g) ||
+            (r) =>
+                (r.sessionId == checkpoint.sessionId && r.globalAyah == g) ||
                 r.id == 'rev_${checkpoint.sessionId}_$g',
             orElse: () => null,
           );
@@ -176,7 +171,9 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
       }
 
       // If every Ayah in queue is already committed to history, drill is finished -> purge
-      final allCommitted = checkpoint.queue.every((g) => reconciledOutcomes.containsKey(g));
+      final allCommitted = checkpoint.queue.every(
+        (g) => reconciledOutcomes.containsKey(g),
+      );
       if (allCommitted) {
         await storage.remove(checkpointKey);
         return;
@@ -194,10 +191,12 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
         assessmentOutcomes: reconciledOutcomes,
       );
 
-      emit(state.copyWith(
-        hasCheckpointAvailable: true,
-        checkpointToResume: reconciledCheckpoint,
-      ));
+      emit(
+        state.copyWith(
+          hasCheckpointAvailable: true,
+          checkpointToResume: reconciledCheckpoint,
+        ),
+      );
     } catch (_) {
       // Best-effort inspection; do not throw
     }
@@ -209,7 +208,8 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
     if (cp == null) return;
 
     final currentGlobal = cp.currentGlobalAyah;
-    final isRevealed = currentGlobal != null && cp.revealedGlobals.contains(currentGlobal);
+    final isRevealed =
+        currentGlobal != null && cp.revealedGlobals.contains(currentGlobal);
 
     _invalidateAudioSync();
     if (audioService != null) {
@@ -218,24 +218,28 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
       } catch (_) {}
     }
 
-    emit(state.copyWith(
-      phase: isRevealed ? VisualRecallPhase.evaluating : VisualRecallPhase.activeRecall,
-      sessionId: cp.sessionId,
-      origin: cp.origin,
-      planId: cp.planId,
-      queue: cp.queue,
-      currentIndex: cp.currentIndex,
-      revealedGlobals: cp.revealedGlobals,
-      assessmentOutcomes: cp.assessmentOutcomes,
-      isAudioSyncEnabled: cp.isAudioSyncEnabled,
-      isAudioPlaying: false,
-      isAudioPaused: false,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-      clearCurrentAudioAyah: true,
-      clearCheckpoint: true,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        phase: isRevealed
+            ? VisualRecallPhase.evaluating
+            : VisualRecallPhase.activeRecall,
+        sessionId: cp.sessionId,
+        origin: cp.origin,
+        planId: cp.planId,
+        queue: cp.queue,
+        currentIndex: cp.currentIndex,
+        revealedGlobals: cp.revealedGlobals,
+        assessmentOutcomes: cp.assessmentOutcomes,
+        isAudioSyncEnabled: cp.isAudioSyncEnabled,
+        isAudioPlaying: false,
+        isAudioPaused: false,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+        clearCurrentAudioAyah: true,
+        clearCheckpoint: true,
+        clearError: true,
+      ),
+    );
   }
 
   /// Discards the cached checkpoint from storage and state.
@@ -249,7 +253,9 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
   /// Starts an ad-hoc single-Ayah Visual Recall drill.
   Future<void> startSingleAyah(int globalAyah) async {
     if (globalAyah < 1 || globalAyah > 6236) {
-      throw ArgumentError('Ayah index must be between 1 and 6236 (got $globalAyah)');
+      throw ArgumentError(
+        'Ayah index must be between 1 and 6236 (got $globalAyah)',
+      );
     }
 
     _invalidateAudioSync();
@@ -265,22 +271,24 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
       endGlobal: globalAyah,
     );
 
-    emit(state.copyWith(
-      phase: VisualRecallPhase.activeRecall,
-      sessionId: sessionId,
-      origin: VisualRecallSessionOrigin.adhoc,
-      clearPlanId: true,
-      queue: [globalAyah],
-      currentIndex: 0,
-      revealedGlobals: <int>{},
-      assessmentOutcomes: <int, ReviewOutcome>{},
-      isAudioPlaying: false,
-      isAudioPaused: false,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-      clearCurrentAudioAyah: true,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        phase: VisualRecallPhase.activeRecall,
+        sessionId: sessionId,
+        origin: VisualRecallSessionOrigin.adhoc,
+        clearPlanId: true,
+        queue: [globalAyah],
+        currentIndex: 0,
+        revealedGlobals: <int>{},
+        assessmentOutcomes: <int, ReviewOutcome>{},
+        isAudioPlaying: false,
+        isAudioPaused: false,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+        clearCurrentAudioAyah: true,
+        clearError: true,
+      ),
+    );
 
     await _saveCheckpoint();
   }
@@ -288,13 +296,19 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
   /// Starts a multi-Ayah range Visual Recall drill over contiguous indices [startGlobal..endGlobal].
   Future<void> startRange(int startGlobal, int endGlobal) async {
     if (startGlobal < 1 || startGlobal > 6236) {
-      throw ArgumentError('startGlobal must be between 1 and 6236 (got $startGlobal)');
+      throw ArgumentError(
+        'startGlobal must be between 1 and 6236 (got $startGlobal)',
+      );
     }
     if (endGlobal < 1 || endGlobal > 6236) {
-      throw ArgumentError('endGlobal must be between 1 and 6236 (got $endGlobal)');
+      throw ArgumentError(
+        'endGlobal must be between 1 and 6236 (got $endGlobal)',
+      );
     }
     if (startGlobal > endGlobal) {
-      throw ArgumentError('startGlobal ($startGlobal) cannot exceed endGlobal ($endGlobal)');
+      throw ArgumentError(
+        'startGlobal ($startGlobal) cannot exceed endGlobal ($endGlobal)',
+      );
     }
 
     _invalidateAudioSync();
@@ -310,24 +324,29 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
       endGlobal: endGlobal,
     );
 
-    final queue = List.generate(endGlobal - startGlobal + 1, (i) => startGlobal + i);
+    final queue = List.generate(
+      endGlobal - startGlobal + 1,
+      (i) => startGlobal + i,
+    );
 
-    emit(state.copyWith(
-      phase: VisualRecallPhase.activeRecall,
-      sessionId: sessionId,
-      origin: VisualRecallSessionOrigin.range,
-      clearPlanId: true,
-      queue: queue,
-      currentIndex: 0,
-      revealedGlobals: <int>{},
-      assessmentOutcomes: <int, ReviewOutcome>{},
-      isAudioPlaying: false,
-      isAudioPaused: false,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-      clearCurrentAudioAyah: true,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        phase: VisualRecallPhase.activeRecall,
+        sessionId: sessionId,
+        origin: VisualRecallSessionOrigin.range,
+        clearPlanId: true,
+        queue: queue,
+        currentIndex: 0,
+        revealedGlobals: <int>{},
+        assessmentOutcomes: <int, ReviewOutcome>{},
+        isAudioPlaying: false,
+        isAudioPaused: false,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+        clearCurrentAudioAyah: true,
+        clearError: true,
+      ),
+    );
 
     await _saveCheckpoint();
   }
@@ -363,22 +382,26 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
       endGlobal: queue.last,
     );
 
-    emit(state.copyWith(
-      phase: VisualRecallPhase.activeRecall,
-      sessionId: sessionId,
-      origin: planId != null ? VisualRecallSessionOrigin.plan : VisualRecallSessionOrigin.dailyJourney,
-      planId: planId,
-      queue: queue,
-      currentIndex: 0,
-      revealedGlobals: <int>{},
-      assessmentOutcomes: <int, ReviewOutcome>{},
-      isAudioPlaying: false,
-      isAudioPaused: false,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-      clearCurrentAudioAyah: true,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        phase: VisualRecallPhase.activeRecall,
+        sessionId: sessionId,
+        origin: planId != null
+            ? VisualRecallSessionOrigin.plan
+            : VisualRecallSessionOrigin.dailyJourney,
+        planId: planId,
+        queue: queue,
+        currentIndex: 0,
+        revealedGlobals: <int>{},
+        assessmentOutcomes: <int, ReviewOutcome>{},
+        isAudioPlaying: false,
+        isAudioPaused: false,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+        clearCurrentAudioAyah: true,
+        clearError: true,
+      ),
+    );
 
     await _saveCheckpoint();
   }
@@ -386,12 +409,14 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
   /// Enters interactive range selection mode starting at [startGlobal].
   void enterRangeSelection(int startGlobal) {
     final clamped = startGlobal.clamp(1, 6236);
-    emit(state.copyWith(
-      phase: VisualRecallPhase.rangeSelection,
-      rangeSelectionStart: clamped,
-      rangeSelectionEnd: clamped,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        phase: VisualRecallPhase.rangeSelection,
+        rangeSelectionStart: clamped,
+        rangeSelectionEnd: clamped,
+        clearError: true,
+      ),
+    );
   }
 
   /// Updates the selection end point in range selection mode.
@@ -418,10 +443,9 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
 
   /// Cancels range selection and returns to [VisualRecallPhase.idle].
   void cancelRangeSelection() {
-    emit(state.copyWith(
-      phase: VisualRecallPhase.idle,
-      clearRangeSelection: true,
-    ));
+    emit(
+      state.copyWith(phase: VisualRecallPhase.idle, clearRangeSelection: true),
+    );
   }
 
   /// Unmasks/reveals the current active Ayah and transitions to [VisualRecallPhase.evaluating].
@@ -434,12 +458,14 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
     }
 
     final updated = Set<int>.from(state.revealedGlobals)..add(current);
-    emit(state.copyWith(
-      phase: VisualRecallPhase.evaluating,
-      revealedGlobals: updated,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-    ));
+    emit(
+      state.copyWith(
+        phase: VisualRecallPhase.evaluating,
+        revealedGlobals: updated,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+      ),
+    );
   }
 
   /// Unmasks/reveals all Ayahs in the drill queue.
@@ -451,12 +477,14 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
     }
 
     final updated = Set<int>.from(state.revealedGlobals)..addAll(state.queue);
-    emit(state.copyWith(
-      phase: VisualRecallPhase.evaluating,
-      revealedGlobals: updated,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-    ));
+    emit(
+      state.copyWith(
+        phase: VisualRecallPhase.evaluating,
+        revealedGlobals: updated,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+      ),
+    );
   }
 
   /// Masks/hides the current active Ayah again and transitions back to [VisualRecallPhase.activeRecall].
@@ -469,12 +497,14 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
     }
 
     final updated = Set<int>.from(state.revealedGlobals)..remove(current);
-    emit(state.copyWith(
-      phase: VisualRecallPhase.activeRecall,
-      revealedGlobals: updated,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-    ));
+    emit(
+      state.copyWith(
+        phase: VisualRecallPhase.activeRecall,
+        revealedGlobals: updated,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+      ),
+    );
   }
 
   /// Toggles reveal state of an individual Ayah in the session queue.
@@ -500,12 +530,18 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
           : VisualRecallPhase.activeRecall;
     }
 
-    emit(state.copyWith(
-      phase: nextPhase,
-      revealedGlobals: updated,
-      isTimedMaskActive: globalAyah == state.currentGlobalAyah ? false : state.isTimedMaskActive,
-      remainingMaskDuration: globalAyah == state.currentGlobalAyah ? 0 : state.remainingMaskDuration,
-    ));
+    emit(
+      state.copyWith(
+        phase: nextPhase,
+        revealedGlobals: updated,
+        isTimedMaskActive: globalAyah == state.currentGlobalAyah
+            ? false
+            : state.isTimedMaskActive,
+        remainingMaskDuration: globalAyah == state.currentGlobalAyah
+            ? 0
+            : state.remainingMaskDuration,
+      ),
+    );
   }
 
   /// Records self-assessment outcome for the current Ayah and advances the drill.
@@ -517,7 +553,9 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
     // 1. Validation checks (Reject invalid state)
     if (!state.hasActiveSession || state.isCompleted) return;
     if (state.queue.isEmpty) return;
-    if (state.currentIndex < 0 || state.currentIndex >= state.queue.length) return;
+    if (state.currentIndex < 0 || state.currentIndex >= state.queue.length) {
+      return;
+    }
 
     final current = state.currentGlobalAyah;
     final sessionId = state.sessionId;
@@ -548,8 +586,9 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
         operationId: operationId,
       );
 
-      final updatedOutcomes = Map<int, ReviewOutcome>.from(state.assessmentOutcomes)
-        ..[current] = outcome;
+      final updatedOutcomes = Map<int, ReviewOutcome>.from(
+        state.assessmentOutcomes,
+      )..[current] = outcome;
 
       final nextIndex = state.currentIndex + 1;
 
@@ -569,45 +608,53 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
           cleanupError = 'تعذر حذف نقطة الاستعادة المؤقتة: $e';
         }
 
-        emit(state.copyWith(
-          phase: VisualRecallPhase.completed,
-          currentIndex: nextIndex,
-          assessmentOutcomes: updatedOutcomes,
-          isAudioPlaying: false,
-          isAudioPaused: false,
-          isTimedMaskActive: false,
-          remainingMaskDuration: 0,
-          clearCurrentAudioAyah: true,
-          isLoading: false,
-          error: cleanupError,
-          clearError: cleanupError == null,
-        ));
+        emit(
+          state.copyWith(
+            phase: VisualRecallPhase.completed,
+            currentIndex: nextIndex,
+            assessmentOutcomes: updatedOutcomes,
+            isAudioPlaying: false,
+            isAudioPaused: false,
+            isTimedMaskActive: false,
+            remainingMaskDuration: 0,
+            clearCurrentAudioAyah: true,
+            isLoading: false,
+            error: cleanupError,
+            clearError: cleanupError == null,
+          ),
+        );
       } else {
         final nextGlobal = state.queue[nextIndex];
         final isNextRevealed = state.revealedGlobals.contains(nextGlobal);
 
-        emit(state.copyWith(
-          phase: isNextRevealed ? VisualRecallPhase.evaluating : VisualRecallPhase.activeRecall,
-          currentIndex: nextIndex,
-          assessmentOutcomes: updatedOutcomes,
-          isAudioPlaying: false,
-          isAudioPaused: false,
-          isTimedMaskActive: false,
-          remainingMaskDuration: 0,
-          clearCurrentAudioAyah: true,
-          isLoading: false,
-          clearError: true,
-        ));
+        emit(
+          state.copyWith(
+            phase: isNextRevealed
+                ? VisualRecallPhase.evaluating
+                : VisualRecallPhase.activeRecall,
+            currentIndex: nextIndex,
+            assessmentOutcomes: updatedOutcomes,
+            isAudioPlaying: false,
+            isAudioPaused: false,
+            isTimedMaskActive: false,
+            remainingMaskDuration: 0,
+            clearCurrentAudioAyah: true,
+            isLoading: false,
+            clearError: true,
+          ),
+        );
 
         await _saveCheckpoint();
       }
       completer.complete();
     } catch (e, st) {
       // BLOCK advance: retain current state and prompt user to retry
-      emit(state.copyWith(
-        isLoading: false,
-        error: 'تعذر حفظ نتيجة التسميع على القرص: $e',
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          error: 'تعذر حفظ نتيجة التسميع على القرص: $e',
+        ),
+      );
       completer.completeError(e, st);
       rethrow;
     } finally {
@@ -642,15 +689,19 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
     final targetIndex = state.queue.indexOf(globalAyah);
     final isRevealed = state.revealedGlobals.contains(globalAyah);
 
-    emit(state.copyWith(
-      phase: isRevealed ? VisualRecallPhase.evaluating : VisualRecallPhase.activeRecall,
-      currentIndex: targetIndex,
-      isAudioPlaying: false,
-      isAudioPaused: false,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-      clearCurrentAudioAyah: true,
-    ));
+    emit(
+      state.copyWith(
+        phase: isRevealed
+            ? VisualRecallPhase.evaluating
+            : VisualRecallPhase.activeRecall,
+        currentIndex: targetIndex,
+        isAudioPlaying: false,
+        isAudioPaused: false,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+        clearCurrentAudioAyah: true,
+      ),
+    );
   }
 
   /// Plays audio for the current active Ayah using the existing [QuranAudioService].
@@ -662,29 +713,30 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
     _invalidateAudioSync();
     final token = _syncGeneration;
 
-    emit(state.copyWith(
-      isAudioSyncEnabled: true,
-      isAudioPlaying: true,
-      isAudioPaused: false,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-      timerGeneration: token,
-      currentAudioAyah: current,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        isAudioSyncEnabled: true,
+        isAudioPlaying: true,
+        isAudioPaused: false,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+        timerGeneration: token,
+        currentAudioAyah: current,
+        clearError: true,
+      ),
+    );
 
     try {
-      await audioService!.playAyah(
-        reciter: reciter,
-        globalAyah: current,
-      );
+      await audioService!.playAyah(reciter: reciter, globalAyah: current);
     } catch (e) {
       if (token != _syncGeneration) return;
-      emit(state.copyWith(
-        isAudioPlaying: false,
-        isAudioPaused: false,
-        error: 'تعذر تشغيل الصوت: $e',
-      ));
+      emit(
+        state.copyWith(
+          isAudioPlaying: false,
+          isAudioPaused: false,
+          error: 'تعذر تشغيل الصوت: $e',
+        ),
+      );
     }
   }
 
@@ -743,10 +795,9 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
         if (remaining <= 0) {
           timer.cancel();
           _tardidTimer = null;
-          emit(state.copyWith(
-            isTimedMaskActive: false,
-            remainingMaskDuration: 0,
-          ));
+          emit(
+            state.copyWith(isTimedMaskActive: false, remainingMaskDuration: 0),
+          );
           revealCurrentAyah();
         } else {
           emit(state.copyWith(remainingMaskDuration: remaining));
@@ -765,10 +816,7 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
   void skipTimedMaskDelay() {
     if (state.isTimedMaskActive) {
       _cancelTimedMaskTimer();
-      emit(state.copyWith(
-        isTimedMaskActive: false,
-        remainingMaskDuration: 0,
-      ));
+      emit(state.copyWith(isTimedMaskActive: false, remainingMaskDuration: 0));
       revealCurrentAyah();
     }
   }
@@ -788,13 +836,15 @@ class QuranVisualRecallCubit extends Cubit<QuranVisualRecallState> {
         await audioService!.stop();
       } catch (_) {}
     }
-    emit(state.copyWith(
-      isAudioPlaying: false,
-      isAudioPaused: false,
-      isTimedMaskActive: false,
-      remainingMaskDuration: 0,
-      clearCurrentAudioAyah: true,
-    ));
+    emit(
+      state.copyWith(
+        isAudioPlaying: false,
+        isAudioPaused: false,
+        isTimedMaskActive: false,
+        remainingMaskDuration: 0,
+        clearCurrentAudioAyah: true,
+      ),
+    );
   }
 
   /// Toggles real-time audio synchronization.

@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/features/quran/data/models/quran_models.dart';
+import 'package:mishkat_app/features/quran/data/repositories/mushaf_layout_repository.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_repository.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(MushafLayoutRepository.instance.load);
 
   group('Quran Reader Foundation & Integrity Tests', () {
     test('604 SVG Mushaf assets integrity', () {

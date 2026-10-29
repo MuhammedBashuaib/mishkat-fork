@@ -79,17 +79,23 @@ void main() {
       expect(result.distanceKm, inInclusiveRange(300.0, 380.0));
     });
 
-    test('Cairo, Egypt: South-East towards Mecca (~136°), distance ~1290 km', () {
-      final result = calculator.qibla(30.0444, 31.2357);
-      expect(result.bearing, inInclusiveRange(130.0, 142.0));
-      expect(result.distanceKm, inInclusiveRange(1200.0, 1350.0));
-    });
+    test(
+      'Cairo, Egypt: South-East towards Mecca (~136°), distance ~1290 km',
+      () {
+        final result = calculator.qibla(30.0444, 31.2357);
+        expect(result.bearing, inInclusiveRange(130.0, 142.0));
+        expect(result.distanceKm, inInclusiveRange(1200.0, 1350.0));
+      },
+    );
 
-    test('Jerusalem: South-South-East towards Mecca (~155°), distance ~1240 km', () {
-      final result = calculator.qibla(31.7683, 35.2137);
-      expect(result.bearing, inInclusiveRange(150.0, 160.0));
-      expect(result.distanceKm, inInclusiveRange(1150.0, 1300.0));
-    });
+    test(
+      'Jerusalem: South-South-East towards Mecca (~155°), distance ~1240 km',
+      () {
+        final result = calculator.qibla(31.7683, 35.2137);
+        expect(result.bearing, inInclusiveRange(150.0, 160.0));
+        expect(result.distanceKm, inInclusiveRange(1150.0, 1300.0));
+      },
+    );
 
     test('New York (USA): Great circle route East-North-East (~58.5°)', () {
       final result = calculator.qibla(40.7128, -74.0060);
@@ -110,15 +116,21 @@ void main() {
   });
 
   group('2. Circular Delta & Angle Wrapping Mathematics', () {
-    test('Boundary crossing: Bearing 5°, Heading 355° -> Shortest Delta = +10°', () {
-      const state = QiblaState(bearing: 5.0, heading: 355.0);
-      expect(state.delta, closeTo(10.0, 0.001));
-    });
+    test(
+      'Boundary crossing: Bearing 5°, Heading 355° -> Shortest Delta = +10°',
+      () {
+        const state = QiblaState(bearing: 5.0, heading: 355.0);
+        expect(state.delta, closeTo(10.0, 0.001));
+      },
+    );
 
-    test('Boundary crossing: Bearing 355°, Heading 5° -> Shortest Delta = -10°', () {
-      const state = QiblaState(bearing: 355.0, heading: 5.0);
-      expect(state.delta, closeTo(-10.0, 0.001));
-    });
+    test(
+      'Boundary crossing: Bearing 355°, Heading 5° -> Shortest Delta = -10°',
+      () {
+        const state = QiblaState(bearing: 355.0, heading: 5.0);
+        expect(state.delta, closeTo(-10.0, 0.001));
+      },
+    );
 
     test('Opposite directions (180° difference)', () {
       const state = QiblaState(bearing: 90.0, heading: 270.0);
@@ -137,13 +149,25 @@ void main() {
     });
 
     test('Alignment respects sensor accuracy', () {
-      const goodAccuracy = QiblaState(bearing: 100.0, heading: 100.0, accuracy: 5.0);
+      const goodAccuracy = QiblaState(
+        bearing: 100.0,
+        heading: 100.0,
+        accuracy: 5.0,
+      );
       expect(goodAccuracy.aligned, isTrue);
 
-      const poorAccuracy = QiblaState(bearing: 100.0, heading: 100.0, accuracy: 35.0);
+      const poorAccuracy = QiblaState(
+        bearing: 100.0,
+        heading: 100.0,
+        accuracy: 35.0,
+      );
       expect(poorAccuracy.aligned, isFalse);
 
-      const negativeAccuracy = QiblaState(bearing: 100.0, heading: 100.0, accuracy: -1.0);
+      const negativeAccuracy = QiblaState(
+        bearing: 100.0,
+        heading: 100.0,
+        accuracy: -1.0,
+      );
       expect(negativeAccuracy.aligned, isFalse);
     });
 
@@ -177,15 +201,18 @@ void main() {
   });
 
   group('2b. True North vs Magnetic North & Geomagnetic Declination', () {
-    test('On Android: declination is calculated from WMM and stored in state', () {
-      final androidCubit = QiblaCubit(platform: TargetPlatform.android);
-      // Riyadh (24.7136, 46.6753)
-      androidCubit.setLocation(24.7136, 46.6753);
-      expect(androidCubit.state.declination, isNotNull);
-      // Declination in Riyadh is approx +3.1°
-      expect(androidCubit.state.declination!, inInclusiveRange(2.5, 4.0));
-      androidCubit.close();
-    });
+    test(
+      'On Android: declination is calculated from WMM and stored in state',
+      () {
+        final androidCubit = QiblaCubit(platform: TargetPlatform.android);
+        // Riyadh (24.7136, 46.6753)
+        androidCubit.setLocation(24.7136, 46.6753);
+        expect(androidCubit.state.declination, isNotNull);
+        // Declination in Riyadh is approx +3.1°
+        expect(androidCubit.state.declination!, inInclusiveRange(2.5, 4.0));
+        androidCubit.close();
+      },
+    );
 
     test('On Android: Makkah declination is approx +3.5°', () {
       final androidCubit = QiblaCubit(platform: TargetPlatform.android);
@@ -208,16 +235,19 @@ void main() {
       iosCubit.close();
     });
 
-    test('Negative headings (from Android sensor) are normalized to [0, 360)', () {
-      final cubit = QiblaCubit();
-      cubit.setHeadingForTesting(-30.0);
-      expect(cubit.state.heading, 330.0);
-      expect(cubit.state.heading, isNonNegative);
+    test(
+      'Negative headings (from Android sensor) are normalized to [0, 360)',
+      () {
+        final cubit = QiblaCubit();
+        cubit.setHeadingForTesting(-30.0);
+        expect(cubit.state.heading, 330.0);
+        expect(cubit.state.heading, isNonNegative);
 
-      cubit.setHeadingForTesting(-370.0);
-      expect(cubit.state.heading, 350.0);
-      cubit.close();
-    });
+        cubit.setHeadingForTesting(-370.0);
+        expect(cubit.state.heading, 350.0);
+        cubit.close();
+      },
+    );
   });
 
   group('3. QiblaCubit State Management Tests', () {
@@ -261,65 +291,69 @@ void main() {
     });
   });
 
-  group('4. Bottom Navigation Bar Tests (Order, Floating Center Compass, RTL)', () {
-    testWidgets('MishkatBottomNavBar renders 5 tabs in RTL order with prominent center compass', (
-      tester,
-    ) async {
-      int selected = 0;
+  group(
+    '4. Bottom Navigation Bar Tests (Order, Floating Center Compass, RTL)',
+    () {
+      testWidgets(
+        'MishkatBottomNavBar renders 5 tabs in RTL order with prominent center compass',
+        (tester) async {
+          int selected = 0;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light(),
-          locale: const Locale('ar'),
-          home: Directionality(
-            textDirection: TextDirection.rtl,
-            child: Scaffold(
-              bottomNavigationBar: StatefulBuilder(
-                builder: (context, setState) {
-                  return MishkatBottomNavBar(
-                    selectedIndex: selected,
-                    onItemSelected: (i) => setState(() => selected = i),
-                  );
-                },
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light(),
+              locale: const Locale('ar'),
+              home: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  bottomNavigationBar: StatefulBuilder(
+                    builder: (context, setState) {
+                      return MishkatBottomNavBar(
+                        selectedIndex: selected,
+                        onItemSelected: (i) => setState(() => selected = i),
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+
+          // Verify all 5 tab labels are visible
+          expect(find.text('الرئيسية'), findsOneWidget);
+          expect(find.text('القرآن'), findsOneWidget);
+          expect(find.text('القبلة'), findsOneWidget);
+          expect(find.text('الأذكار'), findsOneWidget);
+          expect(find.text('المكتبة'), findsOneWidget);
+
+          // Verify tapping center Qibla tab selects index 2
+          await tester.tap(find.text('القبلة'));
+          await tester.pumpAndSettle();
+          expect(selected, 2);
+
+          // Verify tapping Quran selects index 1
+          await tester.tap(find.text('القرآن'));
+          await tester.pumpAndSettle();
+          expect(selected, 1);
+
+          // Verify tapping Adhkar selects index 3
+          await tester.tap(find.text('الأذكار'));
+          await tester.pumpAndSettle();
+          expect(selected, 3);
+
+          // Verify tapping Library selects index 4
+          await tester.tap(find.text('المكتبة'));
+          await tester.pumpAndSettle();
+          expect(selected, 4);
+
+          // Verify tapping Home selects index 0
+          await tester.tap(find.text('الرئيسية'));
+          await tester.pumpAndSettle();
+          expect(selected, 0);
+        },
       );
-
-      // Verify all 5 tab labels are visible
-      expect(find.text('الرئيسية'), findsOneWidget);
-      expect(find.text('القرآن'), findsOneWidget);
-      expect(find.text('القبلة'), findsOneWidget);
-      expect(find.text('الأذكار'), findsOneWidget);
-      expect(find.text('المكتبة'), findsOneWidget);
-
-      // Verify tapping center Qibla tab selects index 2
-      await tester.tap(find.text('القبلة'));
-      await tester.pumpAndSettle();
-      expect(selected, 2);
-
-      // Verify tapping Quran selects index 1
-      await tester.tap(find.text('القرآن'));
-      await tester.pumpAndSettle();
-      expect(selected, 1);
-
-      // Verify tapping Adhkar selects index 3
-      await tester.tap(find.text('الأذكار'));
-      await tester.pumpAndSettle();
-      expect(selected, 3);
-
-      // Verify tapping Library selects index 4
-      await tester.tap(find.text('المكتبة'));
-      await tester.pumpAndSettle();
-      expect(selected, 4);
-
-      // Verify tapping Home selects index 0
-      await tester.tap(find.text('الرئيسية'));
-      await tester.pumpAndSettle();
-      expect(selected, 0);
-    });
-  });
+    },
+  );
 
   group('5. Qibla Page Widget & Multi-State UI Tests', () {
     late LocalStorageService storage;
@@ -363,7 +397,9 @@ void main() {
       );
     }
 
-    testWidgets('State: No Location shows location required prompt', (tester) async {
+    testWidgets('State: No Location shows location required prompt', (
+      tester,
+    ) async {
       qiblaCubit.setLocation(null, null);
 
       await tester.pumpWidget(buildQiblaApp());
@@ -373,51 +409,56 @@ void main() {
       expect(find.text('استخدام موقعي الحالي'), findsOneWidget);
     });
 
-    testWidgets('State: Location available renders Header, Compass, Metrics and Guidance', (
-      tester,
-    ) async {
-      // Set location for Hadramout
-      await settingsCubit.selectCity(
-        const NearbyCity('المكلا، حضرموت', 14.5425, 49.1242, 'MWL'),
-      );
-      qiblaCubit.setLocation(14.5425, 49.1242);
+    testWidgets(
+      'State: Location available renders Header, Compass, Metrics and Guidance',
+      (tester) async {
+        // Set location for Hadramout
+        await settingsCubit.selectCity(
+          const NearbyCity('المكلا، حضرموت', 14.5425, 49.1242, 'MWL'),
+        );
+        qiblaCubit.setLocation(14.5425, 49.1242);
 
-      await tester.pumpWidget(buildQiblaApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(buildQiblaApp());
+        await tester.pumpAndSettle();
 
-      // Header checks
-      expect(find.text('اتجاه القبلة'), findsOneWidget);
-      expect(find.text('المكلا، حضرموت'), findsOneWidget);
+        // Header checks
+        expect(find.text('اتجاه القبلة'), findsOneWidget);
+        expect(find.text('المكلا، حضرموت'), findsOneWidget);
 
-      // Metric labels check
-      expect(find.text('زاوية القبلة'), findsOneWidget);
-      expect(find.text('اتجاه هاتفك'), findsOneWidget);
-      expect(find.text('المسافة للكعبة'), findsOneWidget);
+        // Metric labels check
+        expect(find.text('زاوية القبلة'), findsOneWidget);
+        expect(find.text('اتجاه هاتفك'), findsOneWidget);
+        expect(find.text('المسافة للكعبة'), findsOneWidget);
 
-      // Compass widget check
-      expect(find.byType(MishkatCompassWidget), findsOneWidget);
+        // Compass widget check
+        expect(find.byType(MishkatCompassWidget), findsOneWidget);
 
-      // Calibration tip card check (located down in ListView)
-      expect(find.text('إرشادات لدقة البوصلة', skipOffstage: false), findsOneWidget);
-    });
+        // Calibration tip card check (located down in ListView)
+        expect(
+          find.text('إرشادات لدقة البوصلة', skipOffstage: false),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('State: Compass facing Qibla shows aligned celebration banner', (
-      tester,
-    ) async {
-      await settingsCubit.selectCity(
-        const NearbyCity('مكة المكرمة', 21.4225, 39.8262, 'Makkah'),
-      );
-      qiblaCubit.setLocation(14.5425, 49.1242);
-      final bearing = qiblaCubit.state.bearing!;
+    testWidgets(
+      'State: Compass facing Qibla shows aligned celebration banner',
+      (tester) async {
+        await settingsCubit.selectCity(
+          const NearbyCity('مكة المكرمة', 21.4225, 39.8262, 'Makkah'),
+        );
+        qiblaCubit.setLocation(14.5425, 49.1242);
+        final bearing = qiblaCubit.state.bearing!;
 
-      // Simulate phone facing Qibla bearing
-      qiblaCubit.setHeadingForTesting(bearing, accuracy: 5.0);
+        // Simulate phone facing Qibla bearing
+        qiblaCubit.setHeadingForTesting(bearing, accuracy: 5.0);
 
-      await tester.pumpWidget(buildQiblaApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(buildQiblaApp());
+        await tester.pumpAndSettle();
 
-      expect(find.text('أنت الآن باتجاه القبلة مباشرة'), findsOneWidget);
-    });
+        expect(find.text('أنت الآن باتجاه القبلة مباشرة'), findsOneWidget);
+      },
+    );
 
     testWidgets('State: Sensor unavailable renders informative notice', (
       tester,
@@ -433,7 +474,13 @@ void main() {
       await tester.pumpWidget(buildQiblaApp());
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('مستشعر البوصلة المباشر غير متوفر', skipOffstage: false), findsOneWidget);
+      expect(
+        find.textContaining(
+          'مستشعر البوصلة المباشر غير متوفر',
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
     });
   });
 

@@ -33,10 +33,8 @@ class TafsirRepository {
         language: 'ar',
         author: 'نخبة من العلماء بإشراف مجمع الملك فهد لطباعة المصحف الشريف',
         publisher: 'مجمع الملك فهد لطباعة المصحف الشريف',
-        description:
-            'تفسير ميسر أعدته نخبة من العلماء وصدر عن مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة وفق منهج أهل السنة والجماعة.',
-        attribution:
-            'مأخوذ وموثق من مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة عبر موسوعة القرآن الكريم (QuranEnc.com)',
+        description: 'تفسير ميسر أعدته نخبة من العلماء وصدر عن مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة وفق منهج أهل السنة والجماعة.',
+        attribution: 'مأخوذ وموثق من مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة عبر موسوعة القرآن الكريم (QuranEnc.com)',
         license: 'شروط النشر الحر المعتمدة لموسوعة القرآن الكريم (QuranEnc)',
         version: '1.0.0',
         sourceUrl: 'https://quranenc.com/ar/browse/arabic_moyassar',
@@ -64,7 +62,10 @@ class TafsirRepository {
   }
 
   /// Loads a Tafsir package directly from a raw JSON string (primarily for tests).
-  TafsirPackage loadFromJsonString(String jsonString, {String sourceId = defaultSourceId}) {
+  TafsirPackage loadFromJsonString(
+    String jsonString, {
+    String sourceId = defaultSourceId,
+  }) {
     final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
     final package = TafsirPackage.fromJson(decoded);
     _packages[sourceId] = package;

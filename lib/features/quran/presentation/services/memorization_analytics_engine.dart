@@ -69,10 +69,14 @@ class MemorizationAnalyticsEngine {
     }
 
     final notStarted =
-        (canonicalTotalAyahs - (memorized + learning + needsRevision))
-            .clamp(0, canonicalTotalAyahs);
-    final coveragePercentage =
-        (memorized / canonicalTotalAyahs).clamp(0.0, 1.0);
+        (canonicalTotalAyahs - (memorized + learning + needsRevision)).clamp(
+          0,
+          canonicalTotalAyahs,
+        );
+    final coveragePercentage = (memorized / canonicalTotalAyahs).clamp(
+      0.0,
+      1.0,
+    );
 
     return OverallMemorizationAnalytics(
       totalAyahs: canonicalTotalAyahs,
@@ -215,10 +219,16 @@ class MemorizationAnalyticsEngine {
     final TrendDirection direction;
     final String description;
 
-    if (diff >= 3 || (reviewsPrevious7Days > 0 && diff / reviewsPrevious7Days >= 0.25 && diff >= 2)) {
+    if (diff >= 3 ||
+        (reviewsPrevious7Days > 0 &&
+            diff / reviewsPrevious7Days >= 0.25 &&
+            diff >= 2)) {
       direction = TrendDirection.increasing;
       description = 'نشاط المراجعة في ازدياد مبارك مقارنة بالأسبوع الماضي';
-    } else if (diff <= -3 || (reviewsPrevious7Days > 0 && diff / reviewsPrevious7Days <= -0.25 && diff <= -2)) {
+    } else if (diff <= -3 ||
+        (reviewsPrevious7Days > 0 &&
+            diff / reviewsPrevious7Days <= -0.25 &&
+            diff <= -2)) {
       direction = TrendDirection.decreasing;
       description = 'نشاط المراجعة أقل من الأسبوع الماضي';
     } else {
@@ -242,10 +252,35 @@ class MemorizationAnalyticsEngine {
     DateTime? now,
   }) {
     final current = now ?? DateTime.now();
-    final endOfToday = DateTime(current.year, current.month, current.day, 23, 59, 59);
-    final startOfTomorrow = DateTime(current.year, current.month, current.day + 1);
-    final endOfTomorrow = DateTime(current.year, current.month, current.day + 1, 23, 59, 59);
-    final endOf7Days = DateTime(current.year, current.month, current.day + 7, 23, 59, 59);
+    final endOfToday = DateTime(
+      current.year,
+      current.month,
+      current.day,
+      23,
+      59,
+      59,
+    );
+    final startOfTomorrow = DateTime(
+      current.year,
+      current.month,
+      current.day + 1,
+    );
+    final endOfTomorrow = DateTime(
+      current.year,
+      current.month,
+      current.day + 1,
+      23,
+      59,
+      59,
+    );
+    final endOf7Days = DateTime(
+      current.year,
+      current.month,
+      current.day + 7,
+      23,
+      59,
+      59,
+    );
 
     var dueTodayCount = 0;
     var dueTomorrowCount = 0;
@@ -258,7 +293,8 @@ class MemorizationAnalyticsEngine {
         final nr = item.nextReviewAt!;
         if (!nr.isAfter(endOfToday)) {
           dueTodayCount++;
-        } else if (!nr.isBefore(startOfTomorrow) && !nr.isAfter(endOfTomorrow)) {
+        } else if (!nr.isBefore(startOfTomorrow) &&
+            !nr.isAfter(endOfTomorrow)) {
           dueTomorrowCount++;
         }
 
@@ -326,8 +362,8 @@ class MemorizationAnalyticsEngine {
     final percentage = total == 0 ? 1.0 : (memorized / total).clamp(0.0, 1.0);
     final estimatedDays = (remaining / plan.dailyTarget).ceil();
 
-    final daysElapsed =
-        (current.difference(plan.createdAt).inHours / 24.0).clamp(0.0, 3650.0);
+    final daysElapsed = (current.difference(plan.createdAt).inHours / 24.0)
+        .clamp(0.0, 3650.0);
 
     final PlanPaceStatus paceStatus;
     final String paceMessage;
@@ -375,13 +411,18 @@ class MemorizationAnalyticsEngine {
     int limit = 10,
   }) {
     final current = now ?? DateTime.now();
-    final candidates = <({MemorizationItem item, MurajaahPriorityScore score})>[];
+    final candidates =
+        <({MemorizationItem item, MurajaahPriorityScore score})>[];
 
     for (final item in items.values) {
       if (item.status == MemorizationStatus.notStarted) continue;
 
-      final schedule = adaptiveEngine.calculateScheduleState(item, now: current);
-      final isWeakCandidate = item.status == MemorizationStatus.needsRevision ||
+      final schedule = adaptiveEngine.calculateScheduleState(
+        item,
+        now: current,
+      );
+      final isWeakCandidate =
+          item.status == MemorizationStatus.needsRevision ||
           item.mistakeCount >= 2 ||
           schedule == AdaptiveScheduleState.weak ||
           schedule == AdaptiveScheduleState.urgent ||

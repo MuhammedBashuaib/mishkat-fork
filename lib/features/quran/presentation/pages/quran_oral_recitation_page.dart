@@ -126,9 +126,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
             state == AppLifecycleState.hidden) &&
         mounted) {
       final cubit = context.read<QuranOralRecitationCubit>();
-      if (cubit.state.lifecycle.isListening) {
-        unawaited(cubit.pauseRecitation());
-      }
+      unawaited(cubit.pauseRecitation());
     }
   }
 

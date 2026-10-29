@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -63,6 +64,10 @@ class MishkatPrimaryAction extends StatelessWidget {
     this.icon,
     this.isFullWidth = false,
     this.padding,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.disabledBackgroundColor,
+    this.disabledForegroundColor,
   });
 
   final VoidCallback? onPressed;
@@ -70,23 +75,36 @@ class MishkatPrimaryAction extends StatelessWidget {
   final Widget? icon;
   final bool isFullWidth;
   final EdgeInsetsGeometry? padding;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+  final Color? disabledBackgroundColor;
+  final Color? disabledForegroundColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.mishkat;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? colors.primary : colors.brandDeep;
-    final fgColor = isDark ? colors.primaryDark : Colors.white;
+    final bgColor =
+        backgroundColor ?? (isDark ? colors.primary : colors.brandDeep);
+    final fgColor =
+        foregroundColor ?? (isDark ? colors.background : Colors.white);
+    final effectiveBackground = onPressed != null
+        ? bgColor
+        : (disabledBackgroundColor ?? colors.border);
+    final effectiveForeground = onPressed != null
+        ? fgColor
+        : (disabledForegroundColor ?? colors.textMuted);
 
     final child = Material(
-      color: onPressed != null ? bgColor : colors.border,
+      color: effectiveBackground,
       borderRadius: MishkatRadius.brMd,
       elevation: 0,
       child: InkWell(
         borderRadius: MishkatRadius.brMd,
         onTap: onPressed,
         child: Padding(
-          padding: padding ??
+          padding:
+              padding ??
               const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           child: Row(
             mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
@@ -94,7 +112,7 @@ class MishkatPrimaryAction extends StatelessWidget {
             children: [
               if (icon != null) ...[
                 IconTheme(
-                  data: IconThemeData(color: fgColor, size: 18),
+                  data: IconThemeData(color: effectiveForeground, size: 18),
                   child: icon!,
                 ),
                 const SizedBox(width: 8),
@@ -105,7 +123,7 @@ class MishkatPrimaryAction extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: fgColor,
+                    color: effectiveForeground,
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
                     letterSpacing: -0.2,
@@ -118,10 +136,7 @@ class MishkatPrimaryAction extends StatelessWidget {
       ),
     );
 
-    final wrapped = MishkatPressable(
-      onTap: onPressed,
-      child: child,
-    );
+    final wrapped = MishkatPressable(onTap: onPressed, child: child);
 
     if (isFullWidth) {
       return SizedBox(width: double.infinity, child: wrapped);
@@ -191,10 +206,7 @@ class MishkatSecondaryAction extends StatelessWidget {
       ),
     );
 
-    final wrapped = MishkatPressable(
-      onTap: onPressed,
-      child: child,
-    );
+    final wrapped = MishkatPressable(onTap: onPressed, child: child);
 
     if (isFullWidth) {
       return SizedBox(width: double.infinity, child: wrapped);
@@ -286,10 +298,7 @@ class MishkatIconButton extends StatelessWidget {
           height: 44,
           child: Center(
             child: IconTheme(
-              data: IconThemeData(
-                color: color ?? colors.textPrimary,
-                size: 20,
-              ),
+              data: IconThemeData(color: color ?? colors.textPrimary, size: 20),
               child: icon,
             ),
           ),
@@ -334,7 +343,8 @@ class MishkatShortcutTile extends StatelessWidget {
     // Distinct tonal surface clearly different from page background
     // Light: soft minty tonal surface (primarySoft 65%)
     // Dark: elevated dark green container (surfaceVariant)
-    final surfaceColor = color ??
+    final surfaceColor =
+        color ??
         (isDark
             ? colors.surfaceVariant
             : colors.primarySoft.withValues(alpha: 0.65));
@@ -381,11 +391,11 @@ class MishkatShortcutTile extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: colors.textPrimary,
-                          letterSpacing: -0.2,
-                        ),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: colors.textPrimary,
+                      letterSpacing: -0.2,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -442,10 +452,10 @@ class MishkatSectionHeader extends StatelessWidget {
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 17,
-                    letterSpacing: -0.3,
-                  ),
+                fontWeight: FontWeight.w700,
+                fontSize: 17,
+                letterSpacing: -0.3,
+              ),
             ),
           ),
           ?trailing,
@@ -501,11 +511,7 @@ class MishkatTonalSurface extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           borderRadius: radius,
-          child: InkWell(
-            borderRadius: radius,
-            onTap: onTap,
-            child: content,
-          ),
+          child: InkWell(borderRadius: radius, onTap: onTap, child: content),
         ),
       );
     }
@@ -547,18 +553,12 @@ class MishkatCard extends StatelessWidget {
 
     final cardMaterial = Material(
       color: background,
-      shape: RoundedRectangleBorder(
-        borderRadius: radius,
-        side: borderSide,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: radius, side: borderSide),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
-        child: Padding(
-          padding: padding,
-          child: child,
-        ),
+        child: Padding(padding: padding, child: child),
       ),
     );
 
@@ -632,10 +632,8 @@ class MishkatInfoRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   primaryValue,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
-                      ),
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700, fontSize: 13.5),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -782,10 +780,7 @@ class MishkatPrayerSchedule extends StatelessWidget {
 }
 
 class _PrayerSlot extends StatelessWidget {
-  const _PrayerSlot({
-    required this.moment,
-    required this.isNext,
-  });
+  const _PrayerSlot({required this.moment, required this.isNext});
 
   final PrayerMoment moment;
   final bool isNext;
@@ -991,23 +986,18 @@ class ContentStatePanel extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(context).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w800),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: context.mishkat.textSecondary,
-                  ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: context.mishkat.textSecondary),
               textAlign: TextAlign.center,
             ),
-            if (action != null) ...[
-              const SizedBox(height: 20),
-              action!,
-            ],
+            if (action != null) ...[const SizedBox(height: 20), action!],
           ],
         ),
       ),

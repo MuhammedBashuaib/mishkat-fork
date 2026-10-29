@@ -10,6 +10,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_formatters.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../prayer_times/data/services/prayer_calculator.dart';
+import '../../../home_widgets/presentation/pages/home_widgets_page.dart';
 import '../../../quran/presentation/pages/offline_audio_downloads_page.dart';
 import '../cubit/settings_cubit.dart';
 import '../cubit/settings_state.dart';
@@ -43,6 +44,8 @@ class SettingsPage extends StatelessWidget {
                 _SettingsIntro(settings: settings),
                 const SectionHeading(title: 'الموقع'),
                 _LocationSettings(state: state),
+                const SectionHeading(title: 'الشاشة الرئيسية'),
+                const _HomeWidgetsSettings(),
                 const SectionHeading(title: 'التنبيهات'),
                 _NotificationSettings(settings: settings),
                 const SizedBox(height: 12),
@@ -72,7 +75,7 @@ class SettingsPage extends StatelessWidget {
                         'المصحف برواية حفص عن عاصم، والأذكار من حصن المسلم. المحتوى والمواقيت يعملان دون إنترنت، بينما تحتاج التلاوة إلى اتصال.',
                       ),
                       SizedBox(height: 8),
-                      Text('الإصدار 1.2.0 (6)'),
+                      Text('الإصدار 1.3.0 (7)'),
                     ],
                   ),
                 ),
@@ -81,6 +84,37 @@ class SettingsPage extends StatelessWidget {
           );
         },
       );
+}
+
+class _HomeWidgetsSettings extends StatelessWidget {
+  const _HomeWidgetsSettings();
+
+  @override
+  Widget build(BuildContext context) => MishkatCard(
+    padding: EdgeInsets.zero,
+    child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: context.mishkat.primarySoft,
+          borderRadius: MishkatRadius.brMd,
+        ),
+        child: Icon(Icons.widgets_outlined, color: context.mishkat.primary),
+      ),
+      title: const Text(
+        'ودجت مشكاة',
+        style: TextStyle(fontWeight: FontWeight.w800),
+      ),
+      subtitle: const Text('الصلاة والقبلة والأذكار على شاشة هاتفك'),
+      trailing: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (_) => const HomeWidgetsPage()),
+      ),
+    ),
+  );
 }
 
 class _SettingsIntro extends StatelessWidget {
@@ -291,25 +325,29 @@ class _AdhanSettings extends StatelessWidget {
             const SizedBox(height: 8),
             SegmentedButton<AdhanPlaybackMode>(
               showSelectedIcon: false,
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: AdhanPlaybackMode.full,
-                  icon: Icon(Icons.graphic_eq_rounded),
-                  label: Text('الأذان كامل'),
+                  icon: const Icon(Icons.graphic_eq_rounded),
+                  label: Text(isIos ? 'الكامل · Android' : 'الأذان كامل'),
+                  enabled: !isIos,
                 ),
-                ButtonSegment(
+                const ButtonSegment(
                   value: AdhanPlaybackMode.short,
                   icon: Icon(Icons.timelapse_rounded),
                   label: Text('مختصر · 29 ثانية'),
                 ),
               ],
-              selected: {settings.adhanPlaybackMode},
+              selected: {
+                isIos ? AdhanPlaybackMode.short : settings.adhanPlaybackMode,
+              },
               onSelectionChanged: (selection) => context
                   .read<SettingsCubit>()
                   .setAdhanPlaybackMode(selection.first),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
+              key: ValueKey('adhan-voice-${selectedVoice.id}'),
               initialValue: selectedVoice.id,
               isExpanded: true,
               decoration: const InputDecoration(

@@ -34,12 +34,7 @@ class MishkatBottomNavBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: navSurface,
-        border: Border(
-          top: BorderSide(
-            color: topBorderColor,
-            width: 1,
-          ),
-        ),
+        border: Border(top: BorderSide(color: topBorderColor, width: 1)),
         boxShadow: [
           BoxShadow(
             color: isDark
@@ -90,9 +85,7 @@ class MishkatBottomNavBar extends StatelessWidget {
                     ),
 
                     // Item 2: Spacer slot for the floating Center Compass Button
-                    const Expanded(
-                      child: SizedBox.shrink(),
-                    ),
+                    const Expanded(child: SizedBox.shrink()),
 
                     // Item 3: الأذكار (Adhkar)
                     Expanded(
@@ -222,10 +215,7 @@ class _NavItem extends StatelessWidget {
 
 /// Prominent Center Floating Compass Button for Qibla.
 class _CenterCompassButton extends StatefulWidget {
-  const _CenterCompassButton({
-    required this.isSelected,
-    required this.onTap,
-  });
+  const _CenterCompassButton({required this.isSelected, required this.onTap});
 
   final bool isSelected;
   final VoidCallback onTap;
@@ -243,12 +233,8 @@ class _CenterCompassButtonState extends State<_CenterCompassButton> {
     final isSelected = widget.isSelected;
 
     // Theme-aware color choices
-    final activeBg = isDark
-        ? context.mishkat.primary
-        : context.mishkat.primary;
-    final activeIconColor = isDark
-        ? Colors.black
-        : Colors.white;
+    final activeBg = isDark ? context.mishkat.primary : context.mishkat.primary;
+    final activeIconColor = isDark ? Colors.black : Colors.white;
     final inactiveBg = context.mishkat.primarySoft;
     final inactiveIconColor = isDark
         ? context.mishkat.primary
@@ -282,18 +268,19 @@ class _CenterCompassButtonState extends State<_CenterCompassButton> {
                   border: Border.all(
                     color: isSelected
                         ? (isDark
-                            ? context.mishkat.primary
-                            : context.mishkat.gold)
+                              ? context.mishkat.primary
+                              : context.mishkat.gold)
                         : context.mishkat.border,
                     width: isSelected ? 2 : 1.5,
                   ),
                   boxShadow: [
                     if (isSelected)
                       BoxShadow(
-                        color: (isDark
-                                ? context.mishkat.primary
-                                : const Color(0xFF0B3D32))
-                            .withValues(alpha: 0.28),
+                        color:
+                            (isDark
+                                    ? context.mishkat.primary
+                                    : const Color(0xFF0B3D32))
+                                .withValues(alpha: 0.28),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       )
@@ -321,9 +308,7 @@ class _CenterCompassButtonState extends State<_CenterCompassButton> {
                       Icon(
                         Icons.explore_rounded,
                         size: 26,
-                        color: isSelected
-                            ? activeIconColor
-                            : inactiveIconColor,
+                        color: isSelected ? activeIconColor : inactiveIconColor,
                       ),
                     ],
                   ),
@@ -338,7 +323,9 @@ class _CenterCompassButtonState extends State<_CenterCompassButton> {
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                   color: isSelected
-                      ? (isDark ? context.mishkat.primary : context.mishkat.primaryDark)
+                      ? (isDark
+                            ? context.mishkat.primary
+                            : context.mishkat.primaryDark)
                       : context.mishkat.textSecondary,
                   fontFamily: 'Cairo',
                 ),

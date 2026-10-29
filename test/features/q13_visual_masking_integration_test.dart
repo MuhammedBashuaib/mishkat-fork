@@ -1,10 +1,13 @@
 // ignore_for_file: avoid_print
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/core/theme/app_theme.dart';
@@ -17,6 +20,16 @@ import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.
 import 'package:mishkat_app/features/quran/presentation/services/mushaf_coordinate_mapper.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/mushaf_visual_mask_overlay.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/mushaf_visual_recall_interaction_layer.dart';
+
+class DeferredLayoutBundle extends CachingAssetBundle {
+  Completer<String> pending = Completer<String>();
+
+  @override
+  Future<String> loadString(String key, {bool cache = true}) => pending.future;
+
+  @override
+  Future<ByteData> load(String key) => throw UnimplementedError();
+}
 
 class InMemoryTrackingLocalStorageService implements LocalStorageService {
   final Map<String, dynamic> store = {};
@@ -81,6 +94,8 @@ void main() {
   const mapper = MushafCoordinateMapper();
 
   setUpAll(() async {
+    await (FontLoader('Cairo')
+      ..addFont(rootBundle.load('assets/fonts/Cairo-Regular.ttf'))).load();
     layoutRepo = MushafLayoutRepository.instance;
     await layoutRepo.load();
 
@@ -136,6 +151,94 @@ void main() {
         ),
       );
     }
+
+    testWidgets(
+      'Cold recall waits for geometry before showing text, then masks every queued Ayah',
+      (tester) async {
+        final bundle = DeferredLayoutBundle();
+        final coldRepository = MushafLayoutRepository(bundle: bundle);
+        await recallCubit.close();
+        recallCubit = QuranVisualRecallCubit(
+          memorizationCubit: memoCubit,
+          storage: storage,
+          layoutRepository: coldRepository,
+        );
+        await recallCubit.startRange(13, 15);
+
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 3, scale: 1, isCurrent: true),
+          ),
+        );
+        expect(find.byType(SvgPicture), findsNothing);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+        bundle.pending.complete(
+          File('assets/data/mushaf-layout.json').readAsStringSync(),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byType(SvgPicture), findsOneWidget);
+        final overlay = tester.widget<MushafVisualMaskOverlay>(
+          find.byType(MushafVisualMaskOverlay),
+        );
+        expect(overlay.maskedAyahs.map((ayah) => ayah.globalAyah), [
+          13,
+          14,
+          15,
+        ]);
+        expect(overlay.preserveAyahNumbers, isTrue);
+
+        recallCubit.revealCurrentAyah();
+        await tester.pump();
+        await tester.pump();
+        final revealedOverlay = tester.widget<MushafVisualMaskOverlay>(
+          find.byType(MushafVisualMaskOverlay),
+        );
+        expect(revealedOverlay.maskedAyahs.map((ayah) => ayah.globalAyah), [
+          14,
+          15,
+        ]);
+      },
+    );
+
+    testWidgets(
+      'Failed geometry load keeps recall text concealed and offers a working retry',
+      (tester) async {
+        final bundle = DeferredLayoutBundle();
+        await recallCubit.close();
+        recallCubit = QuranVisualRecallCubit(
+          memorizationCubit: memoCubit,
+          storage: storage,
+          layoutRepository: MushafLayoutRepository(bundle: bundle),
+        );
+        await recallCubit.startRange(13, 15);
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 3, scale: 1, isCurrent: true),
+          ),
+        );
+
+        bundle.pending.completeError(StateError('asset unavailable'));
+        await tester.pump();
+        expect(find.byType(SvgPicture), findsNothing);
+        expect(find.text('تعذر تجهيز المصحف. إعادة المحاولة'), findsOneWidget);
+
+        bundle.pending = Completer<String>();
+        await tester.tap(find.byType(TextButton));
+        await tester.pump();
+        expect(find.byType(SvgPicture), findsNothing);
+        bundle.pending.complete(
+          File('assets/data/mushaf-layout.json').readAsStringSync(),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(find.byType(SvgPicture), findsOneWidget);
+        expect(find.byType(MushafVisualMaskOverlay), findsOneWidget);
+        expect(recallCubit.state.revealedGlobals, isEmpty);
+      },
+    );
 
     testWidgets(
       '1. InteractiveViewer zoom and transform alignment with Visual Mask Overlay',
@@ -347,7 +450,7 @@ void main() {
     );
 
     testWidgets(
-      '4. Mask hides Ayah text while preserving the original number medallion',
+      '4. Opaque mask draws the number without exposing neighboring SVG text',
       (tester) async {
         final ayah = layoutRepo.getAyah(13)!;
         final page = layoutRepo.getPageGeometry(ayah.page)!;
@@ -362,8 +465,8 @@ void main() {
         );
         final numberWindow = painter.ayahNumberWindow(ayah, canvasSize);
         expect(numberWindow, isNotNull);
-        expect(numberWindow!.center.dx, closeTo(269.06, .1));
-        expect(numberWindow.center.dy, closeTo(61.75, 1));
+        expect(numberWindow!.center.dx, closeTo(265.17, .01));
+        expect(numberWindow.center.dy, closeTo(64.11, .01));
 
         final recorder = ui.PictureRecorder();
         final canvas = Canvas(recorder);
@@ -387,9 +490,9 @@ void main() {
           return bytes!.getUint8((y * canvasSize.width.toInt() + x) * 4);
         }
 
-        // The number window remains transparent to the original Mushaf SVG.
-        expect(redAt(numberWindow.center), lessThan(20));
-        // The surrounding Ayah text corridor is fully concealed by the mask.
+        // The old guessed hole revealed this neighboring word area. A number
+        // is now painted over an opaque mask at its exact source position.
+        expect(redAt(const Offset(282, 64)), greaterThan(240));
         expect(redAt(Offset(325, numberWindow.center.dy)), greaterThan(240));
       },
     );
@@ -531,6 +634,79 @@ void main() {
         (name: 'standard_390', size: Size(390, 844)),
         (name: 'pro_max_430', size: Size(430, 932)),
       ];
+
+      testWidgets('Full-page recall keeps only Ayah numbers before reveal', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final storage = InMemoryTrackingLocalStorageService();
+        final memoCubit = QuranMemorizationCubit(
+          repository: QuranMemorizationRepository(storage: storage),
+        );
+        await memoCubit.load();
+        final recallCubit = QuranVisualRecallCubit(
+          memorizationCubit: memoCubit,
+          storage: storage,
+        );
+        addTearDown(recallCubit.close);
+        addTearDown(memoCubit.close);
+
+        for (final pageNumber in [1, 2, 3, 604]) {
+          final ayahs = layoutRepo.getPageGeometry(pageNumber)!.ayahs;
+          await recallCubit.startJourney(
+            ayahs.map((ayah) => ayah.globalAyah).toList(),
+          );
+          final captureKey = GlobalKey();
+          await tester.pumpWidget(
+            BlocProvider.value(
+              value: recallCubit,
+              child: MaterialApp(
+                theme: AppTheme.light(1),
+                home: Scaffold(
+                  body: RepaintBoundary(
+                    key: captureKey,
+                    child: MushafPage(
+                      page: pageNumber,
+                      scale: 1,
+                      isCurrent: true,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          final overlay = tester.widget<MushafVisualMaskOverlay>(
+            find.byType(MushafVisualMaskOverlay),
+          );
+          expect(
+            overlay.maskedAyahs.map((ayah) => ayah.globalAyah),
+            ayahs.map((ayah) => ayah.globalAyah),
+          );
+          expect(overlay.preserveAyahNumbers, isTrue);
+          await tester.runAsync(() async {
+            // Let the real SVG finish decoding before capturing visible pixels.
+            await Future<void>.delayed(const Duration(milliseconds: 60));
+          });
+          await tester.pump();
+          await tester.runAsync(() async {
+            final boundary =
+                captureKey.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary;
+            final image = await boundary.toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await File(
+              'screenshots/visual_recall/page_${pageNumber}_all_hidden.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+      });
 
       testWidgets(
         '6. Render and capture visual masking across representative pages, themes, and viewports',

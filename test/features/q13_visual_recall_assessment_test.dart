@@ -125,7 +125,10 @@ class FakeQuranAudioService implements QuranAudioService {
   bool get isPlaying => false;
 
   @override
-  Future<void> playAyah({required String reciter, required int globalAyah}) async {}
+  Future<void> playAyah({
+    required String reciter,
+    required int globalAyah,
+  }) async {}
 
   @override
   Future<void> playAyahFromUrl(String url) async {}
@@ -269,7 +272,10 @@ void main() {
       expect(record.sessionId, sessionId);
       expect(record.id, expectedOperationId);
 
-      expect(recallCubit.state.assessmentOutcomes[200], ReviewOutcome.difficult);
+      expect(
+        recallCubit.state.assessmentOutcomes[200],
+        ReviewOutcome.difficult,
+      );
     });
 
     // ============================================================
@@ -305,7 +311,10 @@ void main() {
       await recallCubit.startRange(13, 14);
 
       // Checkpoint was saved on start
-      expect(storage.store.containsKey(QuranVisualRecallCubit.checkpointKey), true);
+      expect(
+        storage.store.containsKey(QuranVisualRecallCubit.checkpointKey),
+        true,
+      );
 
       // Assess 13
       recallCubit.revealCurrentAyah();
@@ -321,66 +330,75 @@ void main() {
       expect(recallCubit.state.isCompleted, true);
       expect(recallCubit.state.currentGlobalAyah, isNull);
       expect(recallCubit.state.completedCount, 2);
-      expect(storage.store.containsKey(QuranVisualRecallCubit.checkpointKey), false);
+      expect(
+        storage.store.containsKey(QuranVisualRecallCubit.checkpointKey),
+        false,
+      );
     });
 
     // ============================================================
     // GROUP 3: Failure Handling & Retry Boundary
     // ============================================================
-    test('11, 12. Persistence failure BLOCKS advance and preserves state', () async {
-      await recallCubit.startSingleAyah(300);
-      recallCubit.revealCurrentAyah();
+    test(
+      '11, 12. Persistence failure BLOCKS advance and preserves state',
+      () async {
+        await recallCubit.startSingleAyah(300);
+        recallCubit.revealCurrentAyah();
 
-      storage.failOnWrite = true;
+        storage.failOnWrite = true;
 
-      var threw = false;
-      try {
-        await recallCubit.recordKnown();
-      } catch (_) {
-        threw = true;
-      }
+        var threw = false;
+        try {
+          await recallCubit.recordKnown();
+        } catch (_) {
+          threw = true;
+        }
 
-      expect(threw, true);
+        expect(threw, true);
 
-      // INVARIANTS:
-      // 1. Advance is strictly BLOCKED
-      expect(recallCubit.state.currentIndex, 0);
-      expect(recallCubit.state.currentGlobalAyah, 300);
-      // 2. Not marked completed
-      expect(recallCubit.state.isCompleted, false);
-      // 3. Error exposed
-      expect(recallCubit.state.error, isNotNull);
-      expect(recallCubit.state.isLoading, false);
-      // 4. In-memory history in memoCubit rolled back cleanly
-      expect(memoCubit.state.history, isEmpty);
-    });
+        // INVARIANTS:
+        // 1. Advance is strictly BLOCKED
+        expect(recallCubit.state.currentIndex, 0);
+        expect(recallCubit.state.currentGlobalAyah, 300);
+        // 2. Not marked completed
+        expect(recallCubit.state.isCompleted, false);
+        // 3. Error exposed
+        expect(recallCubit.state.error, isNotNull);
+        expect(recallCubit.state.isLoading, false);
+        // 4. In-memory history in memoCubit rolled back cleanly
+        expect(memoCubit.state.history, isEmpty);
+      },
+    );
 
-    test('13, 14. Failed operation can be retried using same operation identity', () async {
-      await recallCubit.startSingleAyah(400);
-      recallCubit.revealCurrentAyah();
-      final sessionId = recallCubit.state.sessionId!;
-      final expectedOpId = 'rev_${sessionId}_400';
+    test(
+      '13, 14. Failed operation can be retried using same operation identity',
+      () async {
+        await recallCubit.startSingleAyah(400);
+        recallCubit.revealCurrentAyah();
+        final sessionId = recallCubit.state.sessionId!;
+        final expectedOpId = 'rev_${sessionId}_400';
 
-      storage.failOnWrite = true;
-      try {
-        await recallCubit.recordKnown();
-      } catch (_) {}
+        storage.failOnWrite = true;
+        try {
+          await recallCubit.recordKnown();
+        } catch (_) {}
 
-      expect(recallCubit.state.currentIndex, 0);
-      expect(recallCubit.state.error, isNotNull);
+        expect(recallCubit.state.currentIndex, 0);
+        expect(recallCubit.state.error, isNotNull);
 
-      // Storage recovers
-      storage.failOnWrite = false;
+        // Storage recovers
+        storage.failOnWrite = false;
 
-      // Retry
-      await recallCubit.retryLastOutcome(ReviewOutcome.good);
+        // Retry
+        await recallCubit.retryLastOutcome(ReviewOutcome.good);
 
-      // INVARIANT: Retry succeeds cleanly using SAME operation identity
-      expect(recallCubit.state.isCompleted, true);
-      expect(recallCubit.state.error, isNull);
-      expect(memoCubit.state.history.length, 1);
-      expect(memoCubit.state.history.first.id, expectedOpId);
-    });
+        // INVARIANT: Retry succeeds cleanly using SAME operation identity
+        expect(recallCubit.state.isCompleted, true);
+        expect(recallCubit.state.error, isNull);
+        expect(memoCubit.state.history.length, 1);
+        expect(memoCubit.state.history.first.id, expectedOpId);
+      },
+    );
 
     test('15. Checkpoint cleanup failure on completion exposes error without blocking completion', () async {
       await recallCubit.startSingleAyah(450);
@@ -393,31 +411,37 @@ void main() {
       // INVARIANT: History is committed, session is completed, error is exposed
       expect(memoCubit.state.history.length, 1);
       expect(recallCubit.state.isCompleted, true);
-      expect(recallCubit.state.error, contains('تعذر حذف نقطة الاستعادة المؤقتة'));
+      expect(
+        recallCubit.state.error,
+        contains('تعذر حذف نقطة الاستعادة المؤقتة'),
+      );
     });
 
     // ============================================================
     // GROUP 4: Idempotency & Concurrency Guarantees
     // ============================================================
-    test('16. Sequential duplicate submission produces one logical review', () async {
-      await recallCubit.startRange(500, 501);
-      recallCubit.revealCurrentAyah();
-      final sessionId = recallCubit.state.sessionId!;
+    test(
+      '16. Sequential duplicate submission produces one logical review',
+      () async {
+        await recallCubit.startRange(500, 501);
+        recallCubit.revealCurrentAyah();
+        final sessionId = recallCubit.state.sessionId!;
 
-      await recallCubit.recordKnown();
-      expect(memoCubit.state.history.length, 1);
+        await recallCubit.recordKnown();
+        expect(memoCubit.state.history.length, 1);
 
-      // Attempt explicit duplicate review on memoCubit with same operationId
-      await memoCubit.recordReviewOutcome(
-        globalAyah: 500,
-        outcome: ReviewOutcome.good,
-        sessionId: sessionId,
-        operationId: 'rev_${sessionId}_500',
-      );
+        // Attempt explicit duplicate review on memoCubit with same operationId
+        await memoCubit.recordReviewOutcome(
+          globalAyah: 500,
+          outcome: ReviewOutcome.good,
+          sessionId: sessionId,
+          operationId: 'rev_${sessionId}_500',
+        );
 
-      // Ledger ensures strictly 1 history entry
-      expect(memoCubit.state.history.length, 1);
-    });
+        // Ledger ensures strictly 1 history entry
+        expect(memoCubit.state.history.length, 1);
+      },
+    );
 
     test('17. Concurrent duplicate submission resolves to one underlying operation', () async {
       await recallCubit.startRange(510, 512);
@@ -439,7 +463,9 @@ void main() {
     test('18. Duplicate after restart reconciles without creating duplicate review', () async {
       await recallCubit.startRange(520, 522);
       recallCubit.revealCurrentAyah();
-      await recallCubit.recordOutcome(ReviewOutcome.good); // 520 committed, now at 521
+      await recallCubit.recordOutcome(
+        ReviewOutcome.good,
+      ); // 520 committed, now at 521
 
       // Restart Cubit
       final restartedCubit = QuranVisualRecallCubit(
@@ -460,21 +486,24 @@ void main() {
       await restartedCubit.close();
     });
 
-    test('19, 20. Completed session safely rejects subsequent recordOutcome calls', () async {
-      await recallCubit.startSingleAyah(550);
-      recallCubit.revealCurrentAyah();
-      await recallCubit.recordKnown();
+    test(
+      '19, 20. Completed session safely rejects subsequent recordOutcome calls',
+      () async {
+        await recallCubit.startSingleAyah(550);
+        recallCubit.revealCurrentAyah();
+        await recallCubit.recordKnown();
 
-      expect(recallCubit.state.isCompleted, true);
-      final historyCount = memoCubit.state.history.length;
+        expect(recallCubit.state.isCompleted, true);
+        final historyCount = memoCubit.state.history.length;
 
-      // Duplicate attempt on completed session
-      await recallCubit.recordOutcome(ReviewOutcome.good);
+        // Duplicate attempt on completed session
+        await recallCubit.recordOutcome(ReviewOutcome.good);
 
-      // INVARIANT: Ignored, 0 mutations, 0 history additions
-      expect(memoCubit.state.history.length, historyCount);
-      expect(recallCubit.state.isCompleted, true);
-    });
+        // INVARIANT: Ignored, 0 mutations, 0 history additions
+        expect(memoCubit.state.history.length, historyCount);
+        expect(recallCubit.state.isCompleted, true);
+      },
+    );
 
     // ============================================================
     // GROUP 5: Session Boundaries & Rejection Validation
@@ -547,8 +576,11 @@ void main() {
       final lastReadWrites = storage.writeOperations
           .where((op) => op.contains('last_read'))
           .toList();
-      expect(lastReadWrites, isEmpty,
-          reason: 'Assessment flow must have strictly 0 writes to Last Read keys');
+      expect(
+        lastReadWrites,
+        isEmpty,
+        reason: 'Assessment flow must have strictly 0 writes to Last Read keys',
+      );
       expect(storage.readMap('last_read'), initialLastRead);
       expect(storage.readInt('last_read_page'), 42);
     });
@@ -556,103 +588,110 @@ void main() {
     // ============================================================
     // GROUP 7: UI Widget Smoke & Interaction Tests
     // ============================================================
-    testWidgets('32, 33. VisualRecallBottomBar renders activeRecall prompt and evaluating controls',
-        (tester) async {
-      await recallCubit.startRange(13, 15);
+    testWidgets(
+      '32, 33. VisualRecallBottomBar renders activeRecall prompt and evaluating controls',
+      (tester) async {
+        await recallCubit.startRange(13, 15);
 
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              VisualRecallBottomBar(cubit: recallCubit),
-            ],
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [VisualRecallBottomBar(cubit: recallCubit)],
+            ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      // In activeRecall: shows reveal prompt and button
-      expect(find.text('إظهار الآية'), findsOneWidget);
-      expect(find.textContaining('آية 1 من 3'), findsOneWidget);
+        // In activeRecall: shows reveal prompt and button
+        expect(find.text('إظهار الآية'), findsOneWidget);
+        expect(find.textContaining('آية 1 من 3'), findsOneWidget);
 
-      // Tap reveal button
-      await tester.tap(find.text('إظهار الآية'));
-      await tester.pump();
+        // Tap reveal button
+        await tester.tap(find.text('إظهار الآية'));
+        await tester.pump();
 
-      // In evaluating: shows assessment buttons
-      expect(recallCubit.state.isEvaluating, true);
-      expect(find.text('أعرفها ومتقنة'), findsOneWidget);
-      expect(find.text('تحتاج مراجعة'), findsOneWidget);
+        // In evaluating: shows assessment buttons
+        expect(recallCubit.state.isEvaluating, true);
+        expect(find.text('أعرفها ومتقنة'), findsOneWidget);
+        expect(find.text('تحتاج مراجعة'), findsOneWidget);
 
-      // Tap 'أعرفها ومتقنة'
-      await tester.tap(find.text('أعرفها ومتقنة'));
-      await tester.pump();
+        // Tap 'أعرفها ومتقنة'
+        await tester.tap(find.text('أعرفها ومتقنة'));
+        await tester.pump();
 
-      // Advanced to Ayah 2
-      expect(recallCubit.state.currentIndex, 1);
-      expect(find.textContaining('آية 2 من 3'), findsOneWidget);
-    });
+        // Advanced to Ayah 2
+        expect(recallCubit.state.currentIndex, 1);
+        expect(find.textContaining('آية 2 من 3'), findsOneWidget);
+      },
+    );
 
-    testWidgets('34, 35, 36. VisualRecallBottomBar renders error banner with retry and completion card',
-        (tester) async {
-      await recallCubit.startSingleAyah(20);
-      recallCubit.revealCurrentAyah();
+    testWidgets(
+      '34, 35, 36. VisualRecallBottomBar renders error banner with retry and completion card',
+      (tester) async {
+        await recallCubit.startSingleAyah(20);
+        recallCubit.revealCurrentAyah();
 
-      storage.failOnWrite = true;
+        storage.failOnWrite = true;
 
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              VisualRecallBottomBar(cubit: recallCubit),
-            ],
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [VisualRecallBottomBar(cubit: recallCubit)],
+            ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      // Tap 'أعرفها ومتقنة' while write fails
-      await tester.tap(find.text('أعرفها ومتقنة'));
-      await tester.pump();
+        // Tap 'أعرفها ومتقنة' while write fails
+        await tester.tap(find.text('أعرفها ومتقنة'));
+        await tester.pump();
 
-      // Shows error banner and retry button
-      expect(find.text('إعادة المحاولة'), findsOneWidget);
-      expect(find.textContaining('تعذر حفظ نتيجة التسميع'), findsOneWidget);
+        // Shows error banner and retry button
+        expect(find.text('إعادة المحاولة'), findsOneWidget);
+        expect(find.textContaining('تعذر حفظ نتيجة التسميع'), findsOneWidget);
 
-      // Fix storage and tap retry
-      storage.failOnWrite = false;
-      await tester.tap(find.text('إعادة المحاولة'));
-      await tester.pump();
+        // Fix storage and tap retry
+        storage.failOnWrite = false;
+        await tester.tap(find.text('إعادة المحاولة'));
+        await tester.pump();
 
-      // Transitioned to completed
-      expect(recallCubit.state.isCompleted, true);
-      expect(find.textContaining('اكتملت الجلسة بنجاح!'), findsOneWidget);
-      expect(find.text('إنهاء'), findsOneWidget);
+        // Transitioned to completed
+        expect(recallCubit.state.isCompleted, true);
+        expect(find.textContaining('اكتملت الجلسة بنجاح!'), findsOneWidget);
+        expect(find.text('إنهاء'), findsOneWidget);
 
-      // Tap dismiss
-      await tester.tap(find.text('إنهاء'));
-      await tester.pump();
-      expect(recallCubit.state.isIdle, true);
-    });
+        // Tap dismiss
+        await tester.tap(find.text('إنهاء'));
+        await tester.pump();
+        expect(recallCubit.state.isIdle, true);
+      },
+    );
 
     // ============================================================
     // GROUP 8: Visual Evidence Artifacts Capture (10 Screenshots)
     // ============================================================
-    testWidgets('37. Generate 10 real visual assessment screenshots', (tester) async {
+    testWidgets('37. Generate 10 real visual assessment screenshots', (
+      tester,
+    ) async {
       Future<void> saveScreenshot(GlobalKey key, String filename) async {
         await tester.runAsync(() async {
           final boundary =
               key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
           if (boundary != null) {
             final image = await boundary.toImage(pixelRatio: 1.0);
-            final byteData =
-                await image.toByteData(format: ui.ImageByteFormat.png);
+            final byteData = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
             if (byteData != null) {
-              final file = File('screenshots/visual_recall_assessment/$filename');
+              final file = File(
+                'screenshots/visual_recall_assessment/$filename',
+              );
               await file.writeAsBytes(byteData.buffer.asUint8List());
-              print('Saved evidence screenshot: $filename (${byteData.lengthInBytes} bytes)');
+              print(
+                'Saved evidence screenshot: $filename (${byteData.lengthInBytes} bytes)',
+              );
             }
           }
         });

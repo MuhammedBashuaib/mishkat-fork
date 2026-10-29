@@ -146,7 +146,10 @@ class FakeQuranAudioService implements QuranAudioService {
   bool get isPlaying => isPlayingState;
 
   @override
-  Future<void> playAyah({required String reciter, required int globalAyah}) async {
+  Future<void> playAyah({
+    required String reciter,
+    required int globalAyah,
+  }) async {
     if (failOnPlay) {
       throw const QuranAudioOfflineException('تلاوة غير متوفرة');
     }
@@ -263,29 +266,35 @@ void main() {
     // ============================================================
     // GROUP 1: Audio Start & Player Reuse
     // ============================================================
-    test('1, 2. Current Ayah resolves to correct audio and reuses existing player', () async {
-      await recallCubit.startRange(13, 15);
-      expect(recallCubit.state.currentGlobalAyah, 13);
+    test(
+      '1, 2. Current Ayah resolves to correct audio and reuses existing player',
+      () async {
+        await recallCubit.startRange(13, 15);
+        expect(recallCubit.state.currentGlobalAyah, 13);
 
-      await recallCubit.playCurrentAyahAudio();
+        await recallCubit.playCurrentAyahAudio();
 
-      expect(fakeAudio.playedAyahs, contains(13));
-      expect(recallCubit.state.isAudioPlaying, true);
-      expect(recallCubit.state.currentAudioAyah, 13);
-      expect(recallCubit.state.isAudioSyncEnabled, true);
-    });
+        expect(fakeAudio.playedAyahs, contains(13));
+        expect(recallCubit.state.isAudioPlaying, true);
+        expect(recallCubit.state.currentAudioAyah, 13);
+        expect(recallCubit.state.isAudioSyncEnabled, true);
+      },
+    );
 
-    test('3. Audio failure handles gracefully without breaking session', () async {
-      fakeAudio.failOnPlay = true;
-      await recallCubit.startRange(13, 15);
+    test(
+      '3. Audio failure handles gracefully without breaking session',
+      () async {
+        fakeAudio.failOnPlay = true;
+        await recallCubit.startRange(13, 15);
 
-      await recallCubit.playCurrentAyahAudio();
+        await recallCubit.playCurrentAyahAudio();
 
-      expect(recallCubit.state.isAudioPlaying, false);
-      expect(recallCubit.state.error, contains('تعذر تشغيل الصوت'));
-      expect(recallCubit.state.hasActiveSession, true);
-      expect(recallCubit.state.currentGlobalAyah, 13);
-    });
+        expect(recallCubit.state.isAudioPlaying, false);
+        expect(recallCubit.state.error, contains('تعذر تشغيل الصوت'));
+        expect(recallCubit.state.hasActiveSession, true);
+        expect(recallCubit.state.currentGlobalAyah, 13);
+      },
+    );
 
     // ============================================================
     // GROUP 2: Current Ayah Synchronization
@@ -306,22 +315,25 @@ void main() {
       expect(recallCubit.state.currentAudioAyah, 14);
     });
 
-    test('6. Stale audio callback for previous Ayah cannot affect new Ayah', () async {
-      await recallCubit.startRange(13, 15);
-      await recallCubit.playCurrentAyahAudio();
-      expect(recallCubit.state.currentGlobalAyah, 13);
+    test(
+      '6. Stale audio callback for previous Ayah cannot affect new Ayah',
+      () async {
+        await recallCubit.startRange(13, 15);
+        await recallCubit.playCurrentAyahAudio();
+        expect(recallCubit.state.currentGlobalAyah, 13);
 
-      // User jumps to Ayah 14
-      recallCubit.jumpToAyah(14);
-      expect(recallCubit.state.currentGlobalAyah, 14);
+        // User jumps to Ayah 14
+        recallCubit.jumpToAyah(14);
+        expect(recallCubit.state.currentGlobalAyah, 14);
 
-      // Late event from Ayah 13 arrives
-      fakeAudio.emitCompleted();
+        // Late event from Ayah 13 arrives
+        fakeAudio.emitCompleted();
 
-      // Must NOT start timed mask for Ayah 14 or advance
-      expect(recallCubit.state.isTimedMaskActive, false);
-      expect(recallCubit.state.currentGlobalAyah, 14);
-    });
+        // Must NOT start timed mask for Ayah 14 or advance
+        expect(recallCubit.state.isTimedMaskActive, false);
+        expect(recallCubit.state.currentGlobalAyah, 14);
+      },
+    );
 
     // ============================================================
     // GROUP 3: Timed Masking & Tardid Delay Countdown
@@ -347,21 +359,24 @@ void main() {
       expect(recallCubit.state.revealedGlobals.contains(13), true);
     });
 
-    test('9. Manual reveal during countdown cancels timer immediately', () async {
-      await recallCubit.startRange(13, 15);
-      await recallCubit.playCurrentAyahAudio();
-      fakeAudio.emitCompleted();
+    test(
+      '9. Manual reveal during countdown cancels timer immediately',
+      () async {
+        await recallCubit.startRange(13, 15);
+        await recallCubit.playCurrentAyahAudio();
+        fakeAudio.emitCompleted();
 
-      expect(recallCubit.state.isTimedMaskActive, true);
+        expect(recallCubit.state.isTimedMaskActive, true);
 
-      // User manually reveals Ayah 13
-      recallCubit.revealCurrentAyah();
+        // User manually reveals Ayah 13
+        recallCubit.revealCurrentAyah();
 
-      expect(recallCubit.state.isTimedMaskActive, false);
-      expect(recallCubit.state.remainingMaskDuration, 0);
-      expect(recallCubit.state.isEvaluating, true);
-      expect(recallCubit.state.revealedGlobals.contains(13), true);
-    });
+        expect(recallCubit.state.isTimedMaskActive, false);
+        expect(recallCubit.state.remainingMaskDuration, 0);
+        expect(recallCubit.state.isEvaluating, true);
+        expect(recallCubit.state.revealedGlobals.contains(13), true);
+      },
+    );
 
     test('10. Skip delay cancels timer and reveals immediately', () async {
       await recallCubit.startRange(13, 15);
@@ -427,25 +442,31 @@ void main() {
 
       // Memorization history and Last Read remain untouched
       expect(memoCubit.state.history.isEmpty, true);
-      expect(storage.writeOperations.where((op) => op.contains('last_read')), isEmpty);
+      expect(
+        storage.writeOperations.where((op) => op.contains('last_read')),
+        isEmpty,
+      );
     });
 
     // ============================================================
     // GROUP 6: Assessment & Audio Isolation
     // ============================================================
-    test('23, 24, 25. Audio completion does NOT automatically assess or advance', () async {
-      await recallCubit.startRange(13, 15);
-      await recallCubit.playCurrentAyahAudio();
+    test(
+      '23, 24, 25. Audio completion does NOT automatically assess or advance',
+      () async {
+        await recallCubit.startRange(13, 15);
+        await recallCubit.playCurrentAyahAudio();
 
-      fakeAudio.emitCompleted();
-      await Future<void>.delayed(const Duration(milliseconds: 3200));
+        fakeAudio.emitCompleted();
+        await Future<void>.delayed(const Duration(milliseconds: 3200));
 
-      // Ayah 13 is revealed, but queue has NOT advanced and 0 reviews written
-      expect(recallCubit.state.currentIndex, 0);
-      expect(recallCubit.state.currentGlobalAyah, 13);
-      expect(memoCubit.state.history.isEmpty, true);
-      expect(recallCubit.state.assessmentOutcomes.isEmpty, true);
-    });
+        // Ayah 13 is revealed, but queue has NOT advanced and 0 reviews written
+        expect(recallCubit.state.currentIndex, 0);
+        expect(recallCubit.state.currentGlobalAyah, 13);
+        expect(memoCubit.state.history.isEmpty, true);
+        expect(recallCubit.state.assessmentOutcomes.isEmpty, true);
+      },
+    );
 
     // ============================================================
     // GROUP 7: Race Conditions (Sections 27 & 28)
@@ -503,168 +524,177 @@ void main() {
       fakeAudio.emitCompleted();
       await Future<void>.delayed(const Duration(milliseconds: 3200));
 
-      final lastReadWrites = storage.writeOperations
-          .where((op) => op.contains('last_read') || op.contains('lastRead'));
+      final lastReadWrites = storage.writeOperations.where(
+        (op) => op.contains('last_read') || op.contains('lastRead'),
+      );
       expect(lastReadWrites, isEmpty);
     });
 
     // ============================================================
     // GROUP 9: Widget Integration in VisualRecallBottomBar
     // ============================================================
-    testWidgets('27..29. VisualRecallBottomBar renders audio sync toggle, playback, and Tardid badge', (tester) async {
-      await recallCubit.startRange(13, 15);
+    testWidgets(
+      '27..29. VisualRecallBottomBar renders audio sync toggle, playback, and Tardid badge',
+      (tester) async {
+        await recallCubit.startRange(13, 15);
 
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              VisualRecallBottomBar(cubit: recallCubit),
-            ],
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [VisualRecallBottomBar(cubit: recallCubit)],
+            ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      // Audio sync toggle icon present
-      expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
+        // Audio sync toggle icon present
+        expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
 
-      // Tap to enable audio sync
-      await tester.tap(find.byIcon(Icons.volume_off_rounded));
-      await tester.pump();
-      expect(recallCubit.state.isAudioSyncEnabled, true);
-      expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
+        // Tap to enable audio sync
+        await tester.tap(find.byIcon(Icons.volume_off_rounded));
+        await tester.pump();
+        expect(recallCubit.state.isAudioSyncEnabled, true);
+        expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
 
-      // Play button is rendered
-      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+        // Play button is rendered
+        expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
 
-      // Play audio for current Ayah
-      await recallCubit.playCurrentAyahAudio();
-      await tester.pump();
-      expect(recallCubit.state.isAudioPlaying, true);
+        // Play audio for current Ayah
+        await recallCubit.playCurrentAyahAudio();
+        await tester.pump();
+        expect(recallCubit.state.isAudioPlaying, true);
 
-      // Pause button visible while playing
-      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+        // Pause button visible while playing
+        expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
 
-      // Emit audio completion to enter Tardid delay
-      await tester.runAsync(() async {
-        fakeAudio.emitCompleted();
-      });
-      await tester.pump();
+        // Emit audio completion to enter Tardid delay
+        await tester.runAsync(() async {
+          fakeAudio.emitCompleted();
+        });
+        await tester.pump();
 
-      expect(recallCubit.state.isTimedMaskActive, true);
-      expect(find.textContaining('ردّد الآية غيباً'), findsOneWidget);
-      expect(find.text('تخطي المهلة'), findsOneWidget);
+        expect(recallCubit.state.isTimedMaskActive, true);
+        expect(find.textContaining('ردّد الآية غيباً'), findsOneWidget);
+        expect(find.text('تخطي المهلة'), findsOneWidget);
 
-      // Tap skip delay
-      await tester.tap(find.text('تخطي المهلة'));
-      await tester.pump();
+        // Tap skip delay
+        await tester.tap(find.text('تخطي المهلة'));
+        await tester.pump();
 
-      expect(recallCubit.state.isEvaluating, true);
-      expect(find.text('أعرفها ومتقنة'), findsOneWidget);
-    });
+        expect(recallCubit.state.isEvaluating, true);
+        expect(find.text('أعرفها ومتقنة'), findsOneWidget);
+      },
+    );
 
     // ============================================================
     // GROUP 10: Visual Evidence Artifacts Capture (10 Screenshots)
     // ============================================================
-    testWidgets('30. Generate 10 real visual audio and timed-masking screenshots', (tester) async {
-      Future<void> saveScreenshot(GlobalKey key, String filename) async {
-        await tester.runAsync(() async {
-          final boundary =
-              key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-          if (boundary != null) {
-            final image = await boundary.toImage(pixelRatio: 1.0);
-            final byteData =
-                await image.toByteData(format: ui.ImageByteFormat.png);
-            if (byteData != null) {
-              final file = File('screenshots/visual_recall_audio/$filename');
-              await file.writeAsBytes(byteData.buffer.asUint8List());
-              print('Saved evidence screenshot: $filename (${byteData.lengthInBytes} bytes)');
+    testWidgets(
+      '30. Generate 10 real visual audio and timed-masking screenshots',
+      (tester) async {
+        Future<void> saveScreenshot(GlobalKey key, String filename) async {
+          await tester.runAsync(() async {
+            final boundary =
+                key.currentContext?.findRenderObject()
+                    as RenderRepaintBoundary?;
+            if (boundary != null) {
+              final image = await boundary.toImage(pixelRatio: 1.0);
+              final byteData = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              if (byteData != null) {
+                final file = File('screenshots/visual_recall_audio/$filename');
+                await file.writeAsBytes(byteData.buffer.asUint8List());
+                print(
+                  'Saved evidence screenshot: $filename (${byteData.lengthInBytes} bytes)',
+                );
+              }
             }
-          }
-        });
-      }
+          });
+        }
 
-      final key = GlobalKey();
+        final key = GlobalKey();
 
-      // 1. Audio sync enabled state
-      await recallCubit.startRange(13, 15);
-      await recallCubit.toggleAudioSync();
+        // 1. Audio sync enabled state
+        await recallCubit.startRange(13, 15);
+        await recallCubit.toggleAudioSync();
 
-      await tester.pumpWidget(
-        RepaintBoundary(
-          key: key,
-          child: buildTestHarness(
-            child: Column(
-              children: [
-                const Expanded(
-                  child: MushafPage(page: 3, scale: 1.0, isCurrent: true),
-                ),
-                VisualRecallBottomBar(cubit: recallCubit),
-              ],
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: key,
+            child: buildTestHarness(
+              child: Column(
+                children: [
+                  const Expanded(
+                    child: MushafPage(page: 3, scale: 1.0, isCurrent: true),
+                  ),
+                  VisualRecallBottomBar(cubit: recallCubit),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
-      await saveScreenshot(key, '01_audio_sync_enabled.png');
+        );
+        await tester.pump();
+        await saveScreenshot(key, '01_audio_sync_enabled.png');
 
-      // 2. Audio playing state
-      await recallCubit.playCurrentAyahAudio();
-      await tester.pump();
-      await saveScreenshot(key, '02_audio_playing.png');
+        // 2. Audio playing state
+        await recallCubit.playCurrentAyahAudio();
+        await tester.pump();
+        await saveScreenshot(key, '02_audio_playing.png');
 
-      // 3. Audio paused state
-      await recallCubit.pauseAudio();
-      await tester.pump();
-      await saveScreenshot(key, '03_audio_paused.png');
+        // 3. Audio paused state
+        await recallCubit.pauseAudio();
+        await tester.pump();
+        await saveScreenshot(key, '03_audio_paused.png');
 
-      // 4. Timed mask active (Tardid delay countdown)
-      await recallCubit.resumeAudio();
-      fakeAudio.emitCompleted();
-      await tester.pump();
-      expect(recallCubit.state.isTimedMaskActive, true);
-      await saveScreenshot(key, '04_timed_mask_active.png');
+        // 4. Timed mask active (Tardid delay countdown)
+        await recallCubit.resumeAudio();
+        fakeAudio.emitCompleted();
+        await tester.pump();
+        expect(recallCubit.state.isTimedMaskActive, true);
+        await saveScreenshot(key, '04_timed_mask_active.png');
 
-      // 5. Timed mask expired (Ayah automatically revealed for evaluation)
-      recallCubit.skipTimedMaskDelay();
-      await tester.pump();
-      expect(recallCubit.state.isEvaluating, true);
-      await saveScreenshot(key, '05_timed_mask_expired.png');
+        // 5. Timed mask expired (Ayah automatically revealed for evaluation)
+        recallCubit.skipTimedMaskDelay();
+        await tester.pump();
+        expect(recallCubit.state.isEvaluating, true);
+        await saveScreenshot(key, '05_timed_mask_expired.png');
 
-      // 6. Manual reveal during audio
-      await recallCubit.startRange(13, 15);
-      await recallCubit.playCurrentAyahAudio();
-      recallCubit.revealCurrentAyah();
-      await tester.pump();
-      await saveScreenshot(key, '06_manual_reveal_during_audio.png');
+        // 6. Manual reveal during audio
+        await recallCubit.startRange(13, 15);
+        await recallCubit.playCurrentAyahAudio();
+        recallCubit.revealCurrentAyah();
+        await tester.pump();
+        await saveScreenshot(key, '06_manual_reveal_during_audio.png');
 
-      // 7. Next Ayah synchronization
-      await recallCubit.recordKnown();
-      await tester.pump();
-      expect(recallCubit.state.currentGlobalAyah, 14);
-      await saveScreenshot(key, '07_next_ayah_sync.png');
+        // 7. Next Ayah synchronization
+        await recallCubit.recordKnown();
+        await tester.pump();
+        expect(recallCubit.state.currentGlobalAyah, 14);
+        await saveScreenshot(key, '07_next_ayah_sync.png');
 
-      // 8. Repeat / Tikrar state
-      await recallCubit.playCurrentAyahAudio();
-      await tester.pump();
-      await saveScreenshot(key, '08_repeat_tikrar_state.png');
+        // 8. Repeat / Tikrar state
+        await recallCubit.playCurrentAyahAudio();
+        await tester.pump();
+        await saveScreenshot(key, '08_repeat_tikrar_state.png');
 
-      // 9. Audio failure error banner state
-      fakeAudio.failOnPlay = true;
-      await recallCubit.playCurrentAyahAudio();
-      await tester.pump();
-      expect(find.text('إعادة المحاولة'), findsOneWidget);
-      await saveScreenshot(key, '09_audio_failure_state.png');
+        // 9. Audio failure error banner state
+        fakeAudio.failOnPlay = true;
+        await recallCubit.playCurrentAyahAudio();
+        await tester.pump();
+        expect(find.text('إعادة المحاولة'), findsOneWidget);
+        await saveScreenshot(key, '09_audio_failure_state.png');
 
-      // 10. Session completion state
-      fakeAudio.failOnPlay = false;
-      await recallCubit.recordKnown(); // Ayah 14
-      await tester.pump();
-      await recallCubit.recordKnown(); // Ayah 15 (final)
-      await tester.pump();
-      expect(recallCubit.state.isCompleted, true);
-      await saveScreenshot(key, '10_session_completion.png');
-    });
+        // 10. Session completion state
+        fakeAudio.failOnPlay = false;
+        await recallCubit.recordKnown(); // Ayah 14
+        await tester.pump();
+        await recallCubit.recordKnown(); // Ayah 15 (final)
+        await tester.pump();
+        expect(recallCubit.state.isCompleted, true);
+        await saveScreenshot(key, '10_session_completion.png');
+      },
+    );
   });
 }

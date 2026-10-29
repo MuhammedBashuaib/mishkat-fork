@@ -183,7 +183,8 @@ class QuranAlignmentEngine {
           recTokens[1] == 'الله' &&
           recTokens[2] == 'الرحمن' &&
           recTokens[3] == 'الرحيم') {
-        final targetStartsBasmalah = targetWords.length >= 4 &&
+        final targetStartsBasmalah =
+            targetWords.length >= 4 &&
             targetWords[0].normalizedText == 'بسم' &&
             targetWords[1].normalizedText == 'الله';
         if (!targetStartsBasmalah) {
@@ -206,7 +207,9 @@ class QuranAlignmentEngine {
       }
     }
 
-    final activeRecTokens = recTokens.sublist(min(recStartIdx, recTokens.length));
+    final activeRecTokens = recTokens.sublist(
+      min(recStartIdx, recTokens.length),
+    );
 
     // 3. Pre-fill already committed alignments and discrepancies
     final alignedWords = <RecitationWordAlignment>[];
@@ -217,10 +220,14 @@ class QuranAlignmentEngine {
     var substitutionsCount = 0;
     var uncertainCount = 0;
 
-    final safeCommittedIndex = committedTargetIndex.clamp(0, targetWords.length);
+    final safeCommittedIndex = committedTargetIndex.clamp(
+      0,
+      targetWords.length,
+    );
 
     if (safeCommittedIndex > 0) {
-      if (committedAlignedWords != null && committedAlignedWords.length >= safeCommittedIndex) {
+      if (committedAlignedWords != null &&
+          committedAlignedWords.length >= safeCommittedIndex) {
         for (var i = 0; i < safeCommittedIndex; i++) {
           final word = committedAlignedWords[i];
           alignedWords.add(word);
@@ -275,9 +282,14 @@ class QuranAlignmentEngine {
       // A. Check for Exact or Close Phonetic Match on current target word
       final matchQuality = _compareWords(targetWord.normalizedText, recWord);
 
-      if (matchQuality == _MatchQuality.exact || matchQuality == _MatchQuality.close) {
-        final isUncertain = (confidence < 0.65) || (matchQuality == _MatchQuality.close && confidence < 0.8);
-        final status = isUncertain ? WordAlignmentStatus.uncertain : WordAlignmentStatus.matched;
+      if (matchQuality == _MatchQuality.exact ||
+          matchQuality == _MatchQuality.close) {
+        final isUncertain =
+            (confidence < 0.65) ||
+            (matchQuality == _MatchQuality.close && confidence < 0.8);
+        final status = isUncertain
+            ? WordAlignmentStatus.uncertain
+            : WordAlignmentStatus.matched;
 
         if (status == WordAlignmentStatus.matched) {
           matchedWordsCount++;
@@ -294,7 +306,8 @@ class QuranAlignmentEngine {
               expectedNormalized: targetWord.normalizedText,
               recognizedWord: recWord,
               status: WordAlignmentStatus.uncertain,
-              explanation: 'التقاط صوتي غير مؤكد للكلمة القرآنية "${targetWord.uthmaniText}".',
+              explanation:
+                  'التقاط صوتي غير مؤكد للكلمة القرآنية "${targetWord.uthmaniText}".',
             ),
           );
         }
@@ -316,7 +329,8 @@ class QuranAlignmentEngine {
       // B. Check for Recitation Repetition (Tardid / Self-Correction)
       // Check if user repeated a word they recently recited in the current attempt
       if (targetPtr > 0 &&
-          _compareWords(targetWords[targetPtr - 1].normalizedText, recWord) == _MatchQuality.exact) {
+          _compareWords(targetWords[targetPtr - 1].normalizedText, recWord) ==
+              _MatchQuality.exact) {
         // Repeated previous word; consume recWord without advancing targetPtr
         recPtr++;
         continue;
@@ -335,7 +349,11 @@ class QuranAlignmentEngine {
       // C. Lookahead Window Search:
       // Bounded forward search up to 4 words strictly ahead of current targetPtr
       int? foundTargetAhead;
-      for (var look = 1; look <= 4 && (targetPtr + look) < targetWords.length; look++) {
+      for (
+        var look = 1;
+        look <= 4 && (targetPtr + look) < targetWords.length;
+        look++
+      ) {
         if (_isMatch(targetWords[targetPtr + look].normalizedText, recWord)) {
           foundTargetAhead = targetPtr + look;
           break;
@@ -343,15 +361,23 @@ class QuranAlignmentEngine {
       }
 
       int? foundRecAhead;
-      for (var look = 1; look <= 4 && (recPtr + look) < activeRecTokens.length; look++) {
-        if (_isMatch(targetWord.normalizedText, activeRecTokens[recPtr + look])) {
+      for (
+        var look = 1;
+        look <= 4 && (recPtr + look) < activeRecTokens.length;
+        look++
+      ) {
+        if (_isMatch(
+          targetWord.normalizedText,
+          activeRecTokens[recPtr + look],
+        )) {
           foundRecAhead = recPtr + look;
           break;
         }
       }
 
       if (foundTargetAhead != null &&
-          (foundRecAhead == null || (foundTargetAhead - targetPtr) <= (foundRecAhead - recPtr))) {
+          (foundRecAhead == null ||
+              (foundTargetAhead - targetPtr) <= (foundRecAhead - recPtr))) {
         // Reciter skipped target words (Omission)
         // Ambiguity guard: If skipping multiple words and confidence is low, do not produce false multi-word omissions
         final skipCount = foundTargetAhead - targetPtr;
@@ -382,7 +408,8 @@ class QuranAlignmentEngine {
                 expectedNormalized: omittedWord.normalizedText,
                 recognizedWord: null,
                 status: WordAlignmentStatus.omission,
-                explanation: 'سقط في التلاوة: لم تُسمع كلمة "${omittedWord.uthmaniText}".',
+                explanation:
+                    'سقط في التلاوة: لم تُسمع كلمة "${omittedWord.uthmaniText}".',
               ),
             );
             alignedWords.add(
@@ -411,7 +438,8 @@ class QuranAlignmentEngine {
             expectedNormalized: targetWord.normalizedText,
             recognizedWord: recWord,
             status: WordAlignmentStatus.substitution,
-            explanation: 'خطأ أو استبدال: سُمعت "$recWord" بدلاً من "${targetWord.uthmaniText}".',
+            explanation:
+                'خطأ أو استبدال: سُمعت "$recWord" بدلاً من "${targetWord.uthmaniText}".',
           ),
         );
         alignedWords.add(
@@ -441,7 +469,9 @@ class QuranAlignmentEngine {
     final completedGlobals = <int>{};
     final ayahsMap = <int, List<RecitationWordAlignment>>{};
     for (final word in alignedWords) {
-      ayahsMap.putIfAbsent(word.authoritativeWord.globalAyah, () => []).add(word);
+      ayahsMap
+          .putIfAbsent(word.authoritativeWord.globalAyah, () => [])
+          .add(word);
     }
 
     for (final entry in ayahsMap.entries) {
@@ -461,7 +491,9 @@ class QuranAlignmentEngine {
     } else if (completedGlobals.isNotEmpty) {
       var maxCompletedWordIdx = safeCommittedIndex;
       for (final globalAyah in completedGlobals) {
-        final lastWordOfAyah = targetWords.lastWhere((w) => w.globalAyah == globalAyah);
+        final lastWordOfAyah = targetWords.lastWhere(
+          (w) => w.globalAyah == globalAyah,
+        );
         final nextWordIndex = lastWordOfAyah.wordIndex + 1;
         if (nextWordIndex > maxCompletedWordIdx) {
           maxCompletedWordIdx = nextWordIndex;
@@ -471,20 +503,26 @@ class QuranAlignmentEngine {
     }
 
     // 8. Compute current position
-    final safeCurrentWordIdx = (targetPtr < targetWords.length) ? targetPtr : (targetWords.length - 1);
+    final safeCurrentWordIdx = (targetPtr < targetWords.length)
+        ? targetPtr
+        : (targetWords.length - 1);
     final currentGlobal = targetWords[safeCurrentWordIdx].globalAyah;
 
     final totalWords = targetWords.length;
-    final progress = totalWords > 0 ? (matchedWordsCount / totalWords) * 100.0 : 0.0;
+    final progress = totalWords > 0
+        ? (matchedWordsCount / totalWords) * 100.0
+        : 0.0;
     final isCompleted = targetPtr >= targetWords.length;
 
     if (kDebugMode) {
-      debugPrint('[Q14_ENGINE_ALIGN] inCommitted=$committedTargetIndex '
-          'safeCommitted=$safeCommittedIndex isFinal=$isFinal '
-          'targetPtr=$targetPtr newCommitted=$newCommittedIndex '
-          'matched=$matchedWordsCount omi=$omissionsCount '
-          'completedAyahs=$completedGlobals '
-          'discCount=${discrepancies.length}');
+      debugPrint(
+        '[Q14_ENGINE_ALIGN] inCommitted=$committedTargetIndex '
+        'safeCommitted=$safeCommittedIndex isFinal=$isFinal '
+        'targetPtr=$targetPtr newCommitted=$newCommittedIndex '
+        'matched=$matchedWordsCount omi=$omissionsCount '
+        'completedAyahs=$completedGlobals '
+        'discCount=${discrepancies.length}',
+      );
       if (rejectedBackwardCandidate != null) {
         debugPrint('[Q14_ENGINE_REJECTED] $rejectedBackwardCandidate');
       }
@@ -509,8 +547,8 @@ class QuranAlignmentEngine {
       alignmentReason: isFinal
           ? 'Finalized alignment at target cursor $targetPtr (committed: $newCommittedIndex)'
           : (newCommittedIndex > safeCommittedIndex
-              ? 'Streaming partial committed Ayah boundary to $newCommittedIndex (target cursor $targetPtr)'
-              : 'Provisional partial hypothesis up to target cursor $targetPtr (committed remains $safeCommittedIndex)'),
+                ? 'Streaming partial committed Ayah boundary to $newCommittedIndex (target cursor $targetPtr)'
+                : 'Provisional partial hypothesis up to target cursor $targetPtr (committed remains $safeCommittedIndex)'),
       rejectedBackwardCandidate: rejectedBackwardCandidate,
     );
   }
@@ -541,19 +579,25 @@ class QuranAlignmentEngine {
 
     // Prefix/particle matching:
     // Quranic tokens frequently attach 'و' (waw) or 'ف' (faa) or 'ب' (baa) or 'ل' (laam)
-    if (recognized.length > target.length && recognized.startsWith('و') && recognized.substring(1) == target) {
+    if (recognized.length > target.length &&
+        recognized.startsWith('و') &&
+        recognized.substring(1) == target) {
       return _MatchQuality.close;
     }
-    if (target.length > recognized.length && target.startsWith('و') && target.substring(1) == recognized) {
+    if (target.length > recognized.length &&
+        target.startsWith('و') &&
+        target.substring(1) == recognized) {
       return _MatchQuality.close;
     }
 
     // Dagger Alef / Alif normalization differences:
     // e.g. "مالك" vs "ملك", "الرحمن" vs "الرحمان"
-    if ((target == 'مالك' && recognized == 'ملك') || (target == 'ملك' && recognized == 'مالك')) {
+    if ((target == 'مالك' && recognized == 'ملك') ||
+        (target == 'ملك' && recognized == 'مالك')) {
       return _MatchQuality.close;
     }
-    if ((target == 'الرحمن' && recognized == 'الرحمان') || (target == 'الرحمان' && recognized == 'الرحمن')) {
+    if ((target == 'الرحمن' && recognized == 'الرحمان') ||
+        (target == 'الرحمان' && recognized == 'الرحمن')) {
       return _MatchQuality.close;
     }
 
@@ -588,8 +632,4 @@ class QuranAlignmentEngine {
   }
 }
 
-enum _MatchQuality {
-  exact,
-  close,
-  mismatch,
-}
+enum _MatchQuality { exact, close, mismatch }

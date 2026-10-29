@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../core/services/audio_service.dart';
+import '../core/services/home_widget_service.dart';
 import '../core/services/local_notification_service.dart';
 import '../core/services/local_storage_service.dart';
 import '../core/services/offline_audio_download_controller.dart';
@@ -40,6 +43,7 @@ class MishkatApp extends StatelessWidget {
     required this.libraryRepository,
     required this.settingsCubit,
     required this.khatmaCubit,
+    this.homeWidgetService,
     this.speechService,
     this.offlineDownloads,
     this.initiallyShowOnboarding = false,
@@ -53,6 +57,7 @@ class MishkatApp extends StatelessWidget {
   final LibraryRepository libraryRepository;
   final SettingsCubit settingsCubit;
   final KhatmaCubit khatmaCubit;
+  final HomeWidgetService? homeWidgetService;
   final SpeechRecognitionService? speechService;
   final OfflineAudioDownloadController? offlineDownloads;
   final bool initiallyShowOnboarding;
@@ -65,11 +70,15 @@ class MishkatApp extends StatelessWidget {
     final downloadController =
         offlineDownloads ??
         OfflineAudioDownloadController(QuranAudioCacheService());
+    final widgetService =
+        homeWidgetService ??
+        HomeWidgetService(adhkarRepository: adhkarRepository);
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<QuranRepository>.value(value: quranRepository),
         RepositoryProvider<AdhkarRepository>.value(value: adhkarRepository),
         RepositoryProvider<LibraryRepository>.value(value: libraryRepository),
+        RepositoryProvider<HomeWidgetService>.value(value: widgetService),
         ChangeNotifierProvider<OfflineAudioDownloadController>.value(
           value: downloadController,
         ),
@@ -143,6 +152,7 @@ class MishkatApp extends StatelessWidget {
                     context.read<QuranCubit>()
                       ..updateReciter(settings.reciter)
                       ..setFontSize(settings.quranFont);
+                    unawaited(widgetService.sync(settings));
                   },
                 ),
               ],

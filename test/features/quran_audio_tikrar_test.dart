@@ -144,7 +144,11 @@ class FakeQuranRepository implements QuranRepository {
   Future<QuranData> load() async => data;
 
   @override
-  List<QuranSearchResult> search(QuranData data, String query, {int limit = 50}) => const [];
+  List<QuranSearchResult> search(
+    QuranData data,
+    String query, {
+    int limit = 50,
+  }) => const [];
 }
 
 class ControllableAudioService implements QuranAudioService {
@@ -311,10 +315,7 @@ void main() {
 
       expect(fromJson, equals(config));
 
-      final updated = config.copyWith(
-        rangeRepeatCount: 10,
-        delaySeconds: 0,
-      );
+      final updated = config.copyWith(rangeRepeatCount: 10, delaySeconds: 0);
       expect(updated.targetRepetitions, 10);
       expect(updated.delaySeconds, 0);
       expect(updated.startAyah, 10);
@@ -330,7 +331,10 @@ void main() {
         status: AudioRepeatStatus.playing,
         currentAyahRepeat: 2,
         currentAyah: 255,
-        config: AudioRepeatConfig.singleAyah(startAyah: 255, targetRepetitions: 3),
+        config: AudioRepeatConfig.singleAyah(
+          startAyah: 255,
+          targetRepetitions: 3,
+        ),
       );
       expect(playing.isActive, isTrue);
       expect(playing.statusText, 'تكرار 2 من 3');
@@ -361,7 +365,10 @@ void main() {
       );
 
       await controller.start(
-        config: AudioRepeatConfig.singleAyah(startAyah: 255, targetRepetitions: 1),
+        config: AudioRepeatConfig.singleAyah(
+          startAyah: 255,
+          targetRepetitions: 1,
+        ),
       );
 
       expect(played, [255]);
@@ -493,37 +500,40 @@ void main() {
       controller.dispose();
     });
 
-    test('Infinite repetition (-1) repeats indefinitely until stopped', () async {
-      final played = <int>[];
-      final controller = AudioRepeatController(
-        onPlayAyahRequested: (ayah) async => played.add(ayah),
-      );
+    test(
+      'Infinite repetition (-1) repeats indefinitely until stopped',
+      () async {
+        final played = <int>[];
+        final controller = AudioRepeatController(
+          onPlayAyahRequested: (ayah) async => played.add(ayah),
+        );
 
-      await controller.start(
-        config: AudioRepeatConfig.infiniteRepeat(
-          mode: AudioRepeatMode.singleAyah,
-          startAyah: 255,
-          delaySeconds: 0,
-        ),
-      );
+        await controller.start(
+          config: AudioRepeatConfig.infiniteRepeat(
+            mode: AudioRepeatMode.singleAyah,
+            startAyah: 255,
+            delaySeconds: 0,
+          ),
+        );
 
-      for (int i = 0; i < 15; i++) {
+        for (int i = 0; i < 15; i++) {
+          controller.onAyahPlaybackFinished();
+        }
+
+        expect(played.length, 16);
+        expect(controller.state.status, AudioRepeatStatus.playing);
+        expect(controller.state.currentRepetition, 16);
+
+        // Explicit cancellation
+        controller.stop();
+        expect(controller.state.status, AudioRepeatStatus.idle);
+
+        // Subsequent finish does not trigger playback
         controller.onAyahPlaybackFinished();
-      }
-
-      expect(played.length, 16);
-      expect(controller.state.status, AudioRepeatStatus.playing);
-      expect(controller.state.currentRepetition, 16);
-
-      // Explicit cancellation
-      controller.stop();
-      expect(controller.state.status, AudioRepeatStatus.idle);
-
-      // Subsequent finish does not trigger playback
-      controller.onAyahPlaybackFinished();
-      expect(played.length, 16);
-      controller.dispose();
-    });
+        expect(played.length, 16);
+        controller.dispose();
+      },
+    );
 
     test('Exact Semantics: Single Ayah Repetition (255 x 3)', () async {
       final played = <int>[];
@@ -598,54 +608,57 @@ void main() {
       controller.dispose();
     });
 
-    test('Exact Semantics: Per-Ayah Range Repetition (255 x 3, 256 x 3, 257 x 3)', () async {
-      final played = <int>[];
-      final controller = AudioRepeatController(
-        onPlayAyahRequested: (ayah) async => played.add(ayah),
-      );
+    test(
+      'Exact Semantics: Per-Ayah Range Repetition (255 x 3, 256 x 3, 257 x 3)',
+      () async {
+        final played = <int>[];
+        final controller = AudioRepeatController(
+          onPlayAyahRequested: (ayah) async => played.add(ayah),
+        );
 
-      await controller.start(
-        config: AudioRepeatConfig.perAyahRange(
-          startAyah: 255,
-          endAyah: 257,
-          targetRepetitions: 3,
-          delaySeconds: 0,
-        ),
-      );
+        await controller.start(
+          config: AudioRepeatConfig.perAyahRange(
+            startAyah: 255,
+            endAyah: 257,
+            targetRepetitions: 3,
+            delaySeconds: 0,
+          ),
+        );
 
-      // Ayah 255 x 3
-      expect(played, [255]);
-      controller.onAyahPlaybackFinished();
-      expect(played, [255, 255]);
-      controller.onAyahPlaybackFinished();
-      expect(played, [255, 255, 255]);
-      controller.onAyahPlaybackFinished();
+        // Ayah 255 x 3
+        expect(played, [255]);
+        controller.onAyahPlaybackFinished();
+        expect(played, [255, 255]);
+        controller.onAyahPlaybackFinished();
+        expect(played, [255, 255, 255]);
+        controller.onAyahPlaybackFinished();
 
-      // Ayah 256 x 3
-      expect(played, [255, 255, 255, 256]);
-      controller.onAyahPlaybackFinished();
-      expect(played, [255, 255, 255, 256, 256]);
-      controller.onAyahPlaybackFinished();
-      expect(played, [255, 255, 255, 256, 256, 256]);
-      controller.onAyahPlaybackFinished();
+        // Ayah 256 x 3
+        expect(played, [255, 255, 255, 256]);
+        controller.onAyahPlaybackFinished();
+        expect(played, [255, 255, 255, 256, 256]);
+        controller.onAyahPlaybackFinished();
+        expect(played, [255, 255, 255, 256, 256, 256]);
+        controller.onAyahPlaybackFinished();
 
-      // Ayah 257 x 3
-      expect(played, [255, 255, 255, 256, 256, 256, 257]);
-      controller.onAyahPlaybackFinished();
-      expect(played, [255, 255, 255, 256, 256, 256, 257, 257]);
-      controller.onAyahPlaybackFinished();
-      expect(played, [255, 255, 255, 256, 256, 256, 257, 257, 257]);
-      controller.onAyahPlaybackFinished();
+        // Ayah 257 x 3
+        expect(played, [255, 255, 255, 256, 256, 256, 257]);
+        controller.onAyahPlaybackFinished();
+        expect(played, [255, 255, 255, 256, 256, 256, 257, 257]);
+        controller.onAyahPlaybackFinished();
+        expect(played, [255, 255, 255, 256, 256, 256, 257, 257, 257]);
+        controller.onAyahPlaybackFinished();
 
-      // Completed
-      expect(controller.state.status, AudioRepeatStatus.completed);
-      expect(played, [
-        255, 255, 255, // 255 x 3
-        256, 256, 256, // 256 x 3
-        257, 257, 257, // 257 x 3
-      ]);
-      controller.dispose();
-    });
+        // Completed
+        expect(controller.state.status, AudioRepeatStatus.completed);
+        expect(played, [
+          255, 255, 255, // 255 x 3
+          256, 256, 256, // 256 x 3
+          257, 257, 257, // 257 x 3
+        ]);
+        controller.dispose();
+      },
+    );
 
     test('Tardid Delay countdown, pause, resume, and skip semantics', () async {
       final played = <int>[];
@@ -722,7 +735,9 @@ void main() {
     late QuranAudioCacheService cacheService;
 
     setUp(() async {
-      tempDir = Directory.systemTemp.createTempSync('mishkat_audio_cache_test_');
+      tempDir = Directory.systemTemp.createTempSync(
+        'mishkat_audio_cache_test_',
+      );
       cacheService = QuranAudioCacheService(
         baseDirectory: tempDir,
         maxCacheSizeBytes: 10 * 1024, // 10 KiB for deterministic LRU testing
@@ -811,56 +826,59 @@ void main() {
       expect(corruptFile.existsSync(), isFalse);
     });
 
-    test('LRU eviction purges oldest unpinned files to low watermark', () async {
-      final validBytes = List<int>.filled(3 * 1024, 0); // 3 KiB per file
-      validBytes[0] = 0xFF; // Frame sync
-      validBytes[1] = 0xFB;
+    test(
+      'LRU eviction purges oldest unpinned files to low watermark',
+      () async {
+        final validBytes = List<int>.filled(3 * 1024, 0); // 3 KiB per file
+        validBytes[0] = 0xFF; // Frame sync
+        validBytes[1] = 0xFB;
 
-      // Cache limit is 10 KiB. Low watermark is 8.5 KiB (85%).
-      // Adding 4 files of 3 KiB = 12 KiB (> 10 KiB high watermark).
-      await cacheService.saveFile(
-        reciter: 'alafasy',
-        globalAyah: 1,
-        bytes: validBytes,
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        // Cache limit is 10 KiB. Low watermark is 8.5 KiB (85%).
+        // Adding 4 files of 3 KiB = 12 KiB (> 10 KiB high watermark).
+        await cacheService.saveFile(
+          reciter: 'alafasy',
+          globalAyah: 1,
+          bytes: validBytes,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      await cacheService.saveFile(
-        reciter: 'alafasy',
-        globalAyah: 2,
-        bytes: validBytes,
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        await cacheService.saveFile(
+          reciter: 'alafasy',
+          globalAyah: 2,
+          bytes: validBytes,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      await cacheService.saveFile(
-        reciter: 'alafasy',
-        globalAyah: 3,
-        bytes: validBytes,
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        await cacheService.saveFile(
+          reciter: 'alafasy',
+          globalAyah: 3,
+          bytes: validBytes,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      final file4 = await cacheService.saveFile(
-        reciter: 'alafasy',
-        globalAyah: 4,
-        bytes: validBytes,
-      );
+        final file4 = await cacheService.saveFile(
+          reciter: 'alafasy',
+          globalAyah: 4,
+          bytes: validBytes,
+        );
 
-      expect(file4, isNotNull);
+        expect(file4, isNotNull);
 
-      // File 1 is least recently used, should be evicted
-      final file1After = await cacheService.getCachedFile(
-        reciter: 'alafasy',
-        globalAyah: 1,
-      );
-      expect(file1After, isNull);
+        // File 1 is least recently used, should be evicted
+        final file1After = await cacheService.getCachedFile(
+          reciter: 'alafasy',
+          globalAyah: 1,
+        );
+        expect(file1After, isNull);
 
-      // Files 2, 3, 4 remain cached
-      final file4After = await cacheService.getCachedFile(
-        reciter: 'alafasy',
-        globalAyah: 4,
-      );
-      expect(file4After, isNotNull);
-    });
+        // Files 2, 3, 4 remain cached
+        final file4After = await cacheService.getCachedFile(
+          reciter: 'alafasy',
+          globalAyah: 4,
+        );
+        expect(file4After, isNotNull);
+      },
+    );
 
     test('Pinned active content is protected from LRU eviction', () async {
       final validBytes = List<int>.filled(3 * 1024, 0);
@@ -935,19 +953,22 @@ void main() {
       );
     });
 
-    test('Partial file handling never writes incomplete file to final destination', () async {
-      // Simulate partial write failure
-      final partialBytes = [0x49, 0x44, 0x33]; // Only 3 bytes, truncated
-      final result = await cacheService.saveFile(
-        reciter: 'alafasy',
-        globalAyah: 99,
-        bytes: partialBytes,
-      );
+    test(
+      'Partial file handling never writes incomplete file to final destination',
+      () async {
+        // Simulate partial write failure
+        final partialBytes = [0x49, 0x44, 0x33]; // Only 3 bytes, truncated
+        final result = await cacheService.saveFile(
+          reciter: 'alafasy',
+          globalAyah: 99,
+          bytes: partialBytes,
+        );
 
-      expect(result, isNull);
-      final finalFile = File('${tempDir.path}/audio_cache/alafasy/99.mp3');
-      expect(finalFile.existsSync(), isFalse);
-    });
+        expect(result, isNull);
+        final finalFile = File('${tempDir.path}/audio_cache/alafasy/99.mp3');
+        expect(finalFile.existsSync(), isFalse);
+      },
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -956,116 +977,122 @@ void main() {
   group('Q12 — Group 4: Offline-First Decision Tree', () {
     test('Offline uncached error throws calm Arabic exception', () {
       const exception = QuranAudioOfflineException();
-      expect(
-        exception.message,
-        'التلاوة غير متوفرة دون اتصال بالإنترنت.',
-      );
+      expect(exception.message, 'التلاوة غير متوفرة دون اتصال بالإنترنت.');
     });
 
-    test('Network failure sets audioStatus to failure without crashing cubit', () async {
-      final fakeAudio = ControllableAudioService()..throwOnPlay = true;
-      final quranData = _createMockQuranData();
-      final quranCubit = QuranCubit(
-        repository: FakeQuranRepository(quranData),
-        storage: FakeLocalStorageService(),
-        audio: fakeAudio,
-        reciter: 'alafasy',
-        fontSize: 22.0,
-      );
-      await quranCubit.load();
+    test(
+      'Network failure sets audioStatus to failure without crashing cubit',
+      () async {
+        final fakeAudio = ControllableAudioService()..throwOnPlay = true;
+        final quranData = _createMockQuranData();
+        final quranCubit = QuranCubit(
+          repository: FakeQuranRepository(quranData),
+          storage: FakeLocalStorageService(),
+          audio: fakeAudio,
+          reciter: 'alafasy',
+          fontSize: 22.0,
+        );
+        await quranCubit.load();
 
-      await quranCubit.playAyah(255);
+        await quranCubit.playAyah(255);
 
-      expect(quranCubit.state.audioStatus, QuranAudioStatus.failure);
-      expect(quranCubit.state.error, isNotNull);
-      expect(
-        quranCubit.state.error,
-        contains('التلاوة غير متوفرة دون اتصال بالإنترنت'),
-      );
-      // Audio global Ayah is preserved
-      expect(quranCubit.state.audioGlobalAyah, 255);
-    });
+        expect(quranCubit.state.audioStatus, QuranAudioStatus.failure);
+        expect(quranCubit.state.error, isNotNull);
+        expect(
+          quranCubit.state.error,
+          contains('التلاوة غير متوفرة دون اتصال بالإنترنت'),
+        );
+        // Audio global Ayah is preserved
+        expect(quranCubit.state.audioGlobalAyah, 255);
+      },
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────────
   // GROUP 5: Q5 Audio Synchronization & QuranCubit Repeat Integration
   // ───────────────────────────────────────────────────────────────────────────
   group('Q12 — Group 5: Q5 Audio Synchronization & QuranCubit Repeat', () {
-    test('audioGlobalAyah remains single authority during repeat playback', () async {
-      final fakeAudio = ControllableAudioService();
-      final quranData = _createMockQuranData();
-      final quranCubit = QuranCubit(
-        repository: FakeQuranRepository(quranData),
-        storage: FakeLocalStorageService(),
-        audio: fakeAudio,
-        reciter: 'alafasy',
-        fontSize: 22.0,
-      );
-      await quranCubit.load();
+    test(
+      'audioGlobalAyah remains single authority during repeat playback',
+      () async {
+        final fakeAudio = ControllableAudioService();
+        final quranData = _createMockQuranData();
+        final quranCubit = QuranCubit(
+          repository: FakeQuranRepository(quranData),
+          storage: FakeLocalStorageService(),
+          audio: fakeAudio,
+          reciter: 'alafasy',
+          fontSize: 22.0,
+        );
+        await quranCubit.load();
 
-      final interactionCubit = MushafInteractionCubit();
-      const selected = AyahBounds(
-        surah: 1,
-        ayah: 1,
-        page: 1,
-        globalAyah: 1,
-        bounds: Rect.fromLTWH(10, 10, 100, 20),
-        segments: [AyahRectSegment(Rect.fromLTWH(10, 10, 100, 20))],
-      );
-      interactionCubit.selectAyah(selected);
+        final interactionCubit = MushafInteractionCubit();
+        const selected = AyahBounds(
+          surah: 1,
+          ayah: 1,
+          page: 1,
+          globalAyah: 1,
+          bounds: Rect.fromLTWH(10, 10, 100, 20),
+          segments: [AyahRectSegment(Rect.fromLTWH(10, 10, 100, 20))],
+        );
+        interactionCubit.selectAyah(selected);
 
-      // Selected verse is 1, playing verse is 5
-      await quranCubit.startRepeatPlayback(
-        AudioRepeatConfig.singleAyah(
-          startAyah: 5,
-          targetRepetitions: 3,
-          delaySeconds: 0,
-        ),
-        initialGlobalAyah: 5,
-      );
-      interactionCubit.setPlayingAyah(5);
+        // Selected verse is 1, playing verse is 5
+        await quranCubit.startRepeatPlayback(
+          AudioRepeatConfig.singleAyah(
+            startAyah: 5,
+            targetRepetitions: 3,
+            delaySeconds: 0,
+          ),
+          initialGlobalAyah: 5,
+        );
+        interactionCubit.setPlayingAyah(5);
 
-      expect(interactionCubit.state.selectedAyah?.globalAyah, 1);
-      expect(interactionCubit.state.playingAyah, 5);
-      expect(quranCubit.state.audioGlobalAyah, 5);
-      expect(quranCubit.state.repeatConfig.mode, AudioRepeatMode.singleAyah);
-      expect(quranCubit.state.repeatConfig.targetRepetitions, 3);
-      interactionCubit.close();
-    });
+        expect(interactionCubit.state.selectedAyah?.globalAyah, 1);
+        expect(interactionCubit.state.playingAyah, 5);
+        expect(quranCubit.state.audioGlobalAyah, 5);
+        expect(quranCubit.state.repeatConfig.mode, AudioRepeatMode.singleAyah);
+        expect(quranCubit.state.repeatConfig.targetRepetitions, 3);
+        interactionCubit.close();
+      },
+    );
 
-    test('autoScroll flips reader page upon repeat crossing boundary', () async {
-      final fakeAudio = ControllableAudioService();
-      final quranData = _createMockQuranData();
-      final quranCubit = QuranCubit(
-        repository: FakeQuranRepository(quranData),
-        storage: FakeLocalStorageService(),
-        audio: fakeAudio,
-        reciter: 'alafasy',
-        fontSize: 22.0,
-      );
-      await quranCubit.load();
-      quranCubit.setAutoScroll(true);
+    test(
+      'autoScroll flips reader page upon repeat crossing boundary',
+      () async {
+        final fakeAudio = ControllableAudioService();
+        final quranData = _createMockQuranData();
+        final quranCubit = QuranCubit(
+          repository: FakeQuranRepository(quranData),
+          storage: FakeLocalStorageService(),
+          audio: fakeAudio,
+          reciter: 'alafasy',
+          fontSize: 22.0,
+        );
+        await quranCubit.load();
+        quranCubit.setAutoScroll(true);
 
-      // Ayah 7 is on Page 1, Ayah 8 is on Page 2
-      await quranCubit.startRepeatPlayback(
-        AudioRepeatConfig.rangeLoop(
-          startAyah: 7,
-          endAyah: 8,
-          targetRepetitions: 2,
-          delaySeconds: 0,
-        ),
-        initialGlobalAyah: 7,
-      );
+        // Ayah 7 is on Page 1, Ayah 8 is on Page 2
+        await quranCubit.startRepeatPlayback(
+          AudioRepeatConfig.rangeLoop(
+            startAyah: 7,
+            endAyah: 8,
+            targetRepetitions: 2,
+            delaySeconds: 0,
+          ),
+          initialGlobalAyah: 7,
+        );
 
-      expect(quranCubit.state.currentPage, 1);
+        expect(quranCubit.state.currentPage, 1);
 
-      // Advance to Ayah 8
-      fakeAudio.emitState(PlayerState(false, ProcessingState.completed));
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+        // Advance to Ayah 8
+        fakeAudio.emitState(PlayerState(false, ProcessingState.completed));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      expect(quranCubit.state.audioGlobalAyah, 8);
-      expect(quranCubit.state.currentPage, 2);
-    });
+        expect(quranCubit.state.audioGlobalAyah, 8);
+        expect(quranCubit.state.currentPage, 2);
+      },
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -1091,160 +1118,169 @@ void main() {
       expect(journey.isEmpty, isFalse);
     });
 
-    testWidgets('QuranMiniPlayer renders repeat badge and opens repeat settings sheet', (tester) async {
-      final fakeAudio = ControllableAudioService();
-      final quranData = _createMockQuranData();
-      final quranCubit = QuranCubit(
-        repository: FakeQuranRepository(quranData),
-        storage: FakeLocalStorageService(),
-        audio: fakeAudio,
-        reciter: 'alafasy',
-        fontSize: 22.0,
-      );
-      await quranCubit.load();
-      await quranCubit.playAyah(5);
+    testWidgets(
+      'QuranMiniPlayer renders repeat badge and opens repeat settings sheet',
+      (tester) async {
+        final fakeAudio = ControllableAudioService();
+        final quranData = _createMockQuranData();
+        final quranCubit = QuranCubit(
+          repository: FakeQuranRepository(quranData),
+          storage: FakeLocalStorageService(),
+          audio: fakeAudio,
+          reciter: 'alafasy',
+          fontSize: 22.0,
+        );
+        await quranCubit.load();
+        await quranCubit.playAyah(5);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: MultiBlocProvider(
-              providers: [
-                BlocProvider.value(value: quranCubit),
-                BlocProvider(create: (_) => MushafInteractionCubit()),
-              ],
-              child: const QuranMiniPlayer(),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: MultiBlocProvider(
+                providers: [
+                  BlocProvider.value(value: quranCubit),
+                  BlocProvider(create: (_) => MushafInteractionCubit()),
+                ],
+                child: const QuranMiniPlayer(),
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      // Find repeat badge button
-      final repeatBadge = find.byTooltip('إعدادات التكرار والترديد');
-      expect(repeatBadge, findsOneWidget);
+        // Find repeat badge button
+        final repeatBadge = find.byTooltip('إعدادات التكرار والترديد');
+        expect(repeatBadge, findsOneWidget);
 
-      // Tap repeat badge to open bottom sheet
-      await tester.tap(repeatBadge);
-      await tester.pumpAndSettle();
+        // Tap repeat badge to open bottom sheet
+        await tester.tap(repeatBadge);
+        await tester.pumpAndSettle();
 
-      // Bottom sheet contains repeat mode options and chips
-      expect(find.text('خيارات التكرار والترديد'), findsOneWidget);
-      expect(find.text('بدون تكرار'), findsOneWidget);
-      expect(find.text('تكرار الآية'), findsOneWidget);
-      expect(find.text('طواف المقطع كحلقة'), findsOneWidget);
-      expect(find.text('تكرار كل آية في المقطع'), findsOneWidget);
-      expect(find.text('تطبيق وبدء التلاوة'), findsOneWidget);
+        // Bottom sheet contains repeat mode options and chips
+        expect(find.text('خيارات التكرار والترديد'), findsOneWidget);
+        expect(find.text('بدون تكرار'), findsOneWidget);
+        expect(find.text('تكرار الآية'), findsOneWidget);
+        expect(find.text('طواف المقطع كحلقة'), findsOneWidget);
+        expect(find.text('تكرار كل آية في المقطع'), findsOneWidget);
+        expect(find.text('تطبيق وبدء التلاوة'), findsOneWidget);
 
-      await quranCubit.stopAudio();
-    });
+        await quranCubit.stopAudio();
+      },
+    );
 
-    testWidgets('QuranMiniPlayer renders delay banner with skip button when delaying', (tester) async {
-      final fakeAudio = ControllableAudioService();
-      final quranData = _createMockQuranData();
-      final quranCubit = QuranCubit(
-        repository: FakeQuranRepository(quranData),
-        storage: FakeLocalStorageService(),
-        audio: fakeAudio,
-        reciter: 'alafasy',
-        fontSize: 22.0,
-      );
-      await quranCubit.load();
+    testWidgets(
+      'QuranMiniPlayer renders delay banner with skip button when delaying',
+      (tester) async {
+        final fakeAudio = ControllableAudioService();
+        final quranData = _createMockQuranData();
+        final quranCubit = QuranCubit(
+          repository: FakeQuranRepository(quranData),
+          storage: FakeLocalStorageService(),
+          audio: fakeAudio,
+          reciter: 'alafasy',
+          fontSize: 22.0,
+        );
+        await quranCubit.load();
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: MultiBlocProvider(
-              providers: [
-                BlocProvider.value(value: quranCubit),
-                BlocProvider(create: (_) => MushafInteractionCubit()),
-              ],
-              child: const QuranMiniPlayer(),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: MultiBlocProvider(
+                providers: [
+                  BlocProvider.value(value: quranCubit),
+                  BlocProvider(create: (_) => MushafInteractionCubit()),
+                ],
+                child: const QuranMiniPlayer(),
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      // Start repeat with 5 seconds delay
-      await quranCubit.startRepeatPlayback(
-        AudioRepeatConfig.singleAyah(
-          startAyah: 1,
-          targetRepetitions: 3,
-          delaySeconds: 5,
-        ),
-        initialGlobalAyah: 1,
-      );
-
-      // Simulate completion to enter delaying state
-      fakeAudio.emitState(PlayerState(false, ProcessingState.completed));
-      await tester.pump();
-
-      // Verify delay banner is shown
-      expect(find.text('تخطي المهلة'), findsOneWidget);
-
-      // Tap skip button
-      await tester.tap(find.text('تخطي المهلة'));
-      await tester.pump();
-
-      expect(quranCubit.state.repeatState.status, AudioRepeatStatus.playing);
-
-      // Clean up timer
-      await quranCubit.stopAudio();
-      await tester.pump();
-    });
-
-    testWidgets('MemorizationSessionPage audio button plays with 3x repeat default and preserves session on error', (tester) async {
-      final fakeAudio = ControllableAudioService()..throwOnPlay = true;
-      final quranData = _createMockQuranData();
-      final quranCubit = QuranCubit(
-        repository: FakeQuranRepository(quranData),
-        storage: FakeLocalStorageService(),
-        audio: fakeAudio,
-        reciter: 'alafasy',
-        fontSize: 22.0,
-      );
-      await quranCubit.load();
-
-      final fakeStorage = FakeLocalStorageService();
-      final memRepo = QuranMemorizationRepository(storage: fakeStorage);
-      final memCubit = QuranMemorizationCubit(repository: memRepo);
-      await memCubit.load();
-
-      final plan = await memCubit.createPlan(
-        title: 'سورة الفاتحة',
-        startGlobalAyah: 1,
-        endGlobalAyah: 7,
-        dailyTarget: 7,
-      );
-      memCubit.startPlanSession(plan);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiBlocProvider(
-            providers: [
-              BlocProvider.value(value: quranCubit),
-              BlocProvider.value(value: memCubit),
-            ],
-            child: MemorizationSessionPage(quranData: quranData),
+        // Start repeat with 5 seconds delay
+        await quranCubit.startRepeatPlayback(
+          AudioRepeatConfig.singleAyah(
+            startAyah: 1,
+            targetRepetitions: 3,
+            delaySeconds: 5,
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+          initialGlobalAyah: 1,
+        );
 
-      // Find the audio playback button in session page
-      final audioButton = find.byIcon(Icons.volume_up_rounded);
-      expect(audioButton, findsOneWidget);
+        // Simulate completion to enter delaying state
+        fakeAudio.emitState(PlayerState(false, ProcessingState.completed));
+        await tester.pump();
 
-      // Tapping audio button handles offline error gracefully without crashing session
-      await tester.tap(audioButton);
-      await tester.pump();
+        // Verify delay banner is shown
+        expect(find.text('تخطي المهلة'), findsOneWidget);
 
-      // Session is still active and alive
-      expect(find.text('جلسة حفظ الورد'), findsOneWidget);
+        // Tap skip button
+        await tester.tap(find.text('تخطي المهلة'));
+        await tester.pump();
 
-      await quranCubit.stopAudio();
-      await tester.pump();
-    });
+        expect(quranCubit.state.repeatState.status, AudioRepeatStatus.playing);
+
+        // Clean up timer
+        await quranCubit.stopAudio();
+        await tester.pump();
+      },
+    );
+
+    testWidgets(
+      'MemorizationSessionPage audio button plays with 3x repeat default and preserves session on error',
+      (tester) async {
+        final fakeAudio = ControllableAudioService()..throwOnPlay = true;
+        final quranData = _createMockQuranData();
+        final quranCubit = QuranCubit(
+          repository: FakeQuranRepository(quranData),
+          storage: FakeLocalStorageService(),
+          audio: fakeAudio,
+          reciter: 'alafasy',
+          fontSize: 22.0,
+        );
+        await quranCubit.load();
+
+        final fakeStorage = FakeLocalStorageService();
+        final memRepo = QuranMemorizationRepository(storage: fakeStorage);
+        final memCubit = QuranMemorizationCubit(repository: memRepo);
+        await memCubit.load();
+
+        final plan = await memCubit.createPlan(
+          title: 'سورة الفاتحة',
+          startGlobalAyah: 1,
+          endGlobalAyah: 7,
+          dailyTarget: 7,
+        );
+        memCubit.startPlanSession(plan);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MultiBlocProvider(
+              providers: [
+                BlocProvider.value(value: quranCubit),
+                BlocProvider.value(value: memCubit),
+              ],
+              child: MemorizationSessionPage(quranData: quranData),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Find the audio playback button in session page
+        final audioButton = find.byIcon(Icons.volume_up_rounded);
+        expect(audioButton, findsOneWidget);
+
+        // Tapping audio button handles offline error gracefully without crashing session
+        await tester.tap(audioButton);
+        await tester.pump();
+
+        // Session is still active and alive
+        expect(find.text('جلسة حفظ الورد'), findsOneWidget);
+
+        await quranCubit.stopAudio();
+        await tester.pump();
+      },
+    );
 
     test('Stopping repeat during delay interval cleanly terminates playback and cancels timer', () async {
       final played = <int>[];
@@ -1277,56 +1313,64 @@ void main() {
       controller.dispose();
     });
 
-    test('Background audio platform manifests declare audio execution permissions', () {
-      final iosPlist = File('ios/Runner/Info.plist');
-      if (iosPlist.existsSync()) {
-        final plistContent = iosPlist.readAsStringSync();
-        expect(plistContent, contains('<string>audio</string>'));
-      }
+    test(
+      'Background audio platform manifests declare audio execution permissions',
+      () {
+        final iosPlist = File('ios/Runner/Info.plist');
+        if (iosPlist.existsSync()) {
+          final plistContent = iosPlist.readAsStringSync();
+          expect(plistContent, contains('<string>audio</string>'));
+        }
 
-      final androidManifest = File('android/app/src/main/AndroidManifest.xml');
-      if (androidManifest.existsSync()) {
-        final manifestContent = androidManifest.readAsStringSync();
-        expect(manifestContent, contains('android.permission.INTERNET'));
-        expect(manifestContent, contains('android.permission.WAKE_LOCK'));
-      }
-    });
+        final androidManifest = File(
+          'android/app/src/main/AndroidManifest.xml',
+        );
+        if (androidManifest.existsSync()) {
+          final manifestContent = androidManifest.readAsStringSync();
+          expect(manifestContent, contains('android.permission.INTERNET'));
+          expect(manifestContent, contains('android.permission.WAKE_LOCK'));
+        }
+      },
+    );
 
-    test('Audio pause and resume preserves repeat cycle and position', () async {
-      final fakeAudio = ControllableAudioService();
-      final quranData = _createMockQuranData();
-      final quranCubit = QuranCubit(
-        repository: FakeQuranRepository(quranData),
-        storage: FakeLocalStorageService(),
-        audio: fakeAudio,
-        reciter: 'alafasy',
-        fontSize: 22.0,
-      );
-      await quranCubit.load();
+    test(
+      'Audio pause and resume preserves repeat cycle and position',
+      () async {
+        final fakeAudio = ControllableAudioService();
+        final quranData = _createMockQuranData();
+        final quranCubit = QuranCubit(
+          repository: FakeQuranRepository(quranData),
+          storage: FakeLocalStorageService(),
+          audio: fakeAudio,
+          reciter: 'alafasy',
+          fontSize: 22.0,
+        );
+        await quranCubit.load();
 
-      await quranCubit.startRepeatPlayback(
-        AudioRepeatConfig.singleAyah(
-          startAyah: 1,
-          targetRepetitions: 3,
-          delaySeconds: 0,
-        ),
-        initialGlobalAyah: 1,
-      );
+        await quranCubit.startRepeatPlayback(
+          AudioRepeatConfig.singleAyah(
+            startAyah: 1,
+            targetRepetitions: 3,
+            delaySeconds: 0,
+          ),
+          initialGlobalAyah: 1,
+        );
 
-      expect(quranCubit.state.audioStatus, QuranAudioStatus.playing);
+        expect(quranCubit.state.audioStatus, QuranAudioStatus.playing);
 
-      // Pause audio
-      await quranCubit.toggleAudio(continuous: true);
-      expect(quranCubit.state.audioStatus, QuranAudioStatus.paused);
-      expect(fakeAudio.isPaused, isTrue);
+        // Pause audio
+        await quranCubit.toggleAudio(continuous: true);
+        expect(quranCubit.state.audioStatus, QuranAudioStatus.paused);
+        expect(fakeAudio.isPaused, isTrue);
 
-      // Resume audio
-      await quranCubit.toggleAudio(continuous: true);
-      expect(quranCubit.state.audioStatus, QuranAudioStatus.playing);
-      expect(fakeAudio.isPaused, isFalse);
+        // Resume audio
+        await quranCubit.toggleAudio(continuous: true);
+        expect(quranCubit.state.audioStatus, QuranAudioStatus.playing);
+        expect(fakeAudio.isPaused, isFalse);
 
-      await quranCubit.stopAudio();
-    });
+        await quranCubit.stopAudio();
+      },
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -1334,7 +1378,9 @@ void main() {
   // ───────────────────────────────────────────────────────────────────────────
   group('Q12 — Group 7: Performance Benchmarks', () {
     test('Cache index lookup, LRU eviction, and Journey preparation meet performance SLA', () async {
-      final tempDir = Directory.systemTemp.createTempSync('mishkat_perf_bench_');
+      final tempDir = Directory.systemTemp.createTempSync(
+        'mishkat_perf_bench_',
+      );
       final cacheService = QuranAudioCacheService(
         baseDirectory: tempDir,
         maxCacheSizeBytes: 50 * 1024,

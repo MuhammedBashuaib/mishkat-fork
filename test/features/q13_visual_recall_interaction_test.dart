@@ -108,7 +108,10 @@ class FakeQuranAudioService implements QuranAudioService {
   bool get isPlaying => false;
 
   @override
-  Future<void> playAyah({required String reciter, required int globalAyah}) async {}
+  Future<void> playAyah({
+    required String reciter,
+    required int globalAyah,
+  }) async {}
 
   @override
   Future<void> pause() async {}
@@ -208,13 +211,12 @@ void main() {
       ];
 
       if (interactionCubit != null) {
-        providers.add(BlocProvider<MushafInteractionCubit>.value(value: interactionCubit));
+        providers.add(
+          BlocProvider<MushafInteractionCubit>.value(value: interactionCubit),
+        );
       }
 
-      return MultiBlocProvider(
-        providers: providers,
-        child: app,
-      );
+      return MultiBlocProvider(providers: providers, child: app);
     }
 
     /// Helper to resolve the global screen tap coordinate for an Ayah using Flutter's render transform tree
@@ -244,52 +246,57 @@ void main() {
     // ============================================================
     // GROUP 1: Basic Hit Testing
     // ============================================================
-    testWidgets('1. Tap valid queued ayah returns correct globalAyah and toggles reveal',
-        (tester) async {
-      await recallCubit.startRange(13, 15);
-      final ayah14 = layoutRepo.getAyah(14)!;
+    testWidgets(
+      '1. Tap current ayah reveals it while later queued ayahs stay masked',
+      (tester) async {
+        await recallCubit.startRange(13, 15);
+        final ayah13 = layoutRepo.getAyah(13)!;
 
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
+          ),
+        );
+        await tester.pump();
 
-      expect(recallCubit.state.revealedGlobals, isEmpty);
+        expect(recallCubit.state.revealedGlobals, isEmpty);
 
-      await tapAyah(tester, 3, ayah14);
+        await tapAyah(tester, 3, ayah13);
 
-      expect(recallCubit.state.revealedGlobals, {14});
-      expect(recallCubit.state.activeMaskedGlobals, {13, 15});
-    });
+        expect(recallCubit.state.revealedGlobals, {13});
+        expect(recallCubit.state.activeMaskedGlobals, {14, 15});
+      },
+    );
 
-    testWidgets('2. Tap empty margin area results in no reveal and no state corruption',
-        (tester) async {
-      await recallCubit.startRange(13, 15);
+    testWidgets(
+      '2. Tap empty margin area results in no reveal and no state corruption',
+      (tester) async {
+        await recallCubit.startRange(13, 15);
 
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
+          ),
+        );
+        await tester.pump();
 
-      final layerFinder = find.byType(MushafVisualRecallInteractionLayer);
-      final renderBox = tester.renderObject<RenderBox>(layerFinder);
-      final layerTopLeft = renderBox.localToGlobal(Offset.zero);
+        final layerFinder = find.byType(MushafVisualRecallInteractionLayer);
+        final renderBox = tester.renderObject<RenderBox>(layerFinder);
+        final layerTopLeft = renderBox.localToGlobal(Offset.zero);
 
-      // Tap very top-left corner in letterbox/pillarbox empty margin
-      await tester.tapAt(layerTopLeft + const Offset(1, 1));
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pump();
+        // Tap very top-left corner in letterbox/pillarbox empty margin
+        await tester.tapAt(layerTopLeft + const Offset(1, 1));
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pump();
 
-      expect(recallCubit.state.revealedGlobals, isEmpty);
-      expect(recallCubit.state.activeMaskedGlobals, {13, 14, 15});
-    });
+        expect(recallCubit.state.revealedGlobals, isEmpty);
+        expect(recallCubit.state.activeMaskedGlobals, {13, 14, 15});
+      },
+    );
 
-    testWidgets('3. Tap outside page results in no action and no crash',
-        (tester) async {
+    testWidgets('3. Tap outside page results in no action and no crash', (
+      tester,
+    ) async {
       await recallCubit.startRange(13, 15);
 
       await tester.pumpWidget(
@@ -307,8 +314,9 @@ void main() {
       expect(recallCubit.state.revealedGlobals, isEmpty);
     });
 
-    testWidgets('4. Tap with invalid coordinates produces no crash',
-        (tester) async {
+    testWidgets('4. Tap with invalid coordinates produces no crash', (
+      tester,
+    ) async {
       await recallCubit.startRange(13, 15);
 
       await tester.pumpWidget(
@@ -321,201 +329,235 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('5. Missing or unloaded geometry safely handles taps with zero crash',
-        (tester) async {
-      await recallCubit.startRange(13, 15);
+    testWidgets(
+      '5. Missing or unloaded geometry safely handles taps with zero crash',
+      (tester) async {
+        await recallCubit.startRange(13, 15);
 
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: const MushafPage(page: 999, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
-
-      final layerFinder = find.byType(MushafVisualRecallInteractionLayer);
-      if (layerFinder.evaluate().isNotEmpty) {
-        await tester.tap(layerFinder);
-        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 999, scale: 1.0, isCurrent: true),
+          ),
+        );
         await tester.pump();
-      }
 
-      expect(tester.takeException(), isNull);
-    });
+        final layerFinder = find.byType(MushafVisualRecallInteractionLayer);
+        if (layerFinder.evaluate().isNotEmpty) {
+          await tester.tap(layerFinder);
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pump();
+        }
+
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     // ============================================================
     // GROUP 2: Queue Filtering
     // ============================================================
-    testWidgets('6 & 7. Queue filtering: queued ayah reveals, non-queued ayah remains masked',
-        (tester) async {
-      // Queue ONLY Ayahs 13 and 14 on Page 3 (Ayah 15 is on Page 3 but NOT in queue)
-      await recallCubit.startRange(13, 14);
-      final ayah14 = layoutRepo.getAyah(14)!;
-      final ayah15 = layoutRepo.getAyah(15)!;
-
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
-
-      // Tap non-queued Ayah 15
-      await tapAyah(tester, 3, ayah15);
-
-      // Ayah 15 must NOT be revealed!
-      expect(recallCubit.state.revealedGlobals, isEmpty);
-
-      // Tap queued Ayah 14
-      await tapAyah(tester, 3, ayah14);
-
-      // Ayah 14 MUST be revealed!
-      expect(recallCubit.state.revealedGlobals, {14});
-    });
-
-    testWidgets('8. Previously revealed ayah toggles back to masked deterministically',
-        (tester) async {
-      await recallCubit.startRange(13, 15);
-      final ayah14 = layoutRepo.getAyah(14)!;
-
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
-
-      // Tap 1: Reveal Ayah 14
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, {14});
-
-      // Tap 2: Hide/re-mask Ayah 14
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, isEmpty);
-
-      // Tap 3: Reveal Ayah 14 again
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, {14});
-    });
-
-    testWidgets('9. Multiple queued ayahs reveal independently upon tapping',
-        (tester) async {
-      await recallCubit.startRange(13, 15);
-      final ayah13 = layoutRepo.getAyah(13)!;
-      final ayah15 = layoutRepo.getAyah(15)!;
-
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
-
-      // Tap Ayah 13
-      await tapAyah(tester, 3, ayah13);
-      expect(recallCubit.state.revealedGlobals, {13});
-
-      // Tap Ayah 15
-      await tapAyah(tester, 3, ayah15);
-      expect(recallCubit.state.revealedGlobals, {13, 15});
-      expect(recallCubit.state.activeMaskedGlobals, {14});
-    });
-
-    // ============================================================
-    // GROUP 3: Coordinate Mapping (Zoom, Pan, Responsive Viewports)
-    // ============================================================
-    testWidgets('10, 11, 12, 13. InteractiveViewer zoom (1.0x, 1.5x, 2.0x) and pan mapping',
-        (tester) async {
-      await recallCubit.startRange(13, 15);
-      final ayah14 = layoutRepo.getAyah(14)!;
-
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
-
-      final ivFinder = find.byType(InteractiveViewer);
-      final ivWidget = tester.widget<InteractiveViewer>(ivFinder);
-      final controller = ivWidget.transformationController!;
-
-      // 1.0x tap
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, {14});
-
-      // Toggle back to masked
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, isEmpty);
-
-      // 1.5x Zoom
-      controller.value = Matrix4.identity()..scaleByDouble(1.5, 1.5, 1.0, 1.0);
-      await tester.pump();
-
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, {14});
-
-      // Toggle back to masked
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, isEmpty);
-
-      // 2.0x Zoom
-      controller.value = Matrix4.identity()..scaleByDouble(2.0, 2.0, 1.0, 1.0);
-      await tester.pump();
-
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, {14});
-
-      // Zoom + Pan
-      controller.value = Matrix4.identity()
-        ..translateByDouble(15.0, 25.0, 0.0, 1.0)
-        ..scaleByDouble(1.5, 1.5, 1.0, 1.0);
-      await tester.pump();
-
-      // Toggle back
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, isEmpty);
-
-      // Reset
-      controller.value = Matrix4.identity();
-      await tester.pump();
-    });
-
-    testWidgets('14, 15, 16. Responsive viewports: compact (320px), standard (390px), wide (430px)',
-        (tester) async {
-      const viewports = [
-        Size(320, 640),
-        Size(390, 844),
-        Size(430, 932),
-      ];
-
-      final ayah14 = layoutRepo.getAyah(14)!;
-
-      for (final vp in viewports) {
-        await recallCubit.startRange(13, 15);
-        expect(recallCubit.state.revealedGlobals, isEmpty);
+    testWidgets(
+      '6 & 7. Queue filtering: current ayah reveals, non-queued ayah is ignored',
+      (tester) async {
+        // Ayah 14 is current; neighboring Ayah 15 is not in the queue.
+        await recallCubit.startRange(14, 14);
+        final ayah14 = layoutRepo.getAyah(14)!;
+        final ayah15 = layoutRepo.getAyah(15)!;
 
         await tester.pumpWidget(
           buildTestHarness(
-            size: vp,
             child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
           ),
         );
         await tester.pump();
 
+        // Tap non-queued Ayah 15
+        await tapAyah(tester, 3, ayah15);
+
+        // Ayah 15 must NOT be revealed!
+        expect(recallCubit.state.revealedGlobals, isEmpty);
+
+        // Tap queued Ayah 14
         await tapAyah(tester, 3, ayah14);
 
-        expect(recallCubit.state.revealedGlobals, {14},
-            reason: 'Ayah 14 must reveal in viewport $vp');
-      }
-    });
+        // Ayah 14 MUST be revealed!
+        expect(recallCubit.state.revealedGlobals, {14});
+      },
+    );
+
+    testWidgets(
+      '8. Repeated taps preserve revealed current ayah until explicitly hidden',
+      (tester) async {
+        await recallCubit.startRange(14, 15);
+        final ayah14 = layoutRepo.getAyah(14)!;
+
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
+          ),
+        );
+        await tester.pump();
+
+        // Tap 1: Reveal Ayah 14
+        await tapAyah(tester, 3, ayah14);
+        expect(recallCubit.state.revealedGlobals, {14});
+
+        // Repeated taps do not hide text while the learner evaluates it.
+        await tapAyah(tester, 3, ayah14);
+        expect(recallCubit.state.revealedGlobals, {14});
+
+        recallCubit.hideCurrentAyah();
+        await tester.pump();
+        expect(recallCubit.state.revealedGlobals, isEmpty);
+
+        // Explicitly hidden current Ayah can be revealed again.
+        await tapAyah(tester, 3, ayah14);
+        expect(recallCubit.state.revealedGlobals, {14});
+      },
+    );
+
+    testWidgets(
+      '9. Future ayahs reveal only after earlier ayahs are assessed',
+      (tester) async {
+        await recallCubit.startRange(13, 15);
+        final ayah13 = layoutRepo.getAyah(13)!;
+        final ayah14 = layoutRepo.getAyah(14)!;
+        final ayah15 = layoutRepo.getAyah(15)!;
+
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
+          ),
+        );
+        await tester.pump();
+
+        // Tap Ayah 13
+        await tapAyah(tester, 3, ayah13);
+        expect(recallCubit.state.revealedGlobals, {13});
+
+        // Tapping a future Ayah must not expose its text.
+        await tapAyah(tester, 3, ayah15);
+        expect(recallCubit.state.revealedGlobals, {13});
+        expect(recallCubit.state.activeMaskedGlobals, {14, 15});
+
+        await recallCubit.recordKnown();
+        await tester.pump();
+        await tapAyah(tester, 3, ayah14);
+        expect(recallCubit.state.revealedGlobals, {13, 14});
+        expect(recallCubit.state.activeMaskedGlobals, {15});
+
+        await recallCubit.recordKnown();
+        await tester.pump();
+        await tapAyah(tester, 3, ayah15);
+        expect(recallCubit.state.revealedGlobals, {13, 14, 15});
+        expect(recallCubit.state.activeMaskedGlobals, isEmpty);
+      },
+    );
+
+    // ============================================================
+    // GROUP 3: Coordinate Mapping (Zoom, Pan, Responsive Viewports)
+    // ============================================================
+    testWidgets(
+      '10, 11, 12, 13. InteractiveViewer zoom (1.0x, 1.5x, 2.0x) and pan mapping',
+      (tester) async {
+        await recallCubit.startRange(14, 15);
+        final ayah14 = layoutRepo.getAyah(14)!;
+
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
+          ),
+        );
+        await tester.pump();
+
+        final ivFinder = find.byType(InteractiveViewer);
+        final ivWidget = tester.widget<InteractiveViewer>(ivFinder);
+        final controller = ivWidget.transformationController!;
+
+        // 1.0x tap
+        await tapAyah(tester, 3, ayah14);
+        expect(recallCubit.state.revealedGlobals, {14});
+
+        // Hide explicitly before testing a fresh reveal at the next scale.
+        recallCubit.hideCurrentAyah();
+        await tester.pump();
+        expect(recallCubit.state.revealedGlobals, isEmpty);
+
+        // 1.5x Zoom
+        controller.value = Matrix4.identity()
+          ..scaleByDouble(1.5, 1.5, 1.0, 1.0);
+        await tester.pump();
+
+        await tapAyah(tester, 3, ayah14);
+        expect(recallCubit.state.revealedGlobals, {14});
+
+        recallCubit.hideCurrentAyah();
+        await tester.pump();
+        expect(recallCubit.state.revealedGlobals, isEmpty);
+
+        // 2.0x Zoom
+        controller.value = Matrix4.identity()
+          ..scaleByDouble(2.0, 2.0, 1.0, 1.0);
+        await tester.pump();
+
+        await tapAyah(tester, 3, ayah14);
+        expect(recallCubit.state.revealedGlobals, {14});
+
+        recallCubit.hideCurrentAyah();
+        await tester.pump();
+
+        // Zoom + Pan
+        controller.value = Matrix4.identity()
+          ..translateByDouble(15.0, 25.0, 0.0, 1.0)
+          ..scaleByDouble(1.5, 1.5, 1.0, 1.0);
+        await tester.pump();
+
+        // Reveal after applying both pan and zoom.
+        await tapAyah(tester, 3, ayah14);
+        expect(recallCubit.state.revealedGlobals, {14});
+
+        // Reset
+        controller.value = Matrix4.identity();
+        await tester.pump();
+      },
+    );
+
+    testWidgets(
+      '14, 15, 16. Responsive viewports: compact (320px), standard (390px), wide (430px)',
+      (tester) async {
+        const viewports = [Size(320, 640), Size(390, 844), Size(430, 932)];
+
+        final ayah14 = layoutRepo.getAyah(14)!;
+
+        for (final vp in viewports) {
+          await recallCubit.startRange(14, 15);
+          expect(recallCubit.state.revealedGlobals, isEmpty);
+
+          await tester.pumpWidget(
+            buildTestHarness(
+              size: vp,
+              child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
+            ),
+          );
+          await tester.pump();
+
+          await tapAyah(tester, 3, ayah14);
+
+          expect(recallCubit.state.revealedGlobals, {
+            14,
+          }, reason: 'Ayah 14 must reveal in viewport $vp');
+        }
+      },
+    );
 
     // ============================================================
     // GROUP 4: Geometry (Polygon Pages 1 & 2, Rect Pages, Shared Boundaries)
     // ============================================================
     testWidgets('17. Page 1 polygon hit-testing (Al-Fatihah)', (tester) async {
-      // Queue Al-Fatihah (Ayahs 1..7)
-      await recallCubit.startRange(1, 7);
-      final ayah4 = layoutRepo.getAyah(4)!; // Maliki yawmi ad-din (polygon segment)
+      // Make the polygon Ayah under test the current item.
+      await recallCubit.startRange(4, 7);
+      final ayah4 = layoutRepo.getAyah(
+        4,
+      )!; // Maliki yawmi ad-din (polygon segment)
 
       await tester.pumpWidget(
         buildTestHarness(
@@ -531,8 +573,10 @@ void main() {
       expect(recallCubit.state.revealedGlobals, {4});
     });
 
-    testWidgets('18. Page 2 polygon hit-testing (Al-Baqarah 2:1-5)', (tester) async {
-      await recallCubit.startRange(8, 12);
+    testWidgets('18. Page 2 polygon hit-testing (Al-Baqarah 2:1-5)', (
+      tester,
+    ) async {
+      await recallCubit.startRange(9, 12);
       final ayah9 = layoutRepo.getAyah(9)!; // Dhalika al-kitabu la rayba fih
 
       await tester.pumpWidget(
@@ -549,114 +593,138 @@ void main() {
       expect(recallCubit.state.revealedGlobals, {9});
     });
 
-    testWidgets('19, 20, 21, 22. Multi-line rect, neighboring ayahs, and shared line corridors',
-        (tester) async {
-      await recallCubit.startRange(13, 16);
-      final ayah13 = layoutRepo.getAyah(13)!; // 2:6 (2 segments)
-      final ayah14 = layoutRepo.getAyah(14)!; // 2:7 (3 segments)
+    testWidgets(
+      '19, 20, 21, 22. Multi-line rect, neighboring ayahs, and shared line corridors',
+      (tester) async {
+        await recallCubit.startRange(13, 16);
+        final ayah13 = layoutRepo.getAyah(13)!; // 2:6 (2 segments)
+        final ayah14 = layoutRepo.getAyah(14)!; // 2:7 (3 segments)
 
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
+          ),
+        );
+        await tester.pump();
 
-      // Tap Ayah 13
-      await tapAyah(tester, 3, ayah13);
-      expect(recallCubit.state.revealedGlobals, {13});
+        // Tap Ayah 13
+        await tapAyah(tester, 3, ayah13);
+        expect(recallCubit.state.revealedGlobals, {13});
 
-      // Tap neighboring Ayah 14 on shared corridor
-      await tapAyah(tester, 3, ayah14);
-      expect(recallCubit.state.revealedGlobals, {13, 14});
-    });
+        // Advance before revealing the neighboring Ayah on a shared corridor.
+        await recallCubit.recordKnown();
+        await tester.pump();
+        await tapAyah(tester, 3, ayah14);
+        expect(recallCubit.state.revealedGlobals, {13, 14});
+      },
+    );
 
     // ============================================================
     // GROUP 5: State & Coexistence with MushafInteractionCubit
     // ============================================================
-    testWidgets('23, 24, 25, 26. State consistency and MushafInteractionCubit coexistence',
-        (tester) async {
-      final interactionCubit = MushafInteractionCubit(layoutRepository: layoutRepo);
-      await recallCubit.startRange(13, 15);
-      final ayah14 = layoutRepo.getAyah(14)!;
+    testWidgets(
+      '23, 24, 25, 26. State consistency and MushafInteractionCubit coexistence',
+      (tester) async {
+        final interactionCubit = MushafInteractionCubit(
+          layoutRepository: layoutRepo,
+        );
+        await recallCubit.startRange(14, 15);
+        final ayah14 = layoutRepo.getAyah(14)!;
 
-      await tester.pumpWidget(
-        buildTestHarness(
-          interactionCubit: interactionCubit,
-          child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          buildTestHarness(
+            interactionCubit: interactionCubit,
+            child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
+          ),
+        );
+        await tester.pump();
 
-      // Tap Ayah 14 during active Visual Recall session
-      await tapAyah(tester, 3, ayah14);
+        // Tap Ayah 14 during active Visual Recall session
+        await tapAyah(tester, 3, ayah14);
 
-      // Visual Recall Cubit received reveal
-      expect(recallCubit.state.revealedGlobals, {14});
+        // Visual Recall Cubit received reveal
+        expect(recallCubit.state.revealedGlobals, {14});
 
-      // MushafInteractionCubit must NOT have intercepted or opened Action Sheet
-      expect(interactionCubit.state.hasSelection, isFalse);
-      expect(interactionCubit.state.isActionSheetOpen, isFalse);
+        // MushafInteractionCubit must NOT have intercepted or opened Action Sheet
+        expect(interactionCubit.state.hasSelection, isFalse);
+        expect(interactionCubit.state.isActionSheetOpen, isFalse);
 
-      interactionCubit.close();
-    });
+        interactionCubit.close();
+      },
+    );
 
     // ============================================================
     // GROUP 6: Last Read Isolation
     // ============================================================
-    testWidgets('27. Interaction and reveal sequence causes zero Last Read writes',
-        (tester) async {
-      const initialLastRead = {'page': 100, 'surah': 16, 'ayah': 50};
-      await storage.writeMap('last_read', initialLastRead);
-      await storage.writeInt('last_read_page', 100);
-      storage.writeOperations.clear();
+    testWidgets(
+      '27. Interaction and reveal sequence causes zero Last Read writes',
+      (tester) async {
+        const initialLastRead = {'page': 100, 'surah': 16, 'ayah': 50};
+        await storage.writeMap('last_read', initialLastRead);
+        await storage.writeInt('last_read_page', 100);
+        storage.writeOperations.clear();
 
-      await recallCubit.startRange(13, 15);
-      final ayah13 = layoutRepo.getAyah(13)!;
-      final ayah14 = layoutRepo.getAyah(14)!;
+        await recallCubit.startRange(13, 15);
+        final ayah13 = layoutRepo.getAyah(13)!;
+        final ayah14 = layoutRepo.getAyah(14)!;
 
-      await tester.pumpWidget(
-        buildTestHarness(
-          child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          buildTestHarness(
+            child: const MushafPage(page: 3, scale: 1.0, isCurrent: true),
+          ),
+        );
+        await tester.pump();
 
-      // Tap Ayah 13
-      await tapAyah(tester, 3, ayah13);
+        // Tap Ayah 13
+        await tapAyah(tester, 3, ayah13);
 
-      // Tap Ayah 14
-      await tapAyah(tester, 3, ayah14);
+        await recallCubit.recordKnown();
+        await tester.pump();
 
-      // Untap Ayah 13
-      await tapAyah(tester, 3, ayah13);
+        // Tap the new current Ayah 14.
+        await tapAyah(tester, 3, ayah14);
 
-      final lastReadWrites = storage.writeOperations
-          .where((op) => op.contains('last_read'))
-          .toList();
-      expect(lastReadWrites, isEmpty,
-          reason: 'Visual Recall interaction must have 0 writes to Last Read keys');
-      expect(storage.readMap('last_read'), initialLastRead);
-      expect(storage.readInt('last_read_page'), 100);
-    });
+        // Tapping a previously assessed Ayah leaves the session unchanged.
+        await tapAyah(tester, 3, ayah13);
+        expect(recallCubit.state.revealedGlobals, {13, 14});
+
+        final lastReadWrites = storage.writeOperations
+            .where((op) => op.contains('last_read'))
+            .toList();
+        expect(
+          lastReadWrites,
+          isEmpty,
+          reason:
+              'Visual Recall interaction must have 0 writes to Last Read keys',
+        );
+        expect(storage.readMap('last_read'), initialLastRead);
+        expect(storage.readInt('last_read_page'), 100);
+      },
+    );
 
     // ============================================================
     // GROUP 7: Visual Interaction Evidence (Section 20 Matrices)
     // ============================================================
-    testWidgets('28. Generate 12 real visual interaction screenshots',
-        (tester) async {
+    testWidgets('28. Generate 12 real visual interaction screenshots', (
+      tester,
+    ) async {
       Future<void> saveScreenshot(GlobalKey key, String filename) async {
         await tester.runAsync(() async {
           final boundary =
               key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
           if (boundary != null) {
             final image = await boundary.toImage(pixelRatio: 1.0);
-            final byteData =
-                await image.toByteData(format: ui.ImageByteFormat.png);
+            final byteData = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
             if (byteData != null) {
-              final file = File('screenshots/visual_recall_interaction/$filename');
+              final file = File(
+                'screenshots/visual_recall_interaction/$filename',
+              );
               await file.writeAsBytes(byteData.buffer.asUint8List());
-              print('Saved evidence screenshot: $filename (${byteData.lengthInBytes} bytes)');
+              print(
+                'Saved evidence screenshot: $filename (${byteData.lengthInBytes} bytes)',
+              );
             }
           }
         });
@@ -683,20 +751,24 @@ void main() {
       expect(recallCubit.state.revealedGlobals, {13});
       await saveScreenshot(key, '02_first_ayah_revealed_page3.png');
 
-      // 4 & 5. Tap second queued ayah (Ayah 14) -> multiple revealed
+      // 4 & 5. Assess Ayah 13, then reveal the new current Ayah 14.
+      await recallCubit.recordKnown();
+      await tester.pump();
       final ayah14 = layoutRepo.getAyah(14)!;
       await tapAyah(tester, 3, ayah14);
       expect(recallCubit.state.revealedGlobals, {13, 14});
       await saveScreenshot(key, '03_multiple_ayahs_revealed_page3.png');
 
-      // 6. Non-queued ayah tapped (Ayah 16 is not in [13..15]) -> remains masked
+      // 6. Non-queued Ayah 16 is ignored without changing recall state.
       final ayah16 = layoutRepo.getAyah(16)!;
       await tapAyah(tester, 3, ayah16);
       expect(recallCubit.state.revealedGlobals, {13, 14}); // unchanged
       await saveScreenshot(key, '04_non_queued_tapped_unaltered_page3.png');
 
       // 7. Zoomed 1.5x interaction
-      final ivWidget = tester.widget<InteractiveViewer>(find.byType(InteractiveViewer));
+      final ivWidget = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer),
+      );
       final controller = ivWidget.transformationController!;
       controller.value = Matrix4.identity()..scaleByDouble(1.5, 1.5, 1.0, 1.0);
       await tester.pump();
@@ -720,7 +792,7 @@ void main() {
 
       // 10. Page 1 polygon interaction (Al-Fatihah, Ayah 4 tapped & revealed)
       final keyP1 = GlobalKey();
-      await recallCubit.startRange(1, 7);
+      await recallCubit.startRange(4, 7);
       await tester.pumpWidget(
         RepaintBoundary(
           key: keyP1,
@@ -737,7 +809,7 @@ void main() {
 
       // 11. Page 2 polygon interaction (Al-Baqarah, Ayah 9 tapped & revealed)
       final keyP2 = GlobalKey();
-      await recallCubit.startRange(8, 12);
+      await recallCubit.startRange(9, 12);
       await tester.pumpWidget(
         RepaintBoundary(
           key: keyP2,

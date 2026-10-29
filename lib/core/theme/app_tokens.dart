@@ -20,7 +20,10 @@ class MishkatSpacing {
   static const EdgeInsets pageLg = EdgeInsets.fromLTRB(20, 16, 20, 110);
   static const EdgeInsets card = EdgeInsets.all(16.0);
   static const EdgeInsets cardCompact = EdgeInsets.all(12.0);
-  static const EdgeInsets button = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+  static const EdgeInsets button = EdgeInsets.symmetric(
+    horizontal: 16,
+    vertical: 12,
+  );
 }
 
 /// Centralized Corner Radius Tokens for Mishkat.

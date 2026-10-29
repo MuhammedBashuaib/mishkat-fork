@@ -65,7 +65,8 @@ class QuranOralRecitationState extends Equatable {
   bool get isListening => lifecycle.isListening;
   bool get isPaused => lifecycle.isPaused;
   bool get isCompleted => lifecycle.isCompleted;
-  bool get hasActiveSession => sessionId != null && !lifecycle.isIdle && !lifecycle.isCompleted;
+  bool get hasActiveSession =>
+      sessionId != null && !lifecycle.isIdle && !lifecycle.isCompleted;
 
   QuranOralRecitationState copyWith({
     OralRecitationLifecycle? lifecycle,
@@ -130,31 +131,31 @@ class QuranOralRecitationState extends Equatable {
 
   @override
   List<Object?> get props => [
-        lifecycle,
-        sessionId,
-        surahNumber,
-        surahName,
-        startGlobalAyah,
-        endGlobalAyah,
-        planId,
-        targetWords,
-        alignedWords,
-        discrepancies,
-        currentGlobalAyah,
-        currentWordIndex,
-        committedTargetIndex,
-        liveTranscript,
-        progressPercentage,
-        matchedWordsCount,
-        omissionsCount,
-        substitutionsCount,
-        uncertainCount,
-        durationSeconds,
-        revealedGlobals,
-        completedGlobalAyahs,
-        summary,
-        errorMessage,
-        isCommittingToMemorization,
-        isMemorizationCommitted,
-      ];
+    lifecycle,
+    sessionId,
+    surahNumber,
+    surahName,
+    startGlobalAyah,
+    endGlobalAyah,
+    planId,
+    targetWords,
+    alignedWords,
+    discrepancies,
+    currentGlobalAyah,
+    currentWordIndex,
+    committedTargetIndex,
+    liveTranscript,
+    progressPercentage,
+    matchedWordsCount,
+    omissionsCount,
+    substitutionsCount,
+    uncertainCount,
+    durationSeconds,
+    revealedGlobals,
+    completedGlobalAyahs,
+    summary,
+    errorMessage,
+    isCommittingToMemorization,
+    isMemorizationCommitted,
+  ];
 }

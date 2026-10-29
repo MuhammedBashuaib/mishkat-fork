@@ -15,14 +15,13 @@ import 'quran_search_page.dart';
 
 /// Dedicated index page for browsing Surahs, Juz, and Bookmarks.
 class QuranIndexPage extends StatefulWidget {
-  const QuranIndexPage({
-    super.key,
-    this.initialMode = QuranIndexMode.surahs,
-  });
+  const QuranIndexPage({super.key, this.initialMode = QuranIndexMode.surahs});
 
   final QuranIndexMode initialMode;
 
-  static Route<void> route({QuranIndexMode initialMode = QuranIndexMode.surahs}) {
+  static Route<void> route({
+    QuranIndexMode initialMode = QuranIndexMode.surahs,
+  }) {
     return MaterialPageRoute<void>(
       builder: (_) => QuranIndexPage(initialMode: initialMode),
     );
@@ -102,7 +101,8 @@ class _QuranIndexPageState extends State<QuranIndexPage>
               IconButton(
                 tooltip: 'البحث الشامل',
                 icon: const Icon(Icons.search_rounded),
-                onPressed: () => Navigator.push(context, QuranSearchPage.route()),
+                onPressed: () =>
+                    Navigator.push(context, QuranSearchPage.route()),
               ),
             ],
           ),
@@ -144,7 +144,10 @@ class _QuranIndexPageState extends State<QuranIndexPage>
                           ),
                         IconButton(
                           tooltip: 'البحث في نص الآيات',
-                          icon: const Icon(Icons.travel_explore_rounded, size: 20),
+                          icon: const Icon(
+                            Icons.travel_explore_rounded,
+                            size: 20,
+                          ),
                           onPressed: () =>
                               Navigator.push(context, QuranSearchPage.route()),
                         ),
@@ -160,7 +163,8 @@ class _QuranIndexPageState extends State<QuranIndexPage>
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: Theme.of(context).dividerColor.withValues(alpha: 0.15),
+                      color: Theme.of(context).dividerColor
+                          .withValues(alpha: 0.15),
                     ),
                   ),
                 ),
@@ -170,10 +174,14 @@ class _QuranIndexPageState extends State<QuranIndexPage>
                   indicatorWeight: 3,
                   labelColor: colors.primary,
                   unselectedLabelColor: colors.textSecondary,
-                  labelStyle:
-                      const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-                  unselectedLabelStyle:
-                      const TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5),
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13.5,
+                  ),
                   tabs: const [
                     Tab(text: 'السور'),
                     Tab(text: 'الأجزاء'),
@@ -217,14 +225,19 @@ class _QuranIndexPageState extends State<QuranIndexPage>
       child: InkWell(
         borderRadius: BorderRadius.circular(MishkatRadius.md),
         onTap: () async {
-          final targetPoint = state.lastRead ?? data.page(state.currentPage).first;
+          final targetPoint =
+              state.lastRead ?? data.page(state.currentPage).first;
           final targetPage = data.pageForGlobal(targetPoint.global);
-          await context.read<QuranCubit>().openPage(targetPage, point: targetPoint);
+          await context.read<QuranCubit>().openPage(
+            targetPage,
+            point: targetPoint,
+          );
           if (context.mounted) {
             await Navigator.push(
               context,
               MaterialPageRoute<void>(
-                builder: (_) => QuranReaderPage(initialGlobalAyah: targetPoint.global),
+                builder: (_) =>
+                    QuranReaderPage(initialGlobalAyah: targetPoint.global),
               ),
             );
           }
@@ -234,9 +247,7 @@ class _QuranIndexPageState extends State<QuranIndexPage>
           decoration: BoxDecoration(
             color: colors.primarySoft.withValues(alpha: 0.65),
             borderRadius: BorderRadius.circular(MishkatRadius.md),
-            border: Border.all(
-              color: colors.primary.withValues(alpha: 0.2),
-            ),
+            border: Border.all(color: colors.primary.withValues(alpha: 0.2)),
           ),
           child: Row(
             children: [
@@ -282,7 +293,10 @@ class _QuranIndexPageState extends State<QuranIndexPage>
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: colors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(MishkatRadius.pill),
@@ -317,26 +331,32 @@ class _QuranIndexPageState extends State<QuranIndexPage>
   Widget _buildSurahsList(BuildContext context, QuranData data) {
     final filteredChapters = _filter.isEmpty
         ? data.chapters
-        : data.chapters.where((c) {
-            final rawQuery = _filter.trim();
-            final normQuery = QuranSearchNormalizer.normalize(
-              QuranSearchNormalizer.convertArabicDigits(rawQuery),
-            );
-            final numQuery = int.tryParse(normQuery);
-            if (numQuery != null && c.number == numQuery) return true;
+        : data.chapters
+              .where((c) {
+                final rawQuery = _filter.trim();
+                final normQuery = QuranSearchNormalizer.normalize(
+                  QuranSearchNormalizer.convertArabicDigits(rawQuery),
+                );
+                final numQuery = int.tryParse(normQuery);
+                if (numQuery != null && c.number == numQuery) return true;
 
-            final normName = QuranSearchNormalizer.normalize(c.name);
-            if (normName.contains(normQuery)) return true;
+                final normName = QuranSearchNormalizer.normalize(c.name);
+                if (normName.contains(normQuery)) return true;
 
-            if (c.englishName.toLowerCase().contains(rawQuery.toLowerCase())) {
-              return true;
-            }
+                if (c.englishName.toLowerCase().contains(
+                  rawQuery.toLowerCase(),
+                )) {
+                  return true;
+                }
 
-            final normRev = QuranSearchNormalizer.normalize(c.revelationType);
-            if (normRev.contains(normQuery)) return true;
+                final normRev = QuranSearchNormalizer.normalize(
+                  c.revelationType,
+                );
+                if (normRev.contains(normQuery)) return true;
 
-            return false;
-          }).toList(growable: false);
+                return false;
+              })
+              .toList(growable: false);
 
     if (filteredChapters.isEmpty) {
       return Center(
@@ -345,7 +365,11 @@ class _QuranIndexPageState extends State<QuranIndexPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.search_off_rounded, size: 48, color: context.mishkat.textMuted),
+              Icon(
+                Icons.search_off_rounded,
+                size: 48,
+                color: context.mishkat.textMuted,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'لا توجد سورة مطابقة للبحث',
@@ -354,7 +378,10 @@ class _QuranIndexPageState extends State<QuranIndexPage>
               const SizedBox(height: 4),
               Text(
                 'جرّب البحث باسم السورة أو رقمها',
-                style: TextStyle(color: context.mishkat.textSecondary, fontSize: 13),
+                style: TextStyle(
+                  color: context.mishkat.textSecondary,
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
@@ -392,20 +419,24 @@ class _QuranIndexPageState extends State<QuranIndexPage>
   Widget _buildJuzList(BuildContext context, QuranData data) {
     final filteredJuz = _filter.isEmpty
         ? data.juz
-        : data.juz.where((j) {
-            final rawQuery = _filter.trim();
-            final normQuery = QuranSearchNormalizer.normalize(
-              QuranSearchNormalizer.convertArabicDigits(rawQuery),
-            );
-            final numQuery = int.tryParse(normQuery);
-            if (numQuery != null && j.number == numQuery) return true;
+        : data.juz
+              .where((j) {
+                final rawQuery = _filter.trim();
+                final normQuery = QuranSearchNormalizer.normalize(
+                  QuranSearchNormalizer.convertArabicDigits(rawQuery),
+                );
+                final numQuery = int.tryParse(normQuery);
+                if (numQuery != null && j.number == numQuery) return true;
 
-            final chapter = data.chapter(j.surah);
-            final normChapter = QuranSearchNormalizer.normalize(chapter.name);
-            if (normChapter.contains(normQuery)) return true;
+                final chapter = data.chapter(j.surah);
+                final normChapter = QuranSearchNormalizer.normalize(
+                  chapter.name,
+                );
+                if (normChapter.contains(normQuery)) return true;
 
-            return false;
-          }).toList(growable: false);
+                return false;
+              })
+              .toList(growable: false);
 
     if (filteredJuz.isEmpty) {
       return Center(
@@ -414,7 +445,11 @@ class _QuranIndexPageState extends State<QuranIndexPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.search_off_rounded, size: 48, color: context.mishkat.textMuted),
+              Icon(
+                Icons.search_off_rounded,
+                size: 48,
+                color: context.mishkat.textMuted,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'لا توجد نتائج مطابقة',
@@ -423,7 +458,10 @@ class _QuranIndexPageState extends State<QuranIndexPage>
               const SizedBox(height: 4),
               Text(
                 'جرّب البحث برقم الجزء من 1 إلى 30',
-                style: TextStyle(color: context.mishkat.textSecondary, fontSize: 13),
+                style: TextStyle(
+                  color: context.mishkat.textSecondary,
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
@@ -475,79 +513,73 @@ class _IndexTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: MishkatSpacing.xs),
-        child: MishkatCard(
-          padding: const EdgeInsets.symmetric(
-            horizontal: MishkatSpacing.md,
-            vertical: MishkatSpacing.sm,
+    padding: const EdgeInsets.only(bottom: MishkatSpacing.xs),
+    child: MishkatCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: MishkatSpacing.md,
+        vertical: MishkatSpacing.sm,
+      ),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: context.mishkat.primarySoft,
+              borderRadius: BorderRadius.circular(MishkatRadius.md),
+              border: Border.all(
+                color: context.mishkat.primary.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Text(
+              '$number',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: context.mishkat.primary,
+                fontSize: 13.5,
+              ),
+            ),
           ),
-          onTap: onTap,
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: context.mishkat.primarySoft,
-                  borderRadius: BorderRadius.circular(MishkatRadius.md),
-                  border: Border.all(
-                    color: context.mishkat.primary.withValues(alpha: 0.25),
-                  ),
+          const SizedBox(width: MishkatSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
-                child: Text(
-                  '$number',
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: context.mishkat.primary,
-                    fontSize: 13.5,
+                    fontSize: 12,
+                    color: context.mishkat.textSecondary,
                   ),
                 ),
-              ),
-              const SizedBox(width: MishkatSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style:
-                          Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                              ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: context.mishkat.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_left_rounded,
-                color: context.mishkat.textMuted,
-                size: 22,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
+          Icon(
+            Icons.chevron_left_rounded,
+            color: context.mishkat.textMuted,
+            size: 22,
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 enum _BookmarkSortMode { recent, mushafOrder }
 
 class _IndexBookmarksList extends StatefulWidget {
-  const _IndexBookmarksList({
-    required this.state,
-    this.filter = '',
-  });
+  const _IndexBookmarksList({required this.state, this.filter = ''});
   final QuranState state;
   final String filter;
 
@@ -586,9 +618,8 @@ class _IndexBookmarksListState extends State<_IndexBookmarksList> {
             const SizedBox(height: MishkatSpacing.md),
             Text(
               'لا توجد علامات محفوظة بعد',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: MishkatSpacing.xs),
             Text(
@@ -608,19 +639,22 @@ class _IndexBookmarksListState extends State<_IndexBookmarksList> {
     final query = widget.filter.trim();
     final filtered = query.isEmpty
         ? bookmarks
-        : bookmarks.where((b) {
-            final chapter = widget.state.data!.chapter(b.point.surah);
-            final normQuery = QuranSearchNormalizer.normalize(
-              QuranSearchNormalizer.convertArabicDigits(query),
-            );
-            final normName = QuranSearchNormalizer.normalize(chapter.name);
-            if (normName.contains(normQuery)) return true;
-            if (b.label != null &&
-                QuranSearchNormalizer.normalize(b.label!).contains(normQuery)) {
-              return true;
-            }
-            return false;
-          }).toList(growable: false);
+        : bookmarks
+              .where((b) {
+                final chapter = widget.state.data!.chapter(b.point.surah);
+                final normQuery = QuranSearchNormalizer.normalize(
+                  QuranSearchNormalizer.convertArabicDigits(query),
+                );
+                final normName = QuranSearchNormalizer.normalize(chapter.name);
+                if (normName.contains(normQuery)) return true;
+                if (b.label != null &&
+                    QuranSearchNormalizer.normalize(b.label!)
+                        .contains(normQuery)) {
+                  return true;
+                }
+                return false;
+              })
+              .toList(growable: false);
 
     if (filtered.isEmpty) {
       return Center(
@@ -629,7 +663,11 @@ class _IndexBookmarksListState extends State<_IndexBookmarksList> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.search_off_rounded, size: 48, color: context.mishkat.textMuted),
+              Icon(
+                Icons.search_off_rounded,
+                size: 48,
+                color: context.mishkat.textMuted,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'لا توجد علامات مطابقة للبحث',
@@ -642,10 +680,12 @@ class _IndexBookmarksListState extends State<_IndexBookmarksList> {
     }
 
     final sortedList = switch (_sortMode) {
-      _BookmarkSortMode.recent => List<QuranBookmark>.from(filtered)
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-      _BookmarkSortMode.mushafOrder => List<QuranBookmark>.from(filtered)
-        ..sort((a, b) => a.point.global.compareTo(b.point.global)),
+      _BookmarkSortMode.recent => List<QuranBookmark>.from(
+        filtered,
+      )..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+      _BookmarkSortMode.mushafOrder => List<QuranBookmark>.from(
+        filtered,
+      )..sort((a, b) => a.point.global.compareTo(b.point.global)),
     };
 
     return ListView(
@@ -794,9 +834,8 @@ class _IndexBookmarkTile extends StatelessWidget {
               await Navigator.push(
                 context,
                 MaterialPageRoute<void>(
-                  builder: (_) => QuranReaderPage(
-                    initialGlobalAyah: bookmark.point.global,
-                  ),
+                  builder: (_) =>
+                      QuranReaderPage(initialGlobalAyah: bookmark.point.global),
                 ),
               );
             }
@@ -896,8 +935,10 @@ class _IndexBookmarkTile extends StatelessWidget {
                       onPressed: () =>
                           _openTafsir(context, bookmark.point.global, state),
                       icon: const Icon(Icons.menu_book_rounded, size: 16),
-                      label:
-                          const Text('التفسير', style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        'التفسير',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       style: TextButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -906,8 +947,10 @@ class _IndexBookmarkTile extends StatelessWidget {
                     TextButton.icon(
                       onPressed: () => cubit.playAyah(bookmark.point.global),
                       icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                      label:
-                          const Text('استماع', style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        'استماع',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       style: TextButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                         padding: const EdgeInsets.symmetric(horizontal: 8),

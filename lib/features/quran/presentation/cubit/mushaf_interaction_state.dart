@@ -38,10 +38,8 @@ class MushafInteractionState extends Equatable {
     bool clearPlaying = false,
   }) {
     return MushafInteractionState(
-      selectedAyah:
-          clearSelection ? null : (selectedAyah ?? this.selectedAyah),
-      selectedPage:
-          clearSelection ? null : (selectedPage ?? this.selectedPage),
+      selectedAyah: clearSelection ? null : (selectedAyah ?? this.selectedAyah),
+      selectedPage: clearSelection ? null : (selectedPage ?? this.selectedPage),
       isActionSheetOpen: isActionSheetOpen ?? this.isActionSheetOpen,
       playingAyah: clearPlaying ? null : (playingAyah ?? this.playingAyah),
     );
@@ -49,9 +47,9 @@ class MushafInteractionState extends Equatable {
 
   @override
   List<Object?> get props => [
-        selectedAyah,
-        selectedPage,
-        isActionSheetOpen,
-        playingAyah,
-      ];
+    selectedAyah,
+    selectedPage,
+    isActionSheetOpen,
+    playingAyah,
+  ];
 }

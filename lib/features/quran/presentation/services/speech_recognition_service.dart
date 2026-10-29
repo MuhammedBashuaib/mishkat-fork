@@ -134,6 +134,19 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
   bool _isInitialized = false;
   bool _hasStartedListening = false;
+  bool _isDisposed = false;
+  bool _acceptRecognitionEvents = false;
+  int _sessionGeneration = 0;
+  int? _lastNativeStartGeneration;
+  Future<bool>? _initialization;
+  Future<bool>? _startOperation;
+  Completer<bool>? _startAcknowledgement;
+
+  static const _startupTimeout = Duration(seconds: 6);
+  static const _localeTimeout = Duration(seconds: 3);
+
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   @override
   Stream<SpeechRecognitionResultData> get resultsStream =>
@@ -146,15 +159,30 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
   Stream<SpeechRecognitionFailure> get errorStream => _errorController.stream;
 
   @override
-  bool get isAvailable => _isInitialized && _stt.isAvailable;
+  bool get isAvailable => !_isDisposed && _isInitialized && _stt.isAvailable;
 
   @override
-  bool get isListening => _stt.isListening;
+  bool get isListening => _acceptRecognitionEvents && _stt.isListening;
 
   @override
   Future<bool> initialize() async {
-    if (_isInitialized && _stt.isAvailable) return true;
+    if (_isDisposed) return false;
+    if (_isInitialized && _stt.isAvailable) {
+      _bindCallbacks();
+      return true;
+    }
+    final pending = _initialization;
+    if (pending != null) return pending;
+    final initialization = _initializeEngine();
+    _initialization = initialization;
+    try {
+      return await initialization;
+    } finally {
+      _initialization = null;
+    }
+  }
 
+  Future<bool> _initializeEngine() async {
     try {
       final available = await _stt.initialize(
         onError: _onError,
@@ -165,23 +193,35 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           // Disabling Bluetooth here avoids an unrelated runtime permission
           // preventing recognition on Android 12+ devices.
           SpeechToText.androidNoBluetooth,
-          // A few Android vendors do not expose their default recognizer
-          // through the standard intent lookup path.
-          SpeechToText.androidIntentLookup,
+          // Use the system's configured recognizer. androidIntentLookup
+          // selects the first installed service, which can select a different
+          // (or unsupported) engine on phones with several voice services.
         ],
       );
+      if (_isDisposed) return false;
+      // SpeechToText() is a singleton and its initialize() ignores callbacks
+      // after its first successful call. A reopened recitation page must own
+      // the callbacks instead of sending them to the disposed previous page.
+      _bindCallbacks();
       _isInitialized = available;
       return available;
     } catch (e) {
-      _errorController.add(
-        SpeechRecognitionFailure(
-          type: SpeechRecognitionFailureType.unknown,
-          message: 'فشل تهيئة محرك التعرف الصوتي: $e',
-        ),
-      );
+      if (!_errorController.isClosed) {
+        _errorController.add(
+          SpeechRecognitionFailure(
+            type: SpeechRecognitionFailureType.unknown,
+            message: 'فشل تهيئة محرك التعرف الصوتي: $e',
+          ),
+        );
+      }
       _isInitialized = false;
       return false;
     }
+  }
+
+  void _bindCallbacks() {
+    _stt.errorListener = _onError;
+    _stt.statusListener = _onStatus;
   }
 
   @override
@@ -208,6 +248,7 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
   @override
   Future<SpeechPermissionState> requestPermission() async {
+    if (_isDisposed) return SpeechPermissionState.denied;
     try {
       final already = await hasPermission();
       if (already) return SpeechPermissionState.granted;
@@ -230,12 +271,14 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           ? SpeechPermissionState.granted
           : SpeechPermissionState.denied;
     } catch (e) {
-      _errorController.add(
-        SpeechRecognitionFailure(
-          type: SpeechRecognitionFailureType.permissionDenied,
-          message: 'فشل طلب إذن الميكروفون: $e',
-        ),
-      );
+      if (!_errorController.isClosed) {
+        _errorController.add(
+          SpeechRecognitionFailure(
+            type: SpeechRecognitionFailureType.permissionDenied,
+            message: 'فشل طلب إذن الميكروفون: $e',
+          ),
+        );
+      }
       return SpeechPermissionState.denied;
     }
   }
@@ -279,12 +322,17 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
   @override
   Future<bool?> hasArabicLocale() async {
+    // Android 13+ only enumerates the on-device model's languages. Missing
+    // Arabic there does not mean that online Arabic recognition is unavailable.
+    // In speech_to_text 7.5 the native locale call also never replies when the
+    // device has no on-device service or its support check fails.
+    if (_isAndroid || _isDisposed) return null;
     try {
       if (!_isInitialized) {
         final available = await initialize();
         if (!available) return null;
       }
-      final locales = await _stt.locales().timeout(const Duration(seconds: 4));
+      final locales = await _stt.locales().timeout(_localeTimeout);
       if (locales.isEmpty) return null;
       return locales.any(
         (locale) => locale.localeId.toLowerCase().startsWith('ar'),
@@ -299,96 +347,169 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
     String localeId = 'ar_SA',
     List<String> contextualPhrases = const [],
   }) async {
-    if (!_isInitialized) {
-      final ok = await initialize();
-      if (!ok) return false;
+    if (_isDisposed) return false;
+    final pending = _startOperation;
+    if (pending != null) return pending;
+    final operation = _startListening(localeId, contextualPhrases);
+    _startOperation = operation;
+    try {
+      return await operation;
+    } finally {
+      _startOperation = null;
     }
+  }
+
+  Future<bool> _startListening(
+    String localeId,
+    List<String> contextualPhrases,
+  ) async {
+    final generation = ++_sessionGeneration;
+    final initialized = await initialize();
+    if (!initialized || !_isCurrentSession(generation)) return false;
 
     // speech_to_text requires every completed/timed-out session to be ended
     // with stop/cancel before another listen call. `isListening` is already
     // false by the time the platform emits `done`, so checking it alone leaves
     // the native recognizer busy on the next cycle.
     if (_hasStartedListening) {
+      _acceptRecognitionEvents = false;
       try {
         await _stt.cancel();
       } catch (_) {}
+      _hasStartedListening = false;
     }
+    if (!_isCurrentSession(generation)) return false;
 
-    // Determine best available Arabic locale
-    var targetLocale = localeId;
-    try {
-      final locales = await _stt.locales();
-      final arabicLocales = locales
-          .where((l) => l.localeId.toLowerCase().startsWith('ar'))
-          .toList();
-      if (arabicLocales.isNotEmpty) {
-        final normalizedRequested = localeId.toLowerCase().replaceAll('-', '_');
-        final exactMatches = arabicLocales.where(
-          (locale) =>
-              locale.localeId.toLowerCase().replaceAll('-', '_') ==
-              normalizedRequested,
-        );
-        targetLocale = exactMatches.isNotEmpty
-            ? exactMatches.first.localeId
-            : arabicLocales.first.localeId;
-      }
-    } catch (_) {}
+    // Android accepts a BCP-47 locale directly, including online-only Arabic.
+    // Never put its unreliable on-device language enumeration on the startup
+    // path: this used to prevent the microphone opening on Android 13+ phones.
+    var targetLocale = _isAndroid ? localeId.replaceAll('_', '-') : localeId;
+    if (!_isAndroid) {
+      try {
+        final locales = await _stt.locales().timeout(_localeTimeout);
+        final arabicLocales = locales
+            .where((l) => l.localeId.toLowerCase().startsWith('ar'))
+            .toList();
+        if (arabicLocales.isNotEmpty) {
+          final normalizedRequested = localeId.toLowerCase().replaceAll(
+            '-',
+            '_',
+          );
+          final exactMatches = arabicLocales.where(
+            (locale) =>
+                locale.localeId.toLowerCase().replaceAll('-', '_') ==
+                normalizedRequested,
+          );
+          targetLocale = exactMatches.isNotEmpty
+              ? exactMatches.first.localeId
+              : arabicLocales.first.localeId;
+        }
+      } catch (_) {}
+    }
+    if (!_isCurrentSession(generation)) return false;
 
+    final acknowledgement = Completer<bool>();
+    _startAcknowledgement = acknowledgement;
+    _acceptRecognitionEvents = true;
+    _hasStartedListening = true;
+    _lastNativeStartGeneration = generation;
     try {
-      await _stt.listen(
-        onResult: _onResult,
-        listenOptions: SpeechListenOptions(
-          listenMode: ListenMode.dictation,
-          partialResults: true,
-          cancelOnError: true,
-          // Do not force offline recognition. Many otherwise-supported phones
-          // do not have the Arabic on-device model installed and silently
-          // produce no words when `onDevice` is forced. The system recognizer
-          // can still choose its local engine when it is available.
-          onDevice: false,
-          listenFor: const Duration(minutes: 5),
-          pauseFor: const Duration(seconds: 4),
-          localeId: targetLocale,
-          contextualPhrases: contextualPhrases.isEmpty
-              ? null
-              : contextualPhrases,
-        ),
-      );
-      _hasStartedListening = true;
-      // `SpeechToText.isListening` only becomes true after the platform emits
-      // its asynchronous "listening" status. Reading it immediately here
-      // incorrectly reports a successful native listen call as failed on real
-      // devices. Reaching this line means the platform accepted the request;
-      // later failures are delivered through `_onError`.
-      return true;
+      await _stt
+          .listen(
+            onResult: _onResult,
+            listenOptions: SpeechListenOptions(
+              listenMode: ListenMode.dictation,
+              partialResults: true,
+              cancelOnError: true,
+              // Do not force offline recognition. Many otherwise-supported phones
+              // do not have the Arabic on-device model installed and silently
+              // produce no words when `onDevice` is forced. The system recognizer
+              // can still choose its local engine when it is available.
+              onDevice: false,
+              listenFor: const Duration(minutes: 5),
+              pauseFor: const Duration(seconds: 4),
+              localeId: targetLocale,
+              contextualPhrases: contextualPhrases.isEmpty
+                  ? null
+                  : contextualPhrases,
+            ),
+          )
+          .then((_) async {
+            // The plugin installs its pause timer after the platform replies.
+            // A late reply after cancel/dispose must not leave that timer alive.
+            // Only clean up while this adapter/session still owns the engine.
+            if (!_isCurrentSession(generation) &&
+                _lastNativeStartGeneration == generation &&
+                _stt.statusListener == _onStatus) {
+              try {
+                await _stt.cancel();
+              } catch (_) {}
+            }
+          })
+          .timeout(_startupTimeout);
+      // listen() discards the platform's bool result. Waiting for its status
+      // callback catches both silent rejection and delayed native startup,
+      // without incorrectly treating an asynchronous start as a failure.
+      final started = await acknowledgement.future.timeout(_startupTimeout);
+      return started && _isCurrentSession(generation);
     } catch (e) {
-      _errorController.add(
-        SpeechRecognitionFailure(
-          type: SpeechRecognitionFailureType.unknown,
-          message:
-              'تعذّر بدء الاستماع. تأكد من تفعيل خدمة التعرف على الكلام في الجهاز ثم حاول مجددًا: $e',
-        ),
-      );
+      if (_isCurrentSession(generation)) {
+        _errorController.add(
+          SpeechRecognitionFailure(
+            type: SpeechRecognitionFailureType.unknown,
+            message: e is TimeoutException
+                ? 'لم تبدأ خدمة التعرف على الكلام. تحقق من تفعيل الميكروفون وخدمة الإدخال الصوتي ثم أعد المحاولة.'
+                : 'تعذّر بدء الاستماع. تأكد من تفعيل خدمة التعرف على الكلام في الجهاز ثم حاول مجددًا: $e',
+          ),
+        );
+        await cancelListening();
+      }
       return false;
+    } finally {
+      if (identical(_startAcknowledgement, acknowledgement)) {
+        _startAcknowledgement = null;
+      }
     }
+  }
+
+  bool _isCurrentSession(int generation) =>
+      !_isDisposed && generation == _sessionGeneration;
+
+  void _acknowledgeStart(bool started) {
+    final acknowledgement = _startAcknowledgement;
+    if (acknowledgement != null && !acknowledgement.isCompleted) {
+      acknowledgement.complete(started);
+    }
+  }
+
+  void _invalidateSession() {
+    _sessionGeneration++;
+    _acceptRecognitionEvents = false;
+    _acknowledgeStart(false);
   }
 
   @override
   Future<void> stopListening() async {
-    if (_stt.isListening) {
+    _invalidateSession();
+    // The native microphone may already be starting before isListening is
+    // reported. End that request as well as an acknowledged listening session.
+    if (_hasStartedListening) {
       await _stt.stop();
     }
   }
 
   @override
   Future<void> cancelListening() async {
-    if (_stt.isListening) {
+    _invalidateSession();
+    if (_hasStartedListening) {
+      _hasStartedListening = false;
       await _stt.cancel();
     }
   }
 
   void _onResult(SpeechRecognitionResult result) {
-    if (_resultsController.isClosed) return;
+    if (_resultsController.isClosed || !_acceptRecognitionEvents) return;
+    _acknowledgeStart(true);
 
     if (kDebugMode) {
       debugPrint(
@@ -408,6 +529,8 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
   }
 
   void _onStatus(String status) {
+    if (!_acceptRecognitionEvents) return;
+    if (status == SpeechToText.listeningStatus) _acknowledgeStart(true);
     if (kDebugMode) {
       debugPrint('[Q14_STT_STATUS] status="$status"');
     }
@@ -417,6 +540,8 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
   }
 
   void _onError(SpeechRecognitionError error) {
+    if (!_acceptRecognitionEvents) return;
+    _acknowledgeStart(false);
     if (!_errorController.isClosed) {
       final failure = switch (error.errorMsg) {
         'error_no_match' => const SpeechRecognitionFailure(
@@ -427,7 +552,7 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           type: SpeechRecognitionFailureType.timeout,
           message: 'لم يُسمع صوت لفترة. اضغط متابعة عندما تكون مستعدًا.',
         ),
-        'error_audio' => const SpeechRecognitionFailure(
+        'error_audio' || 'error_audio_error' => const SpeechRecognitionFailure(
           type: SpeechRecognitionFailureType.audio,
           message:
               'تعذّر الوصول إلى الميكروفون. تحقق من عدم استخدامه في تطبيق آخر.',
@@ -437,6 +562,8 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           message: 'محرك التعرف الصوتي مشغول مؤقتًا. سيُعاد تشغيل الاستماع تلقائيًا.',
         ),
         'error_network' ||
+        'error_server' ||
+        'error_server_disconnected' ||
         'error_network_timeout' => const SpeechRecognitionFailure(
           type: SpeechRecognitionFailureType.network,
           message: 'تعذّر الوصول إلى خدمة التعرف على الكلام. تحقق من الاتصال أو نزّل حزمة العربية للتعرف دون اتصال.',
@@ -465,9 +592,19 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
   @override
   Future<void> dispose() async {
-    await cancelListening();
+    if (_isDisposed) return;
+    _isDisposed = true;
+    try {
+      await cancelListening();
+    } catch (_) {
+      // Closing a page must still release its listeners if the OS is already
+      // tearing down the microphone service.
+    }
+
     await _resultsController.close();
+
     await _statusController.close();
+
     await _errorController.close();
   }
 }

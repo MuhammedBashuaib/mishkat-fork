@@ -93,23 +93,29 @@ void main() {
       expect(recallCubit.state.error, isNull);
     });
 
-    test('2. startSingleAyah initializes activeRecall with single-item queue', () async {
-      await recallCubit.startSingleAyah(255);
+    test(
+      '2. startSingleAyah initializes activeRecall with single-item queue',
+      () async {
+        await recallCubit.startSingleAyah(255);
 
-      expect(recallCubit.state.phase, VisualRecallPhase.activeRecall);
-      expect(recallCubit.state.isActiveRecall, true);
-      expect(recallCubit.state.hasActiveSession, true);
-      expect(recallCubit.state.queue, [255]);
-      expect(recallCubit.state.currentIndex, 0);
-      expect(recallCubit.state.currentGlobalAyah, 255);
-      expect(recallCubit.state.isCurrentAyahRevealed, false);
-      expect(recallCubit.state.activeMaskedGlobals, {255});
-      expect(recallCubit.state.origin, VisualRecallSessionOrigin.adhoc);
-      expect(recallCubit.state.sessionId, startsWith('vrs_'));
+        expect(recallCubit.state.phase, VisualRecallPhase.activeRecall);
+        expect(recallCubit.state.isActiveRecall, true);
+        expect(recallCubit.state.hasActiveSession, true);
+        expect(recallCubit.state.queue, [255]);
+        expect(recallCubit.state.currentIndex, 0);
+        expect(recallCubit.state.currentGlobalAyah, 255);
+        expect(recallCubit.state.isCurrentAyahRevealed, false);
+        expect(recallCubit.state.activeMaskedGlobals, {255});
+        expect(recallCubit.state.origin, VisualRecallSessionOrigin.adhoc);
+        expect(recallCubit.state.sessionId, startsWith('vrs_'));
 
-      // Checkpoint was written to storage
-      expect(storage.store.containsKey(QuranVisualRecallCubit.checkpointKey), true);
-    });
+        // Checkpoint was written to storage
+        expect(
+          storage.store.containsKey(QuranVisualRecallCubit.checkpointKey),
+          true,
+        );
+      },
+    );
 
     test('3. startSingleAyah rejects invalid out-of-bounds Ayah index', () {
       expect(() => recallCubit.startSingleAyah(0), throwsArgumentError);
@@ -137,7 +143,14 @@ void main() {
     });
 
     test('6. startJourney deduplicates Ayahs while preserving order', () async {
-      await recallCubit.startJourney([10, 11, 10, 12, 11, 13], planId: 'test_plan');
+      await recallCubit.startJourney([
+        10,
+        11,
+        10,
+        12,
+        11,
+        13,
+      ], planId: 'test_plan');
 
       expect(recallCubit.state.phase, VisualRecallPhase.activeRecall);
       expect(recallCubit.state.queue, [10, 11, 12, 13]);
@@ -145,21 +158,24 @@ void main() {
       expect(recallCubit.state.planId, 'test_plan');
     });
 
-    test('7. Interactive range selection workflow: enter -> update -> confirm', () async {
-      recallCubit.enterRangeSelection(20);
-      expect(recallCubit.state.phase, VisualRecallPhase.rangeSelection);
-      expect(recallCubit.state.isRangeSelecting, true);
-      expect(recallCubit.state.rangeSelectionStart, 20);
-      expect(recallCubit.state.rangeSelectionEnd, 20);
+    test(
+      '7. Interactive range selection workflow: enter -> update -> confirm',
+      () async {
+        recallCubit.enterRangeSelection(20);
+        expect(recallCubit.state.phase, VisualRecallPhase.rangeSelection);
+        expect(recallCubit.state.isRangeSelecting, true);
+        expect(recallCubit.state.rangeSelectionStart, 20);
+        expect(recallCubit.state.rangeSelectionEnd, 20);
 
-      recallCubit.updateRangeEnd(25);
-      expect(recallCubit.state.rangeSelectionEnd, 25);
+        recallCubit.updateRangeEnd(25);
+        expect(recallCubit.state.rangeSelectionEnd, 25);
 
-      await recallCubit.confirmRangeSelection();
-      expect(recallCubit.state.phase, VisualRecallPhase.activeRecall);
-      expect(recallCubit.state.queue, [20, 21, 22, 23, 24, 25]);
-      expect(recallCubit.state.rangeSelectionStart, isNull);
-    });
+        await recallCubit.confirmRangeSelection();
+        expect(recallCubit.state.phase, VisualRecallPhase.activeRecall);
+        expect(recallCubit.state.queue, [20, 21, 22, 23, 24, 25]);
+        expect(recallCubit.state.rangeSelectionStart, isNull);
+      },
+    );
 
     test('8. Interactive range selection: cancel returns to idle', () {
       recallCubit.enterRangeSelection(30);
@@ -197,7 +213,10 @@ void main() {
       // Toggle Ayah 201 (ahead of current pointer)
       recallCubit.toggleAyahReveal(201);
       expect(recallCubit.state.revealedGlobals, {201});
-      expect(recallCubit.state.phase, VisualRecallPhase.activeRecall); // Current (200) still masked
+      expect(
+        recallCubit.state.phase,
+        VisualRecallPhase.activeRecall,
+      ); // Current (200) still masked
 
       // Toggle current Ayah (200) -> transitions to evaluating
       recallCubit.toggleAyahReveal(200);
@@ -258,35 +277,41 @@ void main() {
       expect(recallCubit.state.progress, 1.0);
 
       // Checkpoint was purged from storage
-      expect(storage.store.containsKey(QuranVisualRecallCubit.checkpointKey), false);
+      expect(
+        storage.store.containsKey(QuranVisualRecallCubit.checkpointKey),
+        false,
+      );
 
       // Dismiss summary resets to idle
       recallCubit.dismissSummary();
       expect(recallCubit.state.isIdle, true);
     });
 
-    test('13. Storage/Cubit write failure blocks queue advancement and sets error', () async {
-      await recallCubit.startSingleAyah(500);
-      recallCubit.revealCurrentAyah();
+    test(
+      '13. Storage/Cubit write failure blocks queue advancement and sets error',
+      () async {
+        await recallCubit.startSingleAyah(500);
+        recallCubit.revealCurrentAyah();
 
-      // Simulate storage write failure
-      storage.failOnWrite = true;
+        // Simulate storage write failure
+        storage.failOnWrite = true;
 
-      var threw = false;
-      try {
-        await recallCubit.recordOutcome(ReviewOutcome.good);
-      } catch (_) {
-        threw = true;
-      }
+        var threw = false;
+        try {
+          await recallCubit.recordOutcome(ReviewOutcome.good);
+        } catch (_) {
+          threw = true;
+        }
 
-      expect(threw, true);
+        expect(threw, true);
 
-      // INVARIANT: Advance is BLOCKED! Pointer remains at Ayah 500
-      expect(recallCubit.state.currentIndex, 0);
-      expect(recallCubit.state.currentGlobalAyah, 500);
-      expect(recallCubit.state.error, isNotNull);
-      expect(recallCubit.state.completedCount, 0);
-    });
+        // INVARIANT: Advance is BLOCKED! Pointer remains at Ayah 500
+        expect(recallCubit.state.currentIndex, 0);
+        expect(recallCubit.state.currentGlobalAyah, 500);
+        expect(recallCubit.state.error, isNotNull);
+        expect(recallCubit.state.completedCount, 0);
+      },
+    );
 
     test('14. jumpToAyah and toggleAudioSync function correctly', () async {
       await recallCubit.startRange(600, 605);
@@ -301,54 +326,67 @@ void main() {
       expect(recallCubit.state.isAudioSyncEnabled, true);
     });
 
-    test('15. Checkpoint saving, inspection, restoration, and 24h expiration', () async {
-      // 1. Create a session and write checkpoint
-      await recallCubit.startRange(700, 703);
-      recallCubit.revealCurrentAyah();
-      await recallCubit.recordOutcome(ReviewOutcome.good); // 700 completed, now at 701
+    test(
+      '15. Checkpoint saving, inspection, restoration, and 24h expiration',
+      () async {
+        // 1. Create a session and write checkpoint
+        await recallCubit.startRange(700, 703);
+        recallCubit.revealCurrentAyah();
+        await recallCubit.recordOutcome(
+          ReviewOutcome.good,
+        ); // 700 completed, now at 701
 
-      final checkpointMap = storage.readMap(QuranVisualRecallCubit.checkpointKey);
-      expect(checkpointMap.isNotEmpty, true);
-      expect(checkpointMap['currentIndex'], 1);
-      expect(checkpointMap['queue'], [700, 701, 702, 703]);
+        final checkpointMap = storage.readMap(
+          QuranVisualRecallCubit.checkpointKey,
+        );
+        expect(checkpointMap.isNotEmpty, true);
+        expect(checkpointMap['currentIndex'], 1);
+        expect(checkpointMap['queue'], [700, 701, 702, 703]);
 
-      // 2. Simulate app restart with a fresh Cubit instance
-      final newRecallCubit = QuranVisualRecallCubit(
-        memorizationCubit: memoCubit,
-        storage: storage,
-      );
-      await newRecallCubit.init();
+        // 2. Simulate app restart with a fresh Cubit instance
+        final newRecallCubit = QuranVisualRecallCubit(
+          memorizationCubit: memoCubit,
+          storage: storage,
+        );
+        await newRecallCubit.init();
 
-      expect(newRecallCubit.state.hasCheckpointAvailable, true);
-      expect(newRecallCubit.state.checkpointToResume, isNotNull);
-      expect(newRecallCubit.state.checkpointToResume!.currentIndex, 1);
+        expect(newRecallCubit.state.hasCheckpointAvailable, true);
+        expect(newRecallCubit.state.checkpointToResume, isNotNull);
+        expect(newRecallCubit.state.checkpointToResume!.currentIndex, 1);
 
-      // 3. Restore checkpoint
-      await newRecallCubit.restoreCheckpoint();
-      expect(newRecallCubit.state.phase, VisualRecallPhase.activeRecall);
-      expect(newRecallCubit.state.currentIndex, 1);
-      expect(newRecallCubit.state.currentGlobalAyah, 701);
-      expect(newRecallCubit.state.hasCheckpointAvailable, false);
+        // 3. Restore checkpoint
+        await newRecallCubit.restoreCheckpoint();
+        expect(newRecallCubit.state.phase, VisualRecallPhase.activeRecall);
+        expect(newRecallCubit.state.currentIndex, 1);
+        expect(newRecallCubit.state.currentGlobalAyah, 701);
+        expect(newRecallCubit.state.hasCheckpointAvailable, false);
 
-      // 4. Test 24-hour expiration
-      final expiredCheckpoint = VisualRecallSessionCheckpoint(
-        sessionId: 'vrs_expired',
-        origin: VisualRecallSessionOrigin.adhoc,
-        queue: [800],
-        savedAt: DateTime.now().subtract(const Duration(hours: 25)),
-      );
-      await storage.writeMap(QuranVisualRecallCubit.checkpointKey, expiredCheckpoint.toJson());
+        // 4. Test 24-hour expiration
+        final expiredCheckpoint = VisualRecallSessionCheckpoint(
+          sessionId: 'vrs_expired',
+          origin: VisualRecallSessionOrigin.adhoc,
+          queue: [800],
+          savedAt: DateTime.now().subtract(const Duration(hours: 25)),
+        );
+        await storage.writeMap(
+          QuranVisualRecallCubit.checkpointKey,
+          expiredCheckpoint.toJson(),
+        );
 
-      final expiredCubit = QuranVisualRecallCubit(
-        memorizationCubit: memoCubit,
-        storage: storage,
-      );
-      await expiredCubit.init();
+        final expiredCubit = QuranVisualRecallCubit(
+          memorizationCubit: memoCubit,
+          storage: storage,
+        );
+        await expiredCubit.init();
 
-      // INVARIANT: Expired checkpoint is purged and not offered for resume!
-      expect(expiredCubit.state.hasCheckpointAvailable, false);
-      expect(storage.store.containsKey(QuranVisualRecallCubit.checkpointKey), false);
-    });
+        // INVARIANT: Expired checkpoint is purged and not offered for resume!
+        expect(expiredCubit.state.hasCheckpointAvailable, false);
+        expect(
+          storage.store.containsKey(QuranVisualRecallCubit.checkpointKey),
+          false,
+        );
+      },
+    );
 
     test('16. 128-bit session ID generation guarantees zero collisions across 500 rapid calls', () {
       final ids = <String>{};

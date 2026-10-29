@@ -5,6 +5,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'app/app.dart';
 import 'app/app_bloc_observer.dart';
 import 'core/services/audio_service.dart';
+import 'core/services/home_widget_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'core/services/local_storage_service.dart';
 import 'core/services/location_service.dart';
@@ -50,6 +51,11 @@ Future<void> main() async {
     notifications: notifications,
   );
   await settingsCubit.load();
+  final adhkarRepository = AdhkarRepository();
+  final homeWidgetService = HomeWidgetService(
+    adhkarRepository: adhkarRepository,
+  );
+  await homeWidgetService.initialize(settingsCubit.state.settings);
   final audioCache = QuranAudioCacheService();
   await audioCache.init();
   final offlineDownloads = OfflineAudioDownloadController(audioCache);
@@ -61,10 +67,11 @@ Future<void> main() async {
       audioService: QuranAudioService(cacheService: audioCache),
       offlineDownloads: offlineDownloads,
       quranRepository: QuranRepository(),
-      adhkarRepository: AdhkarRepository(),
+      adhkarRepository: adhkarRepository,
       libraryRepository: LibraryRepository(),
       settingsCubit: settingsCubit,
       khatmaCubit: KhatmaCubit(storage, notifications: notifications),
+      homeWidgetService: homeWidgetService,
       initiallyShowOnboarding: storage.readInt('onboarding_version') < 1,
     ),
   );

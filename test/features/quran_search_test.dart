@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/features/quran/data/models/quran_models.dart';
@@ -33,18 +34,28 @@ void main() {
     final layoutFile = File('assets/data/mushaf-layout.json');
     final tafsirFile = File('assets/data/tafsir-muyassar.json');
 
-    final quranJson = jsonDecode(await quranFile.readAsString()) as Map<String, dynamic>;
-    final manifestJson = jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
+    final quranJson =
+        jsonDecode(await quranFile.readAsString()) as Map<String, dynamic>;
+    final manifestJson =
+        jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
 
     quranData = QuranData(
       chapters: (quranJson['surahs'] as List)
-          .map((item) => QuranChapter.fromJson(Map<String, dynamic>.from(item as Map)))
+          .map(
+            (item) =>
+                QuranChapter.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
           .toList(growable: false),
       juz: (quranJson['juz'] as List)
-          .map((item) => JuzStart.fromJson(Map<String, dynamic>.from(item as Map)))
+          .map(
+            (item) => JuzStart.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
           .toList(growable: false),
       pages: (manifestJson['pages'] as List)
-          .map((item) => MushafPageInfo.fromJson(Map<String, dynamic>.from(item as Map)))
+          .map(
+            (item) =>
+                MushafPageInfo.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
           .toList(growable: false),
     );
 
@@ -64,7 +75,10 @@ void main() {
   group('A. Arabic Search Normalizer Tests', () {
     test('Strips diacritics, tatweel, and unifies orthography', () {
       expect(QuranSearchNormalizer.normalize('بِسۡمِ ٱللَّهِ'), 'بسم الله');
-      expect(QuranSearchNormalizer.normalize('الرَّحۡمَٰنِ الرَّحِيمِ'), 'الرحمن الرحيم');
+      expect(
+        QuranSearchNormalizer.normalize('الرَّحۡمَٰنِ الرَّحِيمِ'),
+        'الرحمن الرحيم',
+      );
       expect(QuranSearchNormalizer.normalize('أَإِآٱ'), 'اااا');
       expect(QuranSearchNormalizer.normalize('مُؤۡمِنُونَ'), 'مومنون');
       expect(QuranSearchNormalizer.normalize('شَيْءٌ'), 'شيء');
@@ -75,7 +89,10 @@ void main() {
 
     test('Converts Eastern Arabic numerals to ASCII digits', () {
       expect(QuranSearchNormalizer.convertArabicDigits('٢:٢٥٥'), '2:255');
-      expect(QuranSearchNormalizer.convertArabicDigits('البقرة ٢٥٥'), 'البقرة 255');
+      expect(
+        QuranSearchNormalizer.convertArabicDigits('البقرة ٢٥٥'),
+        'البقرة 255',
+      );
       expect(QuranSearchNormalizer.convertArabicDigits('صفحة ٦٠٤'), 'صفحة 604');
     });
 
@@ -218,7 +235,10 @@ void main() {
       expect(surahResults.matchedSurahs.first.number, 2);
 
       final numResults = repository.search(data: quranData, query: '18');
-      expect(numResults.matchedSurahs.any((s) => s.number == 18), isTrue); // Al-Kahf
+      expect(
+        numResults.matchedSurahs.any((s) => s.number == 18),
+        isTrue,
+      ); // Al-Kahf
     });
 
     test('Respects search filter modes (All, Ayahs, Surahs)', () {
@@ -238,25 +258,30 @@ void main() {
       expect(surahsOnly.matchedSurahs.isNotEmpty, isTrue);
     });
 
-    test('Recent searches persistence (add, deduplicate, remove, clear)', () async {
-      await repository.clearRecentSearches();
-      expect(repository.getRecentSearches(), isEmpty);
+    test(
+      'Recent searches persistence (add, deduplicate, remove, clear)',
+      () async {
+        await repository.clearRecentSearches();
+        expect(repository.getRecentSearches(), isEmpty);
 
-      await repository.addRecentSearch('2:255');
-      await repository.addRecentSearch('الكهف');
-      await repository.addRecentSearch('2:255'); // duplicate should move to top
+        await repository.addRecentSearch('2:255');
+        await repository.addRecentSearch('الكهف');
+        await repository.addRecentSearch(
+          '2:255',
+        ); // duplicate should move to top
 
-      final recent = repository.getRecentSearches();
-      expect(recent.length, 2);
-      expect(recent.first, '2:255');
-      expect(recent[1], 'الكهف');
+        final recent = repository.getRecentSearches();
+        expect(recent.length, 2);
+        expect(recent.first, '2:255');
+        expect(recent[1], 'الكهف');
 
-      await repository.removeRecentSearch('الكهف');
-      expect(repository.getRecentSearches(), ['2:255']);
+        await repository.removeRecentSearch('الكهف');
+        expect(repository.getRecentSearches(), ['2:255']);
 
-      await repository.clearRecentSearches();
-      expect(repository.getRecentSearches(), isEmpty);
-    });
+        await repository.clearRecentSearches();
+        expect(repository.getRecentSearches(), isEmpty);
+      },
+    );
   });
 
   group('D. Quran Search Cubit Tests', () {
@@ -337,19 +362,30 @@ void main() {
         expect(point.global, g);
         expect(page, inInclusiveRange(1, 604));
         expect(bounds, isNotNull, reason: 'Ayah $g must have layout bounds');
-        expect(bounds!.page, page, reason: 'Page for Ayah $g must match manifest');
+        expect(
+          bounds!.page,
+          page,
+          reason: 'Page for Ayah $g must match manifest',
+        );
         expect(bounds.surah, point.surah);
         expect(bounds.ayah, point.ayah);
       }
     });
 
-    test('All 6,236 Ayahs have valid Tafsir entries accessible from search', () {
-      for (var g = 1; g <= 6236; g++) {
-        final entry = tafsirRepo.getTafsir(g);
-        expect(entry, isNotNull, reason: 'Tafsir entry for global Ayah $g must exist');
-        expect(entry!.text.isNotEmpty, isTrue);
-      }
-    });
+    test(
+      'All 6,236 Ayahs have valid Tafsir entries accessible from search',
+      () {
+        for (var g = 1; g <= 6236; g++) {
+          final entry = tafsirRepo.getTafsir(g);
+          expect(
+            entry,
+            isNotNull,
+            reason: 'Tafsir entry for global Ayah $g must exist',
+          );
+          expect(entry!.text.isNotEmpty, isTrue);
+        }
+      },
+    );
 
     test('All 114 Surahs can be parsed by name and resolve to correct initial page', () {
       for (final ch in quranData.chapters) {

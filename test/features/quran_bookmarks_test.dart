@@ -92,7 +92,10 @@ class DummyAudioService implements QuranAudioService {
   Duration? get duration => null;
 
   @override
-  Future<void> playAyah({required String reciter, required int globalAyah}) async {}
+  Future<void> playAyah({
+    required String reciter,
+    required int globalAyah,
+  }) async {}
 
   @override
   Future<void> pause() async {}
@@ -199,27 +202,30 @@ void main() {
       expect(cubit.state.bookmarks, isEmpty);
     });
 
-    test('Bookmarks persist to storage and restore accurately on reload', () async {
-      await cubit.toggleAyahBookmark(262, label: 'حفظ ورد');
-      await cubit.toggleAyahBookmark(1);
+    test(
+      'Bookmarks persist to storage and restore accurately on reload',
+      () async {
+        await cubit.toggleAyahBookmark(262, label: 'حفظ ورد');
+        await cubit.toggleAyahBookmark(1);
 
-      // Create new Cubit instance with same storage
-      final newCubit = QuranCubit(
-        storage: storage,
-        repository: QuranRepository(),
-        audio: DummyAudioService(),
-        reciter: 'ar.alafasy',
-        fontSize: 22.0,
-      );
-      await newCubit.load();
+        // Create new Cubit instance with same storage
+        final newCubit = QuranCubit(
+          storage: storage,
+          repository: QuranRepository(),
+          audio: DummyAudioService(),
+          reciter: 'ar.alafasy',
+          fontSize: 22.0,
+        );
+        await newCubit.load();
 
-      expect(newCubit.state.bookmarks.length, 2);
-      expect(newCubit.state.isAyahBookmarked(262), isTrue);
-      expect(newCubit.state.isAyahBookmarked(1), isTrue);
-      expect(newCubit.state.getBookmarkForAyah(262)?.label, 'حفظ ورد');
+        expect(newCubit.state.bookmarks.length, 2);
+        expect(newCubit.state.isAyahBookmarked(262), isTrue);
+        expect(newCubit.state.isAyahBookmarked(1), isTrue);
+        expect(newCubit.state.getBookmarkForAyah(262)?.label, 'حفظ ورد');
 
-      await newCubit.close();
-    });
+        await newCubit.close();
+      },
+    );
   });
 
   group('B. Ayah-Level vs Page-Level Bookmarking Coexistence', () {
@@ -280,60 +286,72 @@ void main() {
   });
 
   group('C. Corrupted JSON & Out-of-Range Recovery', () {
-    test('Recovers gracefully from corrupted, null, and out-of-range storage data', () async {
-      final storage = InMemoryLocalStorageService();
+    test(
+      'Recovers gracefully from corrupted, null, and out-of-range storage data',
+      () async {
+        final storage = InMemoryLocalStorageService();
 
-      // Seed storage with invalid entries:
-      // 1. null element
-      // 2. non-map element
-      // 3. missing point
-      // 4. out-of-range global (0, -1, 6237, 99999)
-      // 5. valid bookmark (global 262)
-      // 6. duplicate valid bookmark
-      await storage.writeMap('quran', {
-        'page': 1,
-        'bookmarks': [
-          null,
-          'invalid string entry',
-          42,
-          {'page': 1}, // missing point
-          {'page': 1, 'point': {'s': 1, 'a': 1, 'g': 0}}, // out of range
-          {'page': 1, 'point': {'s': 1, 'a': 1, 'g': 6237}}, // out of range
-          {'page': 1, 'point': {'s': 1, 'a': 1, 'g': -10}}, // negative
-          {
-            'page': 42,
-            'point': {'s': 2, 'a': 255, 'g': 262},
-            'createdAt': DateTime(2026, 1, 1).toIso8601String(),
-          }, // VALID
-          {
-            'page': 42,
-            'point': {'s': 2, 'a': 255, 'g': 262}, // DUPLICATE OF 262
-            'createdAt': DateTime(2026, 1, 2).toIso8601String(),
-          },
-        ],
-        'lastRead': {'s': 1, 'a': 1, 'g': 99999}, // corrupted out of range
-      });
+        // Seed storage with invalid entries:
+        // 1. null element
+        // 2. non-map element
+        // 3. missing point
+        // 4. out-of-range global (0, -1, 6237, 99999)
+        // 5. valid bookmark (global 262)
+        // 6. duplicate valid bookmark
+        await storage.writeMap('quran', {
+          'page': 1,
+          'bookmarks': [
+            null,
+            'invalid string entry',
+            42,
+            {'page': 1}, // missing point
+            {
+              'page': 1,
+              'point': {'s': 1, 'a': 1, 'g': 0},
+            }, // out of range
+            {
+              'page': 1,
+              'point': {'s': 1, 'a': 1, 'g': 6237},
+            }, // out of range
+            {
+              'page': 1,
+              'point': {'s': 1, 'a': 1, 'g': -10},
+            }, // negative
+            {
+              'page': 42,
+              'point': {'s': 2, 'a': 255, 'g': 262},
+              'createdAt': DateTime(2026, 1, 1).toIso8601String(),
+            }, // VALID
+            {
+              'page': 42,
+              'point': {'s': 2, 'a': 255, 'g': 262}, // DUPLICATE OF 262
+              'createdAt': DateTime(2026, 1, 2).toIso8601String(),
+            },
+          ],
+          'lastRead': {'s': 1, 'a': 1, 'g': 99999}, // corrupted out of range
+        });
 
-      final cubit = QuranCubit(
-        storage: storage,
-        repository: QuranRepository(),
-        audio: DummyAudioService(),
-        reciter: 'ar.alafasy',
-        fontSize: 22.0,
-      );
+        final cubit = QuranCubit(
+          storage: storage,
+          repository: QuranRepository(),
+          audio: DummyAudioService(),
+          reciter: 'ar.alafasy',
+          fontSize: 22.0,
+        );
 
-      // Loading must not throw or crash
-      await cubit.load();
+        // Loading must not throw or crash
+        await cubit.load();
 
-      // Exactly 1 valid, deduplicated bookmark preserved
-      expect(cubit.state.bookmarks.length, 1);
-      expect(cubit.state.bookmarks.first.point.global, 262);
+        // Exactly 1 valid, deduplicated bookmark preserved
+        expect(cubit.state.bookmarks.length, 1);
+        expect(cubit.state.bookmarks.first.point.global, 262);
 
-      // Corrupted lastRead was ignored safely (defaults to null or page fallback)
-      expect(cubit.state.lastRead, isNull);
+        // Corrupted lastRead was ignored safely (defaults to null or page fallback)
+        expect(cubit.state.lastRead, isNull);
 
-      await cubit.close();
-    });
+        await cubit.close();
+      },
+    );
   });
 
   group('D. Reading Continuity & Last Read Engine', () {
@@ -404,7 +422,9 @@ void main() {
       final ayah3 = layoutRepo.getAyah(3)!;
 
       // 1. Interaction cubit holds selectedAyah
-      final interactionCubit = MushafInteractionCubit(layoutRepository: layoutRepo);
+      final interactionCubit = MushafInteractionCubit(
+        layoutRepository: layoutRepo,
+      );
       interactionCubit.selectAyah(ayah1);
       expect(interactionCubit.state.selectedAyah, ayah1);
       expect(interactionCubit.state.playingAyah, isNull);
@@ -451,33 +471,40 @@ void main() {
         expect(page, inInclusiveRange(1, 604));
 
         final layoutAyah = layoutRepo.getAyah(global);
-        expect(layoutAyah, isNotNull, reason: 'Ayah $global must exist in layout data');
+        expect(
+          layoutAyah,
+          isNotNull,
+          reason: 'Ayah $global must exist in layout data',
+        );
         expect(layoutAyah!.page, page, reason: 'Ayah $global page mismatch');
         expect(layoutAyah.surah, point.surah);
         expect(layoutAyah.ayah, point.ayah);
       }
     });
 
-    test('Creating QuranBookmark for any valid global Ayah produces coherent JSON', () {
-      final point = quranData.pointForGlobal(6236); // An-Nas: 6
-      final page = quranData.pageForGlobal(6236);
+    test(
+      'Creating QuranBookmark for any valid global Ayah produces coherent JSON',
+      () {
+        final point = quranData.pointForGlobal(6236); // An-Nas: 6
+        final page = quranData.pageForGlobal(6236);
 
-      final bookmark = QuranBookmark(
-        page: page,
-        point: point,
-        createdAt: DateTime.now(),
-        label: 'آخر آية',
-      );
+        final bookmark = QuranBookmark(
+          page: page,
+          point: point,
+          createdAt: DateTime.now(),
+          label: 'آخر آية',
+        );
 
-      final json = bookmark.toJson();
-      expect(json['page'], 604);
-      expect(json['label'], 'آخر آية');
-      expect(json['point']['g'], 6236);
+        final json = bookmark.toJson();
+        expect(json['page'], 604);
+        expect(json['label'], 'آخر آية');
+        expect(json['point']['g'], 6236);
 
-      final restored = QuranBookmark.fromJson(json);
-      expect(restored.point.global, 6236);
-      expect(restored.page, 604);
-      expect(restored.label, 'آخر آية');
-    });
+        final restored = QuranBookmark.fromJson(json);
+        expect(restored.point.global, 6236);
+        expect(restored.page, 604);
+        expect(restored.label, 'آخر آية');
+      },
+    );
   });
 }

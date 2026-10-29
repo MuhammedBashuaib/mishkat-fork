@@ -36,7 +36,8 @@ class MushafInteractionLayer extends StatelessWidget {
     // If Visual Recall is actively running, yield entirely to Visual Recall interaction
     final recallCubit = _tryGetVisualRecallCubit(context);
     if (recallCubit != null &&
-        (recallCubit.state.hasActiveSession || recallCubit.state.isRangeSelecting)) {
+        (recallCubit.state.hasActiveSession ||
+            recallCubit.state.isRangeSelecting)) {
       return;
     }
 
@@ -71,7 +72,8 @@ class MushafInteractionLayer extends StatelessWidget {
   ) {
     final recallCubit = _tryGetVisualRecallCubit(context);
     if (recallCubit != null &&
-        (recallCubit.state.hasActiveSession || recallCubit.state.isRangeSelecting)) {
+        (recallCubit.state.hasActiveSession ||
+            recallCubit.state.isRangeSelecting)) {
       return;
     }
 

@@ -22,7 +22,10 @@ class QuranSearchHighlighter {
       if (current.start <= last.end) {
         // Overlapping or contiguous
         final newEnd = current.end > last.end ? current.end : last.end;
-        merged[merged.length - 1] = TextMatchRange(start: last.start, end: newEnd);
+        merged[merged.length - 1] = TextMatchRange(
+          start: last.start,
+          end: newEnd,
+        );
       } else {
         merged.add(current);
       }
@@ -61,10 +64,7 @@ class QuranSearchHighlighter {
 
       if (end > start) {
         spans.add(
-          TextSpan(
-            text: text.substring(start, end),
-            style: highlightStyle,
-          ),
+          TextSpan(text: text.substring(start, end), style: highlightStyle),
         );
       }
 
@@ -73,10 +73,7 @@ class QuranSearchHighlighter {
 
     if (currentIndex < text.length) {
       spans.add(
-        TextSpan(
-          text: text.substring(currentIndex),
-          style: defaultStyle,
-        ),
+        TextSpan(text: text.substring(currentIndex), style: defaultStyle),
       );
     }
 

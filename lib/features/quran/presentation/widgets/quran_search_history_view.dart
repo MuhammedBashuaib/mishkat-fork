@@ -42,9 +42,9 @@ class QuranSearchHistoryView extends StatelessWidget {
               Text(
                 'عمليات البحث الأخيرة',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: context.mishkat.textSecondary,
-                    ),
+                  fontWeight: FontWeight.w800,
+                  color: context.mishkat.textSecondary,
+                ),
               ),
               TextButton(
                 onPressed: onClearAll,
@@ -74,9 +74,9 @@ class QuranSearchHistoryView extends StatelessWidget {
         Text(
           'اقتراحات وتنقّل سريع',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: context.mishkat.textSecondary,
-              ),
+            fontWeight: FontWeight.w800,
+            color: context.mishkat.textSecondary,
+          ),
         ),
         const SizedBox(height: MishkatSpacing.sm),
         for (final item in _suggestions)

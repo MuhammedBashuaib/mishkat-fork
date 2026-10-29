@@ -17,11 +17,11 @@ enum AudioRepeatMode {
 
   /// Arabic descriptive label.
   String get label => switch (this) {
-        AudioRepeatMode.none => 'بدون تكرار',
-        AudioRepeatMode.singleAyah => 'تكرار الآية',
-        AudioRepeatMode.rangeLoop => 'تطويف المقطع كحلقة',
-        AudioRepeatMode.perAyahRange => 'تكرار كل آية في المقطع',
-      };
+    AudioRepeatMode.none => 'بدون تكرار',
+    AudioRepeatMode.singleAyah => 'تكرار الآية',
+    AudioRepeatMode.rangeLoop => 'تطويف المقطع كحلقة',
+    AudioRepeatMode.perAyahRange => 'تكرار كل آية في المقطع',
+  };
 }
 
 /// Immutable configuration model defining repetition, range boundaries,
@@ -34,18 +34,30 @@ class AudioRepeatConfig extends Equatable {
     this.ayahRepeatCount = 1,
     this.rangeRepeatCount = 1,
     this.delaySeconds = 0,
-  })  : assert(startGlobalAyah >= 1 && startGlobalAyah <= 6236,
-            'startGlobalAyah must be between 1 and 6236'),
-        assert(endGlobalAyah >= 1 && endGlobalAyah <= 6236,
-            'endGlobalAyah must be between 1 and 6236'),
-        assert(startGlobalAyah <= endGlobalAyah,
-            'startGlobalAyah must be <= endGlobalAyah'),
-        assert(ayahRepeatCount == infinite || ayahRepeatCount > 0,
-            'ayahRepeatCount must be infinite (-1) or positive'),
-        assert(rangeRepeatCount == infinite || rangeRepeatCount > 0,
-            'rangeRepeatCount must be infinite (-1) or positive'),
-        assert(delaySeconds >= 0 && delaySeconds <= 30,
-            'delaySeconds must be between 0 and 30');
+  }) : assert(
+         startGlobalAyah >= 1 && startGlobalAyah <= 6236,
+         'startGlobalAyah must be between 1 and 6236',
+       ),
+       assert(
+         endGlobalAyah >= 1 && endGlobalAyah <= 6236,
+         'endGlobalAyah must be between 1 and 6236',
+       ),
+       assert(
+         startGlobalAyah <= endGlobalAyah,
+         'startGlobalAyah must be <= endGlobalAyah',
+       ),
+       assert(
+         ayahRepeatCount == infinite || ayahRepeatCount > 0,
+         'ayahRepeatCount must be infinite (-1) or positive',
+       ),
+       assert(
+         rangeRepeatCount == infinite || rangeRepeatCount > 0,
+         'rangeRepeatCount must be infinite (-1) or positive',
+       ),
+       assert(
+         delaySeconds >= 0 && delaySeconds <= 30,
+         'delaySeconds must be between 0 and 30',
+       );
 
   /// Sentinel constant representing indefinite / infinite repetitions.
   static const int infinite = -1;
@@ -65,15 +77,14 @@ class AudioRepeatConfig extends Equatable {
     int startAyah = 1,
     int targetRepetitions = 1,
     int delaySeconds = 0,
-  }) =>
-      AudioRepeatConfig(
-        mode: AudioRepeatMode.singleAyah,
-        startGlobalAyah: startAyah,
-        endGlobalAyah: startAyah,
-        ayahRepeatCount: targetRepetitions,
-        rangeRepeatCount: 1,
-        delaySeconds: delaySeconds,
-      );
+  }) => AudioRepeatConfig(
+    mode: AudioRepeatMode.singleAyah,
+    startGlobalAyah: startAyah,
+    endGlobalAyah: startAyah,
+    ayahRepeatCount: targetRepetitions,
+    rangeRepeatCount: 1,
+    delaySeconds: delaySeconds,
+  );
 
   /// Factory constructor for range looping.
   factory AudioRepeatConfig.rangeLoop({
@@ -81,15 +92,14 @@ class AudioRepeatConfig extends Equatable {
     required int endAyah,
     int targetRepetitions = 1,
     int delaySeconds = 0,
-  }) =>
-      AudioRepeatConfig(
-        mode: AudioRepeatMode.rangeLoop,
-        startGlobalAyah: startAyah,
-        endGlobalAyah: endAyah,
-        ayahRepeatCount: 1,
-        rangeRepeatCount: targetRepetitions,
-        delaySeconds: delaySeconds,
-      );
+  }) => AudioRepeatConfig(
+    mode: AudioRepeatMode.rangeLoop,
+    startGlobalAyah: startAyah,
+    endGlobalAyah: endAyah,
+    ayahRepeatCount: 1,
+    rangeRepeatCount: targetRepetitions,
+    delaySeconds: delaySeconds,
+  );
 
   /// Factory constructor for per-Ayah repetition inside a range.
   factory AudioRepeatConfig.perAyahRange({
@@ -98,15 +108,14 @@ class AudioRepeatConfig extends Equatable {
     int targetRepetitions = 1,
     int rangeRepetitions = 1,
     int delaySeconds = 0,
-  }) =>
-      AudioRepeatConfig(
-        mode: AudioRepeatMode.perAyahRange,
-        startGlobalAyah: startAyah,
-        endGlobalAyah: endAyah,
-        ayahRepeatCount: targetRepetitions,
-        rangeRepeatCount: rangeRepetitions,
-        delaySeconds: delaySeconds,
-      );
+  }) => AudioRepeatConfig(
+    mode: AudioRepeatMode.perAyahRange,
+    startGlobalAyah: startAyah,
+    endGlobalAyah: endAyah,
+    ayahRepeatCount: targetRepetitions,
+    rangeRepeatCount: rangeRepetitions,
+    delaySeconds: delaySeconds,
+  );
 
   /// Factory constructor for infinite repetition.
   factory AudioRepeatConfig.infiniteRepeat({
@@ -179,13 +188,13 @@ class AudioRepeatConfig extends Equatable {
   }
 
   Map<String, dynamic> toJson() => {
-        'mode': mode.name,
-        'startGlobalAyah': startGlobalAyah,
-        'endGlobalAyah': endGlobalAyah,
-        'ayahRepeatCount': ayahRepeatCount,
-        'rangeRepeatCount': rangeRepeatCount,
-        'delaySeconds': delaySeconds,
-      };
+    'mode': mode.name,
+    'startGlobalAyah': startGlobalAyah,
+    'endGlobalAyah': endGlobalAyah,
+    'ayahRepeatCount': ayahRepeatCount,
+    'rangeRepeatCount': rangeRepeatCount,
+    'delaySeconds': delaySeconds,
+  };
 
   factory AudioRepeatConfig.fromJson(Map<String, dynamic> json) {
     final modeName = json['mode'] as String?;
@@ -207,21 +216,25 @@ class AudioRepeatConfig extends Equatable {
       mode: mode,
       startGlobalAyah: safeStart,
       endGlobalAyah: safeEnd,
-      ayahRepeatCount: ayahCount == infinite ? infinite : ayahCount.clamp(1, 100),
-      rangeRepeatCount: rangeCount == infinite ? infinite : rangeCount.clamp(1, 100),
+      ayahRepeatCount: ayahCount == infinite
+          ? infinite
+          : ayahCount.clamp(1, 100),
+      rangeRepeatCount: rangeCount == infinite
+          ? infinite
+          : rangeCount.clamp(1, 100),
       delaySeconds: delay.clamp(0, 30),
     );
   }
 
   @override
   List<Object?> get props => [
-        mode,
-        startGlobalAyah,
-        endGlobalAyah,
-        ayahRepeatCount,
-        rangeRepeatCount,
-        delaySeconds,
-      ];
+    mode,
+    startGlobalAyah,
+    endGlobalAyah,
+    ayahRepeatCount,
+    rangeRepeatCount,
+    delaySeconds,
+  ];
 }
 
 /// Lifecycle status for repeat execution.
@@ -284,8 +297,9 @@ class AudioRepeatState extends Equatable {
   bool get isActive => isPlaying || isDelaying || isPaused;
 
   /// Current 1-based repetition index (Ayah repeat or Range cycle depending on mode).
-  int get currentRepetition =>
-      config.mode == AudioRepeatMode.rangeLoop ? currentRangeCycle : currentAyahRepeat;
+  int get currentRepetition => config.mode == AudioRepeatMode.rangeLoop
+      ? currentRangeCycle
+      : currentAyahRepeat;
 
   /// Total repeats expected for the current Ayah (-1 if infinite).
   int get targetAyahRepeats {
@@ -300,8 +314,9 @@ class AudioRepeatState extends Equatable {
   int get targetRangeCycles => config.rangeRepeatCount;
 
   /// Effective target repetitions (-1 if infinite).
-  int get targetRepetitions =>
-      config.mode == AudioRepeatMode.rangeLoop ? targetRangeCycles : targetAyahRepeats;
+  int get targetRepetitions => config.mode == AudioRepeatMode.rangeLoop
+      ? targetRangeCycles
+      : targetAyahRepeats;
 
   /// Informative, concise Arabic status description.
   String get statusText {
@@ -339,13 +354,13 @@ class AudioRepeatState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        config,
-        currentAyah,
-        currentAyahRepeat,
-        currentRangeCycle,
-        remainingDelaySeconds,
-        queueIndex,
-        queue,
-      ];
+    status,
+    config,
+    currentAyah,
+    currentAyahRepeat,
+    currentRangeCycle,
+    remainingDelaySeconds,
+    queueIndex,
+    queue,
+  ];
 }

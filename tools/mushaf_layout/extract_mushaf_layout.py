@@ -12,6 +12,7 @@ Validation guarantees:
 - 100% agreement with assets/data/quran.json (surah and ayah numbers)
 - 100% agreement with assets/data/hafs-kfqc-manifest.json (page numbers)
 - ViewBox boundary containment
+- Exactly one source Ayah-number center within every Ayah's geometry
 """
 
 import glob
@@ -50,6 +51,25 @@ def parse_coords(subpath_str):
     raw_nums = re.findall(r'[-+]?(?:\d*\.\d+|\d+)', subpath_str)
     coords = [clean_num(x) for x in raw_nums]
     return coords
+
+
+def polygon_contains(coords, x, y):
+    """Ray-cast in SVG viewBox coordinates, including concave opening-page paths."""
+    points = list(zip(coords[0::2], coords[1::2]))
+    inside = False
+    for i, (x1, y1) in enumerate(points):
+        x2, y2 = points[i - 1]
+        if ((y1 > y) != (y2 > y)
+                and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1):
+            inside = not inside
+    return inside
+
+
+def ayah_contains(ayah, point):
+    x, y = point
+    return (any(left <= x <= right and top <= y <= bottom
+                for left, top, right, bottom in ayah['r'])
+            or any(polygon_contains(poly, x, y) for poly in ayah.get('p', [])))
 
 
 def main():
@@ -181,6 +201,26 @@ def main():
 
         # Sort ayahs strictly by globalAyah
         page_ayahs.sort(key=lambda x: x['g'])
+
+        # SVG digits carry exact medallion centers in viewBox coordinates.
+        # Use containment, since marker XML order is reversed on some pages.
+        namespace = '{https://quranpedia.net}'
+        centers = [
+            (clean_num(elem.get(namespace + 'x')),
+             clean_num(elem.get(namespace + 'y')))
+            for elem in root.iter()
+            if elem.get(namespace + 'x') is not None
+            and elem.get(namespace + 'y') is not None
+        ]
+        assert len(centers) == len(page_ayahs), f'Number count mismatch on page {page_num}'
+        assigned = set()
+        for ayah in page_ayahs:
+            matches = [center for center in centers if ayah_contains(ayah, center)]
+            assert len(matches) == 1, f"Ambiguous/missing number for Ayah {ayah['g']}: {matches}"
+            center = matches[0]
+            assert center not in assigned, f'Duplicate number center on page {page_num}'
+            assigned.add(center)
+            ayah['n'] = list(center)
 
         pages_output.append({
             'p': page_num,

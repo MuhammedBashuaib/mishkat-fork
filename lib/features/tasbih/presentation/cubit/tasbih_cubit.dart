@@ -44,11 +44,27 @@ class TasbihCubit extends Cubit<TasbihState> {
 
   Future<void> setTarget(int value) async {
     if (value < 1 || value > 9999 || value == state.target) return;
-    emit(_withCurrentDay(state).copyWith(target: value));
+    emit(
+      _withCurrentDay(state).copyWith(
+        target: value,
+        customDhikrTarget: state.dhikrId == tasbihCustomDhikrId
+            ? value
+            : state.customDhikrTarget,
+      ),
+    );
     await _persist();
   }
 
   Future<void> selectDhikr(String id) async {
+    if (id == tasbihCustomDhikrId && state.customDhikrText.isNotEmpty) {
+      if (state.dhikrId == id) return;
+      emit(
+        _withCurrentDay(state)
+            .copyWith(count: 0, dhikrId: id, target: state.customDhikrTarget),
+      );
+      await _persist();
+      return;
+    }
     final selected = tasbihDhikrOptions
         .where((item) => item.id == id)
         .firstOrNull;
@@ -63,8 +79,29 @@ class TasbihCubit extends Cubit<TasbihState> {
     await _persist();
   }
 
+  Future<void> setCustomDhikr(String text, {required int target}) async {
+    final normalized = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty || normalized.length > 160) return;
+    if (target < 1 || target > 9999) return;
+    emit(
+      _withCurrentDay(state).copyWith(
+        count: 0,
+        dhikrId: tasbihCustomDhikrId,
+        target: target,
+        customDhikrText: normalized,
+        customDhikrTarget: target,
+      ),
+    );
+    await _persist();
+  }
+
   Future<void> toggleHaptics() async {
     emit(state.copyWith(hapticsEnabled: !state.hapticsEnabled));
+    await _persist();
+  }
+
+  Future<void> toggleCompletionSound() async {
+    emit(state.copyWith(completionSoundEnabled: !state.completionSoundEnabled));
     await _persist();
   }
 
@@ -77,6 +114,9 @@ class TasbihCubit extends Cubit<TasbihState> {
       'target': value.target,
       'dhikrId': value.dhikrId,
       'hapticsEnabled': value.hapticsEnabled,
+      'completionSoundEnabled': value.completionSoundEnabled,
+      'customDhikrText': value.customDhikrText,
+      'customDhikrTarget': value.customDhikrTarget,
       'sessionDate': value.sessionDate,
     });
   }
@@ -92,10 +132,21 @@ class TasbihCubit extends Cubit<TasbihState> {
     final today = _dateKey(now);
     final savedDate = saved['sessionDate'] as String? ?? today;
     final rawDhikrId = saved['dhikrId'] as String? ?? 'subhan_allah';
-    final validDhikrId = tasbihDhikrOptions.any((item) => item.id == rawDhikrId)
+    final customDhikrText = saved['customDhikrText'] is String
+        ? (saved['customDhikrText'] as String).trim()
+        : '';
+    final hasValidCustomDhikr =
+        rawDhikrId == tasbihCustomDhikrId && customDhikrText.isNotEmpty;
+    final validDhikrId =
+        hasValidCustomDhikr ||
+            tasbihDhikrOptions.any((item) => item.id == rawDhikrId)
         ? rawDhikrId
         : tasbihDhikrOptions.first.id;
     final target = _readPositiveInt(saved['target'], 33).clamp(1, 9999);
+    final customDhikrTarget = _readPositiveInt(
+      saved['customDhikrTarget'],
+      33,
+    ).clamp(1, 9999);
     final total = _readPositiveInt(
       saved['total'],
       storage.readInt('tasbihTotal'),
@@ -112,6 +163,11 @@ class TasbihCubit extends Cubit<TasbihState> {
       hapticsEnabled: saved['hapticsEnabled'] is bool
           ? saved['hapticsEnabled'] as bool
           : true,
+      completionSoundEnabled: saved['completionSoundEnabled'] is bool
+          ? saved['completionSoundEnabled'] as bool
+          : true,
+      customDhikrText: customDhikrText,
+      customDhikrTarget: customDhikrTarget,
       sessionDate: today,
     );
   }

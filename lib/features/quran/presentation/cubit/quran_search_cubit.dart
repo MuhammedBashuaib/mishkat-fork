@@ -14,9 +14,9 @@ class QuranSearchCubit extends Cubit<QuranSearchState> {
     required QuranData quranData,
     QuranSearchRepository? searchRepository,
     this.debounceDuration = const Duration(milliseconds: 250),
-  })  : _data = quranData,
-        _searchRepository = searchRepository ?? QuranSearchRepository(),
-        super(const QuranSearchState()) {
+  }) : _data = quranData,
+       _searchRepository = searchRepository ?? QuranSearchRepository(),
+       super(const QuranSearchState()) {
     _loadRecentSearches();
     // Warm up the index in the background
     _searchRepository.initialize(_data);

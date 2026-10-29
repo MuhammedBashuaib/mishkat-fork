@@ -24,10 +24,14 @@ class LocalStorageService {
           final tmpFiles = dir
               .listSync()
               .whereType<File>()
-              .where((f) => f.path.startsWith(prefix) && f.path.endsWith('.tmp'))
+              .where(
+                (f) => f.path.startsWith(prefix) && f.path.endsWith('.tmp'),
+              )
               .toList();
           if (tmpFiles.isNotEmpty) {
-            tmpFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+            tmpFiles.sort(
+              (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()),
+            );
             final newest = tmpFiles.first;
             await newest.rename(_file!.path);
           }
@@ -146,33 +150,36 @@ class LocalStorageService {
     _needsPersist = true;
     if (_pendingPersist != null) return _pendingPersist!;
 
-    _pendingPersist = Future<void>(() async {
-      while (_needsPersist) {
-        _needsPersist = false;
-        try {
-          await file.parent.create(recursive: true);
-          final raw = jsonEncode(_data);
-          final temporary = File('${file.path}.${DateTime.now().microsecondsSinceEpoch}.tmp');
-          await temporary.writeAsString(raw, flush: true);
-          try {
-            await temporary.rename(file.path);
-          } on FileSystemException {
-            if (await file.exists()) {
-              await file.delete();
+    _pendingPersist =
+        Future<void>(() async {
+          while (_needsPersist) {
+            _needsPersist = false;
+            try {
+              await file.parent.create(recursive: true);
+              final raw = jsonEncode(_data);
+              final temporary = File(
+                '${file.path}.${DateTime.now().microsecondsSinceEpoch}.tmp',
+              );
+              await temporary.writeAsString(raw, flush: true);
+              try {
+                await temporary.rename(file.path);
+              } on FileSystemException {
+                if (await file.exists()) {
+                  await file.delete();
+                }
+                await temporary.rename(file.path);
+              }
+            } catch (_) {
+              try {
+                await file.writeAsString(jsonEncode(_data), flush: true);
+              } catch (_) {
+                rethrow;
+              }
             }
-            await temporary.rename(file.path);
           }
-        } catch (_) {
-          try {
-            await file.writeAsString(jsonEncode(_data), flush: true);
-          } catch (_) {
-            rethrow;
-          }
-        }
-      }
-    }).whenComplete(() {
-      _pendingPersist = null;
-    });
+        }).whenComplete(() {
+          _pendingPersist = null;
+        });
 
     return _pendingPersist!;
   }

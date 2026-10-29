@@ -50,7 +50,7 @@ class VisualMaskPainter extends CustomPainter {
   /// Outline drawn around the current Ayah number so the next reveal target is clear.
   final Color? currentNumberOutlineColor;
 
-  /// Leaves the original Mushaf Ayah-number medallion visible while masking its text.
+  /// Draws an independent Ayah-number medallion above the opaque text mask.
   final bool preserveAyahNumbers;
 
   /// Boundary adjustment mode.
@@ -66,6 +66,48 @@ class VisualMaskPainter extends CustomPainter {
 
     for (final ayah in maskedAyahs) {
       _paintAyahGeometry(canvas, size, ayah, maskPaint);
+    }
+
+    // Numbers must not be holes through the mask: a guessed cutout exposes
+    // neighboring letters, particularly around multi-line opening-page Ayahs.
+    if (preserveAyahNumbers) {
+      for (final ayah in maskedAyahs) {
+        final window = ayahNumberWindow(ayah, size);
+        if (window == null) continue;
+        final ink = maskColor.computeLuminance() > .5
+            ? const Color(0xFF231F20)
+            : const Color(0xFFECE5D8);
+        canvas.drawOval(window, maskPaint);
+        canvas.drawOval(
+          window,
+          Paint()
+            ..color = ink
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = .8,
+        );
+        final number = ayah.ayah
+            .toString()
+            .split('')
+            .map((digit) => String.fromCharCode(0x0660 + int.parse(digit)))
+            .join();
+        final label = TextPainter(
+          text: TextSpan(
+            text: number,
+            style: TextStyle(
+              color: ink,
+              fontFamily: 'Cairo',
+              fontSize: window.height * (number.length >= 3 ? .38 : .5),
+              height: 1,
+            ),
+          ),
+          textDirection: TextDirection.rtl,
+        )..layout();
+        label.paint(
+          canvas,
+          window.center - Offset(label.width / 2, label.height / 2),
+        );
+        label.dispose();
+      }
     }
 
     final focusedAyah = currentAyah;
@@ -85,14 +127,26 @@ class VisualMaskPainter extends CustomPainter {
     }
   }
 
-  /// Returns the local-canvas window containing the original Ayah-number medallion.
-  ///
-  /// KFQC geometry is stored in reading order. In an RTL line, the Ayah ends at the
-  /// left edge of its final segment, where the number medallion is rendered.
+  /// Returns the badge bounds at the source SVG's exact Ayah-number center.
   @visibleForTesting
   Rect? ayahNumberWindow(AyahBounds ayah, Size size) {
     if (ayah.segments.isEmpty || size.isEmpty || viewBox.isEmpty) return null;
 
+    if (ayah.numberCenter case final Offset center) {
+      final diameter = ayah.page <= 2 ? 14.0 : 20.0;
+      return mapper.viewBoxRectToLocal(
+        viewBoxRect: Rect.fromCenter(
+          center: center,
+          width: diameter,
+          height: diameter,
+        ),
+        contentSize: size,
+        viewBox: viewBox,
+        padding: EdgeInsets.zero,
+      );
+    }
+
+    // Compatibility with manually constructed/older layout fixtures.
     final finalSegment = ayah.segments.last;
     final localBounds = mapper.viewBoxRectToLocal(
       viewBoxRect: finalSegment.bounds,
@@ -117,13 +171,8 @@ class VisualMaskPainter extends CustomPainter {
     AyahBounds ayah,
     Paint paint,
   ) {
-    final numberWindow = preserveAyahNumbers
-        ? ayahNumberWindow(ayah, size)
-        : null;
-
     for (var index = 0; index < ayah.segments.length; index++) {
       final segment = ayah.segments[index];
-      final isFinalSegment = index == ayah.segments.length - 1;
       Path localPath;
 
       if (segment is AyahRectSegment) {
@@ -171,15 +220,16 @@ class VisualMaskPainter extends CustomPainter {
         continue;
       }
 
-      if (isFinalSegment && numberWindow != null) {
-        localPath = Path.combine(
-          PathOperation.difference,
-          localPath,
-          Path()..addOval(numberWindow),
-        );
-      }
-
       canvas.drawPath(localPath, paint);
+      // Adjacent polygon corridors contain subpixel gaps in the source layout.
+      // Seal their edges so antialiased strokes cannot show through as hints.
+      canvas.drawPath(
+        localPath,
+        Paint()
+          ..color = maskColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
     }
   }
 

@@ -17,10 +17,14 @@ class MushafCoordinateMapper {
     required Rect viewBox,
     EdgeInsets padding = defaultPadding,
   }) {
-    final availableWidth =
-        (contentSize.width - padding.horizontal).clamp(0.0, double.infinity);
-    final availableHeight =
-        (contentSize.height - padding.vertical).clamp(0.0, double.infinity);
+    final availableWidth = (contentSize.width - padding.horizontal).clamp(
+      0.0,
+      double.infinity,
+    );
+    final availableHeight = (contentSize.height - padding.vertical).clamp(
+      0.0,
+      double.infinity,
+    );
     final availableSize = Size(availableWidth, availableHeight);
 
     if (viewBox.width <= 0 || viewBox.height <= 0 || availableSize.isEmpty) {

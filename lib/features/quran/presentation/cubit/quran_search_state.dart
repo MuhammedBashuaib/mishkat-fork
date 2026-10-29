@@ -2,13 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../data/models/quran_search_models.dart';
 
-enum QuranSearchStatus {
-  initial,
-  loading,
-  success,
-  empty,
-  error,
-}
+enum QuranSearchStatus { initial, loading, success, empty, error }
 
 class QuranSearchState extends Equatable {
   const QuranSearchState({
@@ -54,11 +48,11 @@ class QuranSearchState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        query,
-        filter,
-        results,
-        recentSearches,
-        errorMessage,
-      ];
+    status,
+    query,
+    filter,
+    results,
+    recentSearches,
+    errorMessage,
+  ];
 }

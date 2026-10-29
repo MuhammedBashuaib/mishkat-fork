@@ -181,9 +181,11 @@ class QuranMemorizationState extends Equatable {
   /// Returns list of canonical globalAyahs whose most recent review was difficult or failed.
   List<int> recentlyDifficultAyahs() {
     return items.values
-        .where((i) =>
-            i.lastOutcome == ReviewOutcome.difficult ||
-            i.lastOutcome == ReviewOutcome.failed)
+        .where(
+          (i) =>
+              i.lastOutcome == ReviewOutcome.difficult ||
+              i.lastOutcome == ReviewOutcome.failed,
+        )
         .map((i) => i.globalAyah)
         .toList();
   }
@@ -248,7 +250,8 @@ class QuranMemorizationState extends Equatable {
     int needsRevision,
     int remaining,
     double percentage,
-  }) planProgress(MemorizationPlan plan) {
+  })
+  planProgress(MemorizationPlan plan) {
     final total = plan.totalAyahs;
     var memorized = 0;
     var learning = 0;
@@ -300,19 +303,19 @@ class QuranMemorizationState extends Equatable {
 
     // If all are memorized, return the final dailyTarget slice for reinforcement
     if (firstUnfinished > plan.endGlobalAyah) {
-      final start = (plan.endGlobalAyah - plan.dailyTarget + 1)
-          .clamp(plan.startGlobalAyah, plan.endGlobalAyah);
-      return [
-        for (var g = start; g <= plan.endGlobalAyah; g++) g,
-      ];
+      final start = (plan.endGlobalAyah - plan.dailyTarget + 1).clamp(
+        plan.startGlobalAyah,
+        plan.endGlobalAyah,
+      );
+      return [for (var g = start; g <= plan.endGlobalAyah; g++) g];
     }
 
-    final targetEnd = (firstUnfinished + plan.dailyTarget - 1)
-        .clamp(plan.startGlobalAyah, plan.endGlobalAyah);
+    final targetEnd = (firstUnfinished + plan.dailyTarget - 1).clamp(
+      plan.startGlobalAyah,
+      plan.endGlobalAyah,
+    );
 
-    return [
-      for (var g = firstUnfinished; g <= targetEnd; g++) g,
-    ];
+    return [for (var g = firstUnfinished; g <= targetEnd; g++) g];
   }
 
   /// Generates a deterministic revision queue.
@@ -419,19 +422,24 @@ class QuranMemorizationState extends Equatable {
     String? error,
     bool clearError = false,
     List<MemorizationReviewRecord>? history,
-  }) =>
-      QuranMemorizationState(
-        status: status ?? this.status,
-        plans: plans ?? this.plans,
-        items: items ?? this.items,
-        activeSession: clearActiveSession
-            ? null
-            : (activeSession ?? this.activeSession),
-        error: clearError ? null : (error ?? this.error),
-        history: history ?? this.history,
-      );
+  }) => QuranMemorizationState(
+    status: status ?? this.status,
+    plans: plans ?? this.plans,
+    items: items ?? this.items,
+    activeSession: clearActiveSession
+        ? null
+        : (activeSession ?? this.activeSession),
+    error: clearError ? null : (error ?? this.error),
+    history: history ?? this.history,
+  );
 
   @override
-  List<Object?> get props =>
-      [status, plans, items, activeSession, error, history];
+  List<Object?> get props => [
+    status,
+    plans,
+    items,
+    activeSession,
+    error,
+    history,
+  ];
 }

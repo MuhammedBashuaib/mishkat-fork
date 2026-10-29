@@ -86,9 +86,9 @@ class _QuranReaderPageState extends State<QuranReaderPage> {
             : null);
     if (targetGlobal != null) {
       final layoutRepo = MushafLayoutRepository.instance;
-      final targetPage = layoutRepo.isLoaded
-          ? layoutRepo.pageForAyah(targetGlobal)
-          : null;
+      final targetPage =
+          layoutRepo.pageForAyah(targetGlobal) ??
+          _quranCubit.state.data?.pageForGlobal(targetGlobal);
       if (targetPage != null) {
         initialPage = targetPage - 1;
       }
@@ -249,9 +249,9 @@ class _QuranReaderPageState extends State<QuranReaderPage> {
                     final nextAyah = state.currentGlobalAyah;
                     if (nextAyah == null) return;
                     final layoutRepo = MushafLayoutRepository.instance;
-                    final targetPage = layoutRepo.isLoaded
-                        ? layoutRepo.pageForAyah(nextAyah)
-                        : null;
+                    final targetPage =
+                        layoutRepo.pageForAyah(nextAyah) ??
+                        _quranCubit.state.data?.pageForGlobal(nextAyah);
                     if (targetPage != null) {
                       final targetIndex = targetPage - 1;
                       if (_controller.hasClients &&
@@ -701,6 +701,8 @@ class MushafPage extends StatefulWidget {
 
 class _MushafPageState extends State<_MushafPage> {
   late final TransformationController _transformationController;
+  MushafLayoutRepository? _layoutRepository;
+  Future<MushafLayoutData>? _layoutLoad;
   bool _isZoomed = false;
   Size _viewportSize = Size.zero;
   double? _appliedScale;
@@ -710,6 +712,27 @@ class _MushafPageState extends State<_MushafPage> {
     super.initState();
     _transformationController = TransformationController()
       ..addListener(_onTransformationChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    MushafLayoutRepository? interactionRepository;
+    try {
+      interactionRepository = context
+          .read<MushafInteractionCubit>()
+          .layoutRepository;
+    } on ProviderNotFoundException {
+      // Standalone recall pages still need to load the mask geometry.
+    }
+    final repository =
+        interactionRepository ??
+        _tryGetVisualRecallCubit(context)?.layoutRepository ??
+        MushafLayoutRepository.instance;
+    if (!identical(_layoutRepository, repository)) {
+      _layoutRepository = repository;
+      _layoutLoad = repository.isLoaded ? null : repository.load();
+    }
   }
 
   @override
@@ -801,12 +824,8 @@ class _MushafPageState extends State<_MushafPage> {
       List<AyahBounds> bookmarkedAyahs,
       MushafLayoutRepository? layoutRepo,
     ) {
-      final effectiveLayoutRepo =
-          layoutRepo ??
-          (MushafLayoutRepository.instance.isLoaded
-              ? MushafLayoutRepository.instance
-              : null);
-      final pageGeom = effectiveLayoutRepo?.getPageGeometry(widget.page);
+      final effectiveLayoutRepo = layoutRepo ?? _layoutRepository!;
+      final pageGeom = effectiveLayoutRepo.getPageGeometry(widget.page);
       final viewBox =
           pageGeom?.viewBox ??
           (widget.page <= 2
@@ -846,9 +865,7 @@ class _MushafPageState extends State<_MushafPage> {
                 currentGlobalAyah: state.currentGlobalAyah,
               ),
               builder: (context, maskState) {
-                if (maskState.maskedGlobals.isEmpty ||
-                    effectiveLayoutRepo == null ||
-                    !effectiveLayoutRepo.isLoaded) {
+                if (maskState.maskedGlobals.isEmpty) {
                   return const SizedBox.shrink();
                 }
                 final geom = effectiveLayoutRepo.getPageGeometry(widget.page);
@@ -930,86 +947,120 @@ class _MushafPageState extends State<_MushafPage> {
       color: isDark
           ? MushafThemeColors.darkBackground
           : MushafThemeColors.lightBackground,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final nextSize = Size(constraints.maxWidth, constraints.maxHeight);
-          if (_viewportSize != nextSize || _appliedScale == null) {
-            _viewportSize = nextSize;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _applyScale(widget.scale);
-            });
+      // Never mount the SVG before its concealment geometry is ready. The
+      // repository load does not emit interaction state, so waiting explicitly
+      // also guarantees a rebuild when a cold launch finishes loading.
+      child: FutureBuilder<MushafLayoutData>(
+        future: _layoutLoad,
+        builder: (context, snapshot) {
+          if (!_layoutRepository!.isLoaded) {
+            if (snapshot.hasError) {
+              return Center(
+                child: TextButton.icon(
+                  onPressed: () => setState(() {
+                    _layoutLoad = _layoutRepository!.load();
+                  }),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('تعذر تجهيز المصحف. إعادة المحاولة'),
+                ),
+              );
+            }
+            return const Center(child: CircularProgressIndicator());
           }
-          return InteractiveViewer(
-            transformationController: _transformationController,
-            constrained: false,
-            minScale: 1,
-            maxScale: 3,
-            boundaryMargin: const EdgeInsets.all(56),
-            panEnabled: _isZoomed,
-            onInteractionEnd: (_) {
-              _appliedScale = _transformationController.value
-                  .getMaxScaleOnAxis();
-              _updateZoomState();
-            },
-            child: SizedBox(
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: hasInteractionCubit
-                    ? BlocSelector<
-                        MushafInteractionCubit,
-                        MushafInteractionState,
-                        ({AyahBounds? selectedAyah, AyahBounds? playingAyah})
-                      >(
-                        selector: (state) {
-                          final selected = state.selectedPage == widget.page
-                              ? state.selectedAyah
-                              : null;
-                          final playingGlobal = state.playingAyah;
-                          final layoutRepo = context
-                              .read<MushafInteractionCubit>()
-                              .layoutRepository;
-                          AyahBounds? playing;
-                          if (playingGlobal != null && layoutRepo.isLoaded) {
-                            final ayah = layoutRepo.getAyah(playingGlobal);
-                            if (ayah?.page == widget.page) {
-                              playing = ayah;
-                            }
-                          }
-                          return (selectedAyah: selected, playingAyah: playing);
-                        },
-                        builder: (context, highlights) {
-                          final bookmarks = context
-                              .select<QuranCubit, List<QuranBookmark>>(
-                                (cubit) => cubit.state.getBookmarksForPage(
-                                  widget.page,
-                                ),
-                              );
-                          final layoutRepo = context
-                              .read<MushafInteractionCubit>()
-                              .layoutRepository;
-                          final List<AyahBounds> bookmarkedBounds = [];
-                          if (bookmarks.isNotEmpty && layoutRepo.isLoaded) {
-                            for (final b in bookmarks) {
-                              final bounds = layoutRepo.getAyah(b.point.global);
-                              if (bounds != null &&
-                                  bounds.page == widget.page) {
-                                bookmarkedBounds.add(bounds);
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final nextSize = Size(
+                constraints.maxWidth,
+                constraints.maxHeight,
+              );
+              if (_viewportSize != nextSize || _appliedScale == null) {
+                _viewportSize = nextSize;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _applyScale(widget.scale);
+                });
+              }
+              return InteractiveViewer(
+                transformationController: _transformationController,
+                constrained: false,
+                minScale: 1,
+                maxScale: 3,
+                boundaryMargin: const EdgeInsets.all(56),
+                panEnabled: _isZoomed,
+                onInteractionEnd: (_) {
+                  _appliedScale = _transformationController.value
+                      .getMaxScaleOnAxis();
+                  _updateZoomState();
+                },
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: hasInteractionCubit
+                        ? BlocSelector<
+                            MushafInteractionCubit,
+                            MushafInteractionState,
+                            ({
+                              AyahBounds? selectedAyah,
+                              AyahBounds? playingAyah,
+                            })
+                          >(
+                            selector: (state) {
+                              final selected = state.selectedPage == widget.page
+                                  ? state.selectedAyah
+                                  : null;
+                              final playingGlobal = state.playingAyah;
+                              final layoutRepo = context
+                                  .read<MushafInteractionCubit>()
+                                  .layoutRepository;
+                              AyahBounds? playing;
+                              if (playingGlobal != null &&
+                                  layoutRepo.isLoaded) {
+                                final ayah = layoutRepo.getAyah(playingGlobal);
+                                if (ayah?.page == widget.page) {
+                                  playing = ayah;
+                                }
                               }
-                            }
-                          }
-                          return buildPageContent(
-                            highlights.selectedAyah,
-                            highlights.playingAyah,
-                            bookmarkedBounds,
-                            layoutRepo,
-                          );
-                        },
-                      )
-                    : buildPageContent(null, null, const [], null),
-              ),
-            ),
+                              return (
+                                selectedAyah: selected,
+                                playingAyah: playing,
+                              );
+                            },
+                            builder: (context, highlights) {
+                              final bookmarks = context
+                                  .select<QuranCubit, List<QuranBookmark>>(
+                                    (cubit) => cubit.state.getBookmarksForPage(
+                                      widget.page,
+                                    ),
+                                  );
+                              final layoutRepo = context
+                                  .read<MushafInteractionCubit>()
+                                  .layoutRepository;
+                              final List<AyahBounds> bookmarkedBounds = [];
+                              if (bookmarks.isNotEmpty && layoutRepo.isLoaded) {
+                                for (final b in bookmarks) {
+                                  final bounds = layoutRepo.getAyah(
+                                    b.point.global,
+                                  );
+                                  if (bounds != null &&
+                                      bounds.page == widget.page) {
+                                    bookmarkedBounds.add(bounds);
+                                  }
+                                }
+                              }
+                              return buildPageContent(
+                                highlights.selectedAyah,
+                                highlights.playingAyah,
+                                bookmarkedBounds,
+                                layoutRepo,
+                              );
+                            },
+                          )
+                        : buildPageContent(null, null, const [], null),
+                  ),
+                ),
+              );
+            },
           );
         },
       ),

@@ -83,27 +83,32 @@ void main() {
   });
 
   group('MushafLayout - Representative Pages Validation', () {
-    test('Page 1: Surah Al-Fatihah (7 Ayahs, exceptional polygon geometry)', () {
-      final p1 = repository.getPageGeometry(1)!;
-      expect(p1.page, 1);
-      expect(p1.ayahs.length, 7);
+    test(
+      'Page 1: Surah Al-Fatihah (7 Ayahs, exceptional polygon geometry)',
+      () {
+        final p1 = repository.getPageGeometry(1)!;
+        expect(p1.page, 1);
+        expect(p1.ayahs.length, 7);
 
-      // First Ayah (1:1)
-      final a1 = p1.ayahs.first;
-      expect(a1.globalAyah, 1);
-      expect(a1.surah, 1);
-      expect(a1.ayah, 1);
+        // First Ayah (1:1)
+        final a1 = p1.ayahs.first;
+        expect(a1.globalAyah, 1);
+        expect(a1.surah, 1);
+        expect(a1.ayah, 1);
 
-      // Last Ayah of Al-Fatihah (1:7)
-      final a7 = p1.ayahs.last;
-      expect(a7.globalAyah, 7);
-      expect(a7.surah, 1);
-      expect(a7.ayah, 7);
+        // Last Ayah of Al-Fatihah (1:7)
+        final a7 = p1.ayahs.last;
+        expect(a7.globalAyah, 7);
+        expect(a7.surah, 1);
+        expect(a7.ayah, 7);
 
-      // Page 1 has polygon segments on ornamental verses (e.g. verse 4, 5, 6, 7)
-      final hasPolys = p1.ayahs.any((a) => a.segments.any((s) => s is AyahPolygonSegment));
-      expect(hasPolys, isTrue);
-    });
+        // Page 1 has polygon segments on ornamental verses (e.g. verse 4, 5, 6, 7)
+        final hasPolys = p1.ayahs.any(
+          (a) => a.segments.any((s) => s is AyahPolygonSegment),
+        );
+        expect(hasPolys, isTrue);
+      },
+    );
 
     test('Page 2: Start of Al-Baqarah (Ayahs 8..12)', () {
       final p2 = repository.getPageGeometry(2)!;
@@ -245,38 +250,46 @@ void main() {
         expect(
           hit,
           isNotNull,
-          reason: 'findAyahAt failed for Ayah $g on page ${ayah.page} at $sample',
+          reason:
+              'findAyahAt failed for Ayah $g on page ${ayah.page} at $sample',
         );
         expect(
           hit!.globalAyah,
           g,
-          reason: 'findAyahAt returned wrong Ayah ${hit.globalAyah} instead of $g',
+          reason:
+              'findAyahAt returned wrong Ayah ${hit.globalAyah} instead of $g',
         );
       }
     });
   });
 
   group('MushafLayout - Performance Benchmark', () {
-    test('hit-testing performs at sub-millisecond speeds (< 0.05ms per query)', () {
-      final stopwatch = Stopwatch()..start();
-      const iterations = 5000;
+    test(
+      'hit-testing performs at sub-millisecond speeds (< 0.05ms per query)',
+      () {
+        final stopwatch = Stopwatch()..start();
+        const iterations = 5000;
 
-      for (var i = 0; i < iterations; i++) {
-        // Query random locations across various pages
-        final pageNum = (i % 604) + 1;
-        final x = (i * 37) % 300 + 20.0;
-        final y = (i * 53) % 500 + 25.0;
-        repository.findAyahAt(pageNum, Offset(x, y));
-      }
+        for (var i = 0; i < iterations; i++) {
+          // Query random locations across various pages
+          final pageNum = (i % 604) + 1;
+          final x = (i * 37) % 300 + 20.0;
+          final y = (i * 53) % 500 + 25.0;
+          repository.findAyahAt(pageNum, Offset(x, y));
+        }
 
-      stopwatch.stop();
-      final totalMicros = stopwatch.elapsedMicroseconds;
-      final avgMicros = totalMicros / iterations;
-      final avgMillis = avgMicros / 1000.0;
+        stopwatch.stop();
+        final totalMicros = stopwatch.elapsedMicroseconds;
+        final avgMicros = totalMicros / iterations;
+        final avgMillis = avgMicros / 1000.0;
 
-      // Benchmark assertion: average query time strictly under 0.05 ms (50 microseconds)
-      expect(avgMillis, lessThan(0.05),
-          reason: 'Hit test took $avgMillis ms per query (exceeded 0.05 ms)');
-    });
+        // Benchmark assertion: average query time strictly under 0.05 ms (50 microseconds)
+        expect(
+          avgMillis,
+          lessThan(0.05),
+          reason: 'Hit test took $avgMillis ms per query (exceeded 0.05 ms)',
+        );
+      },
+    );
   });
 }

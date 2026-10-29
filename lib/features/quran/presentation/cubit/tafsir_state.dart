@@ -2,13 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../data/models/tafsir_models.dart';
 
-enum TafsirStatus {
-  initial,
-  loading,
-  loaded,
-  unavailable,
-  error,
-}
+enum TafsirStatus { initial, loading, loaded, unavailable, error }
 
 class TafsirState extends Equatable {
   const TafsirState({
@@ -54,11 +48,11 @@ class TafsirState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        selectedSource,
-        availableSources,
-        entry,
-        globalAyah,
-        errorMessage,
-      ];
+    status,
+    selectedSource,
+    availableSources,
+    entry,
+    globalAyah,
+    errorMessage,
+  ];
 }

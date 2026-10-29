@@ -31,9 +31,11 @@ class MemorizationSession extends Equatable {
   final String? _id;
 
   /// Unique session identifier. Deterministic fallback ensures stable identity across restarts.
-  String get id => _id ?? (planId != null
-      ? 'sess_${planId}_${queue.isNotEmpty ? queue.first : 0}'
-      : 'sess_adhoc_${queue.isNotEmpty ? queue.first : 0}');
+  String get id =>
+      _id ??
+      (planId != null
+          ? 'sess_${planId}_${queue.isNotEmpty ? queue.first : 0}'
+          : 'sess_adhoc_${queue.isNotEmpty ? queue.first : 0}');
 
   /// ID of the associated plan, if any.
   final String? planId;
@@ -56,15 +58,14 @@ class MemorizationSession extends Equatable {
   /// Current canonical global Ayah, or null if the queue is empty or finished.
   int? get currentGlobalAyah =>
       (currentIndex >= 0 && currentIndex < queue.length)
-          ? queue[currentIndex]
-          : null;
+      ? queue[currentIndex]
+      : null;
 
   /// Total number of Ayahs in this session.
   int get totalCount => queue.length;
 
   /// Remaining count of Ayahs in this session including the current one.
-  int get remainingCount =>
-      (totalCount - currentIndex).clamp(0, totalCount);
+  int get remainingCount => (totalCount - currentIndex).clamp(0, totalCount);
 
   /// Progress fraction (0.0 .. 1.0).
   double get progress =>
@@ -102,8 +103,10 @@ class MemorizationSession extends Equatable {
       }
     }
 
-    final currentIndex = ((json['currentIndex'] as num?)?.toInt() ?? 0)
-        .clamp(0, queue.isEmpty ? 0 : queue.length);
+    final currentIndex = ((json['currentIndex'] as num?)?.toInt() ?? 0).clamp(
+      0,
+      queue.isEmpty ? 0 : queue.length,
+    );
 
     final typeStr = json['sessionType'] as String?;
     final sessionType = MemorizationSessionType.values.firstWhere(

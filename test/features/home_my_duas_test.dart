@@ -87,13 +87,7 @@ class FakeLocationService implements LocationService {
 
   @override
   NearbyCity closestCity(double latitude, double longitude) {
-    return const NearbyCity(
-      'مكة المكرمة',
-      21.4225,
-      39.8262,
-      'MWL',
-      0,
-    );
+    return const NearbyCity('مكة المكرمة', 21.4225, 39.8262, 'MWL', 0);
   }
 }
 
@@ -105,7 +99,9 @@ class FakeNotificationService implements LocalNotificationService {
   Future<bool> requestPermission() async => true;
 
   @override
-  Future<void> scheduleAll(List<ScheduledAppNotification> notifications) async {}
+  Future<void> scheduleAll(
+    List<ScheduledAppNotification> notifications,
+  ) async {}
 
   @override
   Future<void> cancelAll() async {}
@@ -147,7 +143,10 @@ class FakeQuranAudioService implements QuranAudioService {
   bool get isPlaying => false;
 
   @override
-  Future<void> playAyah({required String reciter, required int globalAyah}) async {}
+  Future<void> playAyah({
+    required String reciter,
+    required int globalAyah,
+  }) async {}
 
   @override
   Future<void> pause() async {}
@@ -195,7 +194,9 @@ Future<void> _loadFonts() async {
   for (final path in cairoFiles) {
     final file = File(path);
     if (file.existsSync()) {
-      cairoLoader.addFont(Future.value(ByteData.view(file.readAsBytesSync().buffer)));
+      cairoLoader.addFont(
+        Future.value(ByteData.view(file.readAsBytesSync().buffer)),
+      );
     }
   }
   await cairoLoader.load();
@@ -230,9 +231,9 @@ void main() {
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('dev.fluttercommunity.plus/connectivity'),
-      (message) async => ['wifi'],
-    );
+          const MethodChannel('dev.fluttercommunity.plus/connectivity'),
+          (message) async => ['wifi'],
+        );
 
     quranRepo = QuranRepository();
     await quranRepo.load();
@@ -313,107 +314,114 @@ void main() {
     );
   }
 
-  testWidgets('My Duas section on Home Page: empty state, adding dua, counter, and latest 3 duas', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(840, 3200);
-    tester.view.devicePixelRatio = 2.0;
+  testWidgets(
+    'My Duas section on Home Page: empty state, adding dua, counter, and latest 3 duas',
+    (tester) async {
+      tester.view.physicalSize = const Size(840, 3200);
+      tester.view.devicePixelRatio = 2.0;
 
-    // 1. Initial State: Empty state
-    await tester.pumpWidget(buildApp());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+      // 1. Initial State: Empty state
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('أدعيتي'), findsOneWidget);
-    expect(find.text('إضافة دعاء'), findsOneWidget);
-    expect(find.text('لا توجد أدعية مضافة بعد'), findsOneWidget);
-    expect(find.text('إضافة أول دعاء'), findsOneWidget);
+      expect(find.text('أدعيتي'), findsOneWidget);
+      expect(find.text('إضافة دعاء'), findsOneWidget);
+      expect(find.text('لا توجد أدعية مضافة بعد'), findsOneWidget);
+      expect(find.text('إضافة أول دعاء'), findsOneWidget);
 
-    // 2. Add first dua via shortcut
-    await tester.tap(find.text('إضافة دعاء'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+      // 2. Add first dua via shortcut
+      await tester.tap(find.text('إضافة دعاء'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('إضافة دعاء جديد'), findsOneWidget);
-    expect(find.text('حفظ في أدعيتي'), findsOneWidget);
+      expect(find.text('إضافة دعاء جديد'), findsOneWidget);
+      expect(find.text('حفظ في أدعيتي'), findsOneWidget);
 
-    await tester.enterText(
-      find.widgetWithText(TextField, 'عنوان الدعاء (اختياري)'),
-      'دعاء تيسير الأمور',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'نص الدعاء أو الذكر *'),
-      'اللهم لا سهل إلا ما جعلته سهلا وأنت تجعل الحزن إذا شئت سهلا',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'عدد مرات التكرار'),
-      '3',
-    );
-
-    await tester.tap(find.text('حفظ في أدعيتي'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(adhkarCubit.state.customItems.length, 1);
-    expect(adhkarCubit.state.customItems.first.title, 'دعاء تيسير الأمور');
-    expect(find.text('دعاء تيسير الأمور', skipOffstage: false), findsOneWidget);
-    expect(
-      find.text(
+      await tester.enterText(
+        find.widgetWithText(TextField, 'عنوان الدعاء (اختياري)'),
+        'دعاء تيسير الأمور',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'نص الدعاء أو الذكر *'),
         'اللهم لا سهل إلا ما جعلته سهلا وأنت تجعل الحزن إذا شئت سهلا',
-        skipOffstage: false,
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('3×', skipOffstage: false), findsOneWidget);
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'عدد مرات التكرار'),
+        '3',
+      );
 
-    // 3. Increment counter by tapping repetition badge
-    await tester.tap(find.text('3×', skipOffstage: false));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('حفظ في أدعيتي'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('1 / 3', skipOffstage: false), findsOneWidget);
+      expect(adhkarCubit.state.customItems.length, 1);
+      expect(adhkarCubit.state.customItems.first.title, 'دعاء تيسير الأمور');
+      expect(
+        find.text('دعاء تيسير الأمور', skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'اللهم لا سهل إلا ما جعلته سهلا وأنت تجعل الحزن إذا شئت سهلا',
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('3×', skipOffstage: false), findsOneWidget);
 
-    // 4. Add 4 more duas (total 5) and verify only latest 3 are shown
-    await adhkarCubit.saveCustom(
-      title: 'الدعاء الثاني',
-      text: 'اللهم اهدني وسددني',
-      count: 1,
-    );
-    await adhkarCubit.saveCustom(
-      title: 'الدعاء الثالث',
-      text: 'يا مقلب القلوب ثبت قلبي على دينك',
-      count: 1,
-    );
-    await adhkarCubit.saveCustom(
-      title: 'الدعاء الرابع',
-      text: 'اللهم إني أسألك الهدى والتقى والعفاف والغنى',
-      count: 1,
-    );
-    await adhkarCubit.saveCustom(
-      title: 'الدعاء الخامس',
-      text: 'اللهم إنك عفو تحب العفو فاعف عني',
-      count: 1,
-    );
+      // 3. Increment counter by tapping repetition badge
+      await tester.tap(find.text('3×', skipOffstage: false));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('1 / 3', skipOffstage: false), findsOneWidget);
 
-    // The latest 3 are: الخامس, الرابع, الثالث
-    expect(find.text('الدعاء الخامس', skipOffstage: false), findsOneWidget);
-    expect(find.text('الدعاء الرابع', skipOffstage: false), findsOneWidget);
-    expect(find.text('الدعاء الثالث', skipOffstage: false), findsOneWidget);
+      // 4. Add 4 more duas (total 5) and verify only latest 3 are shown
+      await adhkarCubit.saveCustom(
+        title: 'الدعاء الثاني',
+        text: 'اللهم اهدني وسددني',
+        count: 1,
+      );
+      await adhkarCubit.saveCustom(
+        title: 'الدعاء الثالث',
+        text: 'يا مقلب القلوب ثبت قلبي على دينك',
+        count: 1,
+      );
+      await adhkarCubit.saveCustom(
+        title: 'الدعاء الرابع',
+        text: 'اللهم إني أسألك الهدى والتقى والعفاف والغنى',
+        count: 1,
+      );
+      await adhkarCubit.saveCustom(
+        title: 'الدعاء الخامس',
+        text: 'اللهم إنك عفو تحب العفو فاعف عني',
+        count: 1,
+      );
 
-    // Older ones (دعاء تيسير الأمور, الدعاء الثاني) are NOT displayed among the 3 cards
-    expect(find.text('دعاء تيسير الأمور', skipOffstage: false), findsNothing);
-    expect(find.text('الدعاء الثاني', skipOffstage: false), findsNothing);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-    // Shows total link
-    expect(find.text('عرض جميع أدعيتي (5)', skipOffstage: false), findsOneWidget);
+      // The latest 3 are: الخامس, الرابع, الثالث
+      expect(find.text('الدعاء الخامس', skipOffstage: false), findsOneWidget);
+      expect(find.text('الدعاء الرابع', skipOffstage: false), findsOneWidget);
+      expect(find.text('الدعاء الثالث', skipOffstage: false), findsOneWidget);
 
-    await tester.pumpWidget(const SizedBox());
-    tester.view.resetPhysicalSize();
-    tester.view.resetDevicePixelRatio();
-  });
+      // Older ones (دعاء تيسير الأمور, الدعاء الثاني) are NOT displayed among the 3 cards
+      expect(find.text('دعاء تيسير الأمور', skipOffstage: false), findsNothing);
+      expect(find.text('الدعاء الثاني', skipOffstage: false), findsNothing);
+
+      // Shows total link
+      expect(
+        find.text('عرض جميع أدعيتي (5)', skipOffstage: false),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox());
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    },
+  );
 
   testWidgets('Home Page exposes a shortcut to the tasbih session', (
     tester,

@@ -103,7 +103,9 @@ class QuranSearchRepository {
     // 2. Surah Matching (if filter permits)
     final matchedSurahs = <QuranChapter>[];
     if (filter == QuranSearchFilter.all || filter == QuranSearchFilter.surahs) {
-      final queryNum = int.tryParse(QuranSearchNormalizer.convertArabicDigits(rawTrimmed));
+      final queryNum = int.tryParse(
+        QuranSearchNormalizer.convertArabicDigits(rawTrimmed),
+      );
       for (final ch in data.chapters) {
         final normName = QuranSearchNormalizer.normalize(ch.name);
         final normEnName = QuranSearchNormalizer.normalize(ch.englishName);
@@ -120,7 +122,8 @@ class QuranSearchRepository {
 
     // 3. Ayah Text Matching (if filter permits)
     final matchedAyahs = <QuranAyahSearchResult>[];
-    if ((filter == QuranSearchFilter.all || filter == QuranSearchFilter.ayahs) &&
+    if ((filter == QuranSearchFilter.all ||
+            filter == QuranSearchFilter.ayahs) &&
         normalizedQuery.isNotEmpty) {
       for (final item in index) {
         if (item.normalizedText.contains(normalizedQuery)) {
@@ -159,7 +162,8 @@ class QuranSearchRepository {
       }
     }
 
-    final totalCount = (directRef != null ? 1 : 0) +
+    final totalCount =
+        (directRef != null ? 1 : 0) +
         matchedSurahs.length +
         matchedAyahs.length;
 

@@ -120,9 +120,9 @@ void main() {
   test('applies the selected adhan length and per-prayer sound settings', () {
     final now = DateTime(2026, 10, 19);
     const settings = AppSettings(
-      latitude: 21.4225,
-      longitude: 39.8262,
-      city: 'مكة المكرمة',
+      latitude: 34.0522,
+      longitude: -118.2437,
+      city: 'لوس أنجلوس',
       notificationsEnabled: true,
       adhanFile: 'adhan4',
       adhanPlaybackMode: AdhanPlaybackMode.short,

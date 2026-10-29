@@ -16,19 +16,22 @@ enum HifzJourneySegmentType {
 
   /// Arabic label for display in UI chips and headers.
   String get label => switch (this) {
-        HifzJourneySegmentType.dueMurajaah => 'المراجعة المستحقة',
-        HifzJourneySegmentType.weakConsolidation => 'تثبيت المواضع الضعيفة',
-        HifzJourneySegmentType.newHifz => 'الحفظ الجديد',
-      };
+    HifzJourneySegmentType.dueMurajaah => 'المراجعة المستحقة',
+    HifzJourneySegmentType.weakConsolidation => 'تثبيت المواضع الضعيفة',
+    HifzJourneySegmentType.newHifz => 'الحفظ الجديد',
+  };
 
   String get arabicLabel => label;
 
   /// Default subtitle explaining the segment purpose calmly.
   String get description => switch (this) {
-        HifzJourneySegmentType.dueMurajaah => 'آيات حان موعد مراجعتها اليوم للحفاظ على رسوخها',
-        HifzJourneySegmentType.weakConsolidation => 'آيات تحتاج تثبيتاً وعناية إضافية لضبط الإتقان',
-        HifzJourneySegmentType.newHifz => 'آيات جديدة لم تدرسها بعد وفق خطتك المعتمدة',
-      };
+    HifzJourneySegmentType.dueMurajaah =>
+      'آيات حان موعد مراجعتها اليوم للحفاظ على رسوخها',
+    HifzJourneySegmentType.weakConsolidation =>
+      'آيات تحتاج تثبيتاً وعناية إضافية لضبط الإتقان',
+    HifzJourneySegmentType.newHifz =>
+      'آيات جديدة لم تدرسها بعد وفق خطتك المعتمدة',
+  };
 }
 
 /// An individual segment of the recommended daily Quran journey.
@@ -163,7 +166,10 @@ class DailyHifzJourney extends Equatable {
   }
 
   /// Creates a copy with optional user override for today's new Hifz target.
-  DailyHifzJourney copyWithTargetOverride(int newTarget, List<int> updatedNewQueue) {
+  DailyHifzJourney copyWithTargetOverride(
+    int newTarget,
+    List<int> updatedNewQueue,
+  ) {
     final updatedSegments = segments.map((seg) {
       if (seg.type == HifzJourneySegmentType.newHifz) {
         return HifzJourneySegment(
@@ -194,19 +200,19 @@ class DailyHifzJourney extends Equatable {
 
   @override
   List<Object?> get props => [
-        segments,
-        dueMurajaahQueue,
-        weakAyahsQueue,
-        newHifzQueue,
-        recommendedNewHifzTarget,
-        effectiveNewHifzTarget,
-        workloadLevel,
-        isRecoveryMode,
-        recoveryBacklogCount,
-        rationaleMessage,
-        evaluatedAt,
-        plan,
-      ];
+    segments,
+    dueMurajaahQueue,
+    weakAyahsQueue,
+    newHifzQueue,
+    recommendedNewHifzTarget,
+    effectiveNewHifzTarget,
+    workloadLevel,
+    isRecoveryMode,
+    recoveryBacklogCount,
+    rationaleMessage,
+    evaluatedAt,
+    plan,
+  ];
 }
 
 /// Non-intrusive plan adaptation suggestion based on sustained pace over time.
@@ -244,14 +250,14 @@ class PlanAdaptationSuggestion extends Equatable {
 
   @override
   List<Object?> get props => [
-        planId,
-        planTitle,
-        currentTarget,
-        recommendedTarget,
-        sustainedPace,
-        reason,
-        actionText,
-      ];
+    planId,
+    planTitle,
+    currentTarget,
+    recommendedTarget,
+    sustainedPace,
+    reason,
+    actionText,
+  ];
 }
 
 /// Dual completion forecast comparing commitment-based and realistic pace-based timelines.
@@ -285,11 +291,11 @@ class CompletionForecast extends Equatable {
 
   @override
   List<Object?> get props => [
-        targetBasedDays,
-        targetBasedDescription,
-        paceBasedDays,
-        paceBasedDescription,
-        hasSufficientData,
-        paceComparisonMessage,
-      ];
+    targetBasedDays,
+    targetBasedDescription,
+    paceBasedDays,
+    paceBasedDescription,
+    hasSufficientData,
+    paceComparisonMessage,
+  ];
 }

@@ -5,10 +5,7 @@ import '../../features/quran/domain/models/audio_repeat_config.dart';
 /// Pure, isolated controller managing Quran audio repetition, range loops,
 /// Tardid delay countdowns, and progression sequences.
 class AudioRepeatController {
-  AudioRepeatController({
-    this.onPlayAyahRequested,
-    this.onSequenceCompleted,
-  });
+  AudioRepeatController({this.onPlayAyahRequested, this.onSequenceCompleted});
 
   final Future<void> Function(int globalAyah)? onPlayAyahRequested;
   final void Function()? onSequenceCompleted;
@@ -49,7 +46,8 @@ class AudioRepeatController {
         ? customQueue
         : config.rangeQueue;
 
-    final initialAyah = initialGlobalAyah ??
+    final initialAyah =
+        initialGlobalAyah ??
         (queue.isNotEmpty ? queue.first : config.startGlobalAyah);
 
     final queueIndex = queue.indexOf(initialAyah);

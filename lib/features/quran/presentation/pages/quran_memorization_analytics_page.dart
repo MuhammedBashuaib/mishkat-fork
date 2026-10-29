@@ -17,10 +17,7 @@ import 'quran_reader_page.dart';
 
 /// Dedicated analytics and progress intelligence page for Quran memorization and Muraja'ah.
 class QuranMemorizationAnalyticsPage extends StatefulWidget {
-  const QuranMemorizationAnalyticsPage({
-    super.key,
-    required this.quranData,
-  });
+  const QuranMemorizationAnalyticsPage({super.key, required this.quranData});
 
   final QuranData quranData;
 
@@ -88,12 +85,11 @@ class _QuranMemorizationAnalyticsPageState
 
   void _startRevision(AdaptiveMurajaahCategory category) {
     context.read<QuranMemorizationCubit>().startAdaptiveRevisionSession(
-          category: category,
-          limit: 20,
-        );
-    Navigator.of(context).push(
-      MemorizationSessionPage.route(quranData: widget.quranData),
+      category: category,
+      limit: 20,
     );
+    Navigator.of(context)
+        .push(MemorizationSessionPage.route(quranData: widget.quranData));
   }
 
   @override
@@ -136,7 +132,11 @@ class _QuranMemorizationAnalyticsPageState
               ],
 
               // 4. Review Retention & Performance
-              _buildRetentionCard(context, analytics.retention, analytics.trend),
+              _buildRetentionCard(
+                context,
+                analytics.retention,
+                analytics.trend,
+              ),
               const SizedBox(height: MishkatSpacing.lg),
 
               // 5. Weak Ayahs Needing Consolidation
@@ -211,7 +211,10 @@ class _QuranMemorizationAnalyticsPageState
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
                 decoration: BoxDecoration(
                   color: colors.primarySoft,
                   borderRadius: BorderRadius.circular(MishkatRadius.pill),
@@ -240,10 +243,7 @@ class _QuranMemorizationAnalyticsPageState
           const SizedBox(height: MishkatSpacing.md),
           Text(
             'تم حفظ ${overall.memorized} من أصل ${overall.totalAyahs} آية',
-            style: TextStyle(
-              fontSize: 12,
-              color: colors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 12, color: colors.textSecondary),
           ),
           const SizedBox(height: MishkatSpacing.md),
           Row(
@@ -305,7 +305,11 @@ class _QuranMemorizationAnalyticsPageState
             children: [
               Row(
                 children: [
-                  Icon(Icons.calendar_month_outlined, size: 18, color: colors.gold),
+                  Icon(
+                    Icons.calendar_month_outlined,
+                    size: 18,
+                    color: colors.gold,
+                  ),
                   const SizedBox(width: MishkatSpacing.sm),
                   Text(
                     'عبء المراجعة المتوقع',
@@ -373,7 +377,8 @@ class _QuranMemorizationAnalyticsPageState
               child: MishkatPrimaryAction(
                 label: 'ابدأ مراجعة اليوم (${forecast.dueTodayCount} آية)',
                 icon: const Icon(Icons.play_arrow_rounded),
-                onPressed: () => _startRevision(AdaptiveMurajaahCategory.dueToday),
+                onPressed: () =>
+                    _startRevision(AdaptiveMurajaahCategory.dueToday),
               ),
             ),
           ],
@@ -391,9 +396,18 @@ class _QuranMemorizationAnalyticsPageState
 
     final (paceColor, paceIcon) = switch (planAnalytics.paceStatus) {
       PlanPaceStatus.ahead => (colors.primary, Icons.trending_up_rounded),
-      PlanPaceStatus.onTrack => (colors.primary, Icons.check_circle_outline_rounded),
-      PlanPaceStatus.needsAttention => (colors.warning, Icons.priority_high_rounded),
-      PlanPaceStatus.insufficientData => (colors.textSecondary, Icons.hourglass_top_rounded),
+      PlanPaceStatus.onTrack => (
+        colors.primary,
+        Icons.check_circle_outline_rounded,
+      ),
+      PlanPaceStatus.needsAttention => (
+        colors.warning,
+        Icons.priority_high_rounded,
+      ),
+      PlanPaceStatus.insufficientData => (
+        colors.textSecondary,
+        Icons.hourglass_top_rounded,
+      ),
     };
 
     return MishkatCard(
@@ -567,14 +581,20 @@ class _QuranMemorizationAnalyticsPageState
                     children: [
                       Text(
                         'سهل: ${retention.easyCount}',
-                        style: TextStyle(fontSize: 11, color: colors.textSecondary),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colors.textSecondary,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text('•', style: TextStyle(color: colors.textSecondary)),
                       const SizedBox(width: 8),
                       Text(
                         'جيد: ${retention.goodCount}',
-                        style: TextStyle(fontSize: 11, color: colors.textSecondary),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colors.textSecondary,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text('•', style: TextStyle(color: colors.textSecondary)),
@@ -618,8 +638,8 @@ class _QuranMemorizationAnalyticsPageState
                 trend.direction == TrendDirection.increasing
                     ? Icons.trending_up_rounded
                     : (trend.direction == TrendDirection.decreasing
-                        ? Icons.trending_down_rounded
-                        : Icons.info_outline_rounded),
+                          ? Icons.trending_down_rounded
+                          : Icons.info_outline_rounded),
                 size: 14,
                 color: colors.gold,
               ),
@@ -627,10 +647,7 @@ class _QuranMemorizationAnalyticsPageState
               Expanded(
                 child: Text(
                   trend.description,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: colors.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 11, color: colors.textSecondary),
                 ),
               ),
             ],
@@ -694,7 +711,8 @@ class _QuranMemorizationAnalyticsPageState
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: weakAyahs.length,
-            separatorBuilder: (_, _) => const SizedBox(height: MishkatSpacing.sm),
+            separatorBuilder: (_, _) =>
+                const SizedBox(height: MishkatSpacing.sm),
             itemBuilder: (context, index) {
               final item = weakAyahs[index];
               return _buildWeakAyahTile(context, item);
@@ -718,7 +736,10 @@ class _QuranMemorizationAnalyticsPageState
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.primarySoft,
                       borderRadius: BorderRadius.circular(MishkatRadius.pill),
@@ -763,7 +784,11 @@ class _QuranMemorizationAnalyticsPageState
           const SizedBox(height: MishkatSpacing.sm),
           Row(
             children: [
-              Icon(Icons.history_toggle_off_rounded, size: 14, color: colors.textSecondary),
+              Icon(
+                Icons.history_toggle_off_rounded,
+                size: 14,
+                color: colors.textSecondary,
+              ),
               const SizedBox(width: 4),
               Text(
                 'الأخطاء المسجلة: ${item.mistakeCount}',
@@ -863,7 +888,10 @@ class _QuranMemorizationAnalyticsPageState
           decoration: InputDecoration(
             hintText: 'ابحث عن سورة...',
             prefixIcon: const Icon(Icons.search_rounded, size: 20),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(MishkatRadius.md),
               borderSide: BorderSide(color: colors.border),
@@ -887,7 +915,10 @@ class _QuranMemorizationAnalyticsPageState
                 contentPadding: EdgeInsets.zero,
                 title: Text(
                   '${surah.surahNumber}. سورة ${surah.name}',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
                 subtitle: Text(
                   '${surah.memorizedCount} / ${surah.totalAyahs} آية',
@@ -899,10 +930,15 @@ class _QuranMemorizationAnalyticsPageState
                     if (surah.weakCount > 0)
                       Container(
                         margin: const EdgeInsets.only(left: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: colors.warning.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(MishkatRadius.pill),
+                          borderRadius: BorderRadius.circular(
+                            MishkatRadius.pill,
+                          ),
                         ),
                         child: Text(
                           '${surah.weakCount} يحتاج تثبيتاً',
@@ -914,7 +950,9 @@ class _QuranMemorizationAnalyticsPageState
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: surah.isCompleted ? colors.primary : colors.textPrimary,
+                        color: surah.isCompleted
+                            ? colors.primary
+                            : colors.textPrimary,
                       ),
                     ),
                   ],
@@ -959,7 +997,10 @@ class _QuranMemorizationAnalyticsPageState
               if (juz.weakCount > 0)
                 Container(
                   margin: const EdgeInsets.only(left: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: colors.warning.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(MishkatRadius.pill),
@@ -1018,10 +1059,7 @@ class _QuranMemorizationAnalyticsPageState
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              color: colors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 11, color: colors.textSecondary),
             textAlign: TextAlign.center,
           ),
         ],

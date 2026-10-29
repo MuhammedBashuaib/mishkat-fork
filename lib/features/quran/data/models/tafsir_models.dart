@@ -29,47 +29,47 @@ class TafsirSource extends Equatable {
   final int totalAyahs;
 
   factory TafsirSource.fromJson(Map<String, dynamic> json) => TafsirSource(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        language: json['language'] as String? ?? 'ar',
-        author: json['author'] as String? ?? '',
-        publisher: json['publisher'] as String? ?? '',
-        description: json['description'] as String? ?? '',
-        attribution: json['attribution'] as String? ?? '',
-        license: json['license'] as String? ?? '',
-        version: json['version'] as String? ?? '',
-        sourceUrl: json['sourceUrl'] as String? ?? '',
-        totalAyahs: (json['totalAyahs'] as num?)?.toInt() ?? 0,
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    language: json['language'] as String? ?? 'ar',
+    author: json['author'] as String? ?? '',
+    publisher: json['publisher'] as String? ?? '',
+    description: json['description'] as String? ?? '',
+    attribution: json['attribution'] as String? ?? '',
+    license: json['license'] as String? ?? '',
+    version: json['version'] as String? ?? '',
+    sourceUrl: json['sourceUrl'] as String? ?? '',
+    totalAyahs: (json['totalAyahs'] as num?)?.toInt() ?? 0,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'language': language,
-        'author': author,
-        'publisher': publisher,
-        'description': description,
-        'attribution': attribution,
-        'license': license,
-        'version': version,
-        'sourceUrl': sourceUrl,
-        'totalAyahs': totalAyahs,
-      };
+    'id': id,
+    'name': name,
+    'language': language,
+    'author': author,
+    'publisher': publisher,
+    'description': description,
+    'attribution': attribution,
+    'license': license,
+    'version': version,
+    'sourceUrl': sourceUrl,
+    'totalAyahs': totalAyahs,
+  };
 
   @override
   List<Object?> get props => [
-        id,
-        name,
-        language,
-        author,
-        publisher,
-        description,
-        attribution,
-        license,
-        version,
-        sourceUrl,
-        totalAyahs,
-      ];
+    id,
+    name,
+    language,
+    author,
+    publisher,
+    description,
+    attribution,
+    license,
+    version,
+    sourceUrl,
+    totalAyahs,
+  ];
 }
 
 /// A single commentary entry for a specific global Ayah.
@@ -103,11 +103,7 @@ class TafsirPackage extends Equatable {
   TafsirEntry? getEntry(int globalAyah) {
     final text = entries[globalAyah];
     if (text == null || text.isEmpty) return null;
-    return TafsirEntry(
-      sourceId: source.id,
-      globalAyah: globalAyah,
-      text: text,
-    );
+    return TafsirEntry(sourceId: source.id, globalAyah: globalAyah, text: text);
   }
 
   bool hasEntry(int globalAyah) => entries.containsKey(globalAyah);

@@ -69,7 +69,11 @@ class QiblaCubit extends Cubit<QiblaState> {
   }
 
   /// Helper for deterministic widget & unit testing without hardware magnetometer
-  void setHeadingForTesting(double? heading, {double? accuracy, double? declination}) {
+  void setHeadingForTesting(
+    double? heading, {
+    double? accuracy,
+    double? declination,
+  }) {
     _smoothed = heading;
     emit(
       state.copyWith(

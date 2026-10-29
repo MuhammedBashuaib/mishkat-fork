@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/services/local_notification_service.dart';
+import '../../../../core/services/home_widget_service.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../adhkar/presentation/cubit/adhkar_cubit.dart';
 import '../../../adhkar/presentation/pages/adhkar_page.dart';
@@ -33,17 +34,23 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   bool _onboardingPresented = false;
   bool _routingNotification = false;
+  bool _routingHomeWidget = false;
 
   @override
   void initState() {
     super.initState();
     notificationTapPayload.addListener(_onNotificationTap);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onNotificationTap());
+    homeWidgetLaunchUri.addListener(_onHomeWidgetTap);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _onNotificationTap();
+      _onHomeWidgetTap();
+    });
   }
 
   @override
   void dispose() {
     notificationTapPayload.removeListener(_onNotificationTap);
+    homeWidgetLaunchUri.removeListener(_onHomeWidgetTap);
     super.dispose();
   }
 
@@ -51,7 +58,8 @@ class _AppShellState extends State<AppShell> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final settings = context.read<SettingsCubit>().state.settings;
-    if (notificationTapPayload.value != null) {
+    if (notificationTapPayload.value != null ||
+        homeWidgetLaunchUri.value != null) {
       _onboardingPresented = true;
     }
     if (!_onboardingPresented && !settings.onboardingSeen) {
@@ -105,6 +113,42 @@ class _AppShellState extends State<AppShell> {
           break;
       }
       _routingNotification = false;
+    });
+  }
+
+  void _onHomeWidgetTap() {
+    final uri = homeWidgetLaunchUri.value;
+    if (!mounted || uri == null || _routingHomeWidget) return;
+    _routingHomeWidget = true;
+    homeWidgetLaunchUri.value = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      navigator.popUntil((route) => route.isFirst);
+      switch (uri.host) {
+        case 'qibla':
+          context.read<ShellCubit>().select(2);
+          break;
+        case 'adhkar':
+          final hour = DateTime.now().hour;
+          context.read<ShellCubit>().select(3);
+          context.read<AdhkarCubit>().select(
+            hour >= 16 && hour < 22
+                ? 133
+                : hour >= 22 || hour < 5
+                ? 2
+                : 1,
+          );
+          navigator.push(
+            MaterialPageRoute<void>(builder: (_) => const AdhkarReaderPage()),
+          );
+          break;
+        case 'prayer':
+        default:
+          context.read<ShellCubit>().select(0);
+          break;
+      }
+      _routingHomeWidget = false;
     });
   }
 

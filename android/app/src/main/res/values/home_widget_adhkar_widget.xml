@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_widget_adhkar_widget_label">ذِكر اليوم</string>
+    <string name="home_widget_adhkar_widget_description">ذكر مناسب لوقتك من أذكار مشكاة</string>
+</resources>

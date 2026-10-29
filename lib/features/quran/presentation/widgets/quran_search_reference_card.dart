@@ -59,11 +59,7 @@ class QuranSearchReferenceCard extends StatelessWidget {
               color: context.mishkat.primary,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              _getIcon(),
-              color: Colors.white,
-              size: 22,
-            ),
+            child: Icon(_getIcon(), color: Colors.white, size: 22),
           ),
           const SizedBox(width: MishkatSpacing.base),
           Expanded(
@@ -104,9 +100,9 @@ class QuranSearchReferenceCard extends StatelessWidget {
                 Text(
                   reference.title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: context.mishkat.primary,
-                      ),
+                    fontWeight: FontWeight.w800,
+                    color: context.mishkat.primary,
+                  ),
                 ),
                 Text(
                   reference.subtitle,

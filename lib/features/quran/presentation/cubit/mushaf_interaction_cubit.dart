@@ -9,10 +9,9 @@ import 'mushaf_interaction_state.dart';
 /// Keeps the selection state cleanly decoupled from [QuranCubit] to avoid unnecessary
 /// page-level rebuilds during reader touch interactions.
 class MushafInteractionCubit extends Cubit<MushafInteractionState> {
-  MushafInteractionCubit({
-    MushafLayoutRepository? layoutRepository,
-  })  : _layoutRepository = layoutRepository ?? MushafLayoutRepository.instance,
-        super(const MushafInteractionState.initial());
+  MushafInteractionCubit({MushafLayoutRepository? layoutRepository})
+    : _layoutRepository = layoutRepository ?? MushafLayoutRepository.instance,
+      super(const MushafInteractionState.initial());
 
   final MushafLayoutRepository _layoutRepository;
 
@@ -29,11 +28,13 @@ class MushafInteractionCubit extends Cubit<MushafInteractionState> {
   /// Sets the currently selected [ayah] on its corresponding Mushaf page.
   /// Optionally requests opening the [AyahActionSheet].
   void selectAyah(AyahBounds ayah, {bool openActionSheet = false}) {
-    emit(state.copyWith(
-      selectedAyah: ayah,
-      selectedPage: ayah.page,
-      isActionSheetOpen: openActionSheet,
-    ));
+    emit(
+      state.copyWith(
+        selectedAyah: ayah,
+        selectedPage: ayah.page,
+        isActionSheetOpen: openActionSheet,
+      ),
+    );
   }
 
   /// Selects an Ayah by its 1-based [globalAyah] index (1..6236).
@@ -48,10 +49,7 @@ class MushafInteractionCubit extends Cubit<MushafInteractionState> {
   /// Clears the current Ayah selection.
   void clearSelection() {
     if (state.hasSelection || state.isActionSheetOpen) {
-      emit(state.copyWith(
-        clearSelection: true,
-        isActionSheetOpen: false,
-      ));
+      emit(state.copyWith(clearSelection: true, isActionSheetOpen: false));
     }
   }
 
@@ -64,10 +62,9 @@ class MushafInteractionCubit extends Cubit<MushafInteractionState> {
 
   /// Sets or clears the currently playing global Ayah for audio highlighting (Q5 foundation).
   void setPlayingAyah(int? globalAyah) {
-    emit(state.copyWith(
-      playingAyah: globalAyah,
-      clearPlaying: globalAyah == null,
-    ));
+    emit(
+      state.copyWith(playingAyah: globalAyah, clearPlaying: globalAyah == null),
+    );
   }
 
   /// Clears selection if the user navigates away from the page of the current selection.

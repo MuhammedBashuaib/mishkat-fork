@@ -23,7 +23,9 @@ class MushafLayoutRepository {
   MushafLayoutData get data {
     final cached = _cache;
     if (cached == null) {
-      throw StateError('MushafLayoutRepository is not loaded. Call load() first.');
+      throw StateError(
+        'MushafLayoutRepository is not loaded. Call load() first.',
+      );
     }
     return cached;
   }
@@ -33,7 +35,9 @@ class MushafLayoutRepository {
     if (_cache case final MushafLayoutData cached) return cached;
 
     final targetBundle = bundle ?? rootBundle;
-    final jsonStr = await targetBundle.loadString('assets/data/mushaf-layout.json');
+    final jsonStr = await targetBundle.loadString(
+      'assets/data/mushaf-layout.json',
+    );
     final map = jsonDecode(jsonStr) as Map<String, dynamic>;
     final loaded = MushafLayoutData.fromJson(map);
     _cache = loaded;

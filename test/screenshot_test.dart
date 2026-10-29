@@ -130,7 +130,10 @@ class FakeQuranAudioService implements QuranAudioService {
   bool get isPlaying => false;
 
   @override
-  Future<void> playAyah({required String reciter, required int globalAyah}) async {}
+  Future<void> playAyah({
+    required String reciter,
+    required int globalAyah,
+  }) async {}
 
   @override
   Future<void> pause() async {}
@@ -164,13 +167,7 @@ class FakeLocationService implements LocationService {
 
   @override
   NearbyCity closestCity(double latitude, double longitude) {
-    return const NearbyCity(
-      'المكلا، حضرموت',
-      14.5425,
-      49.1242,
-      'MWL',
-      0,
-    );
+    return const NearbyCity('المكلا، حضرموت', 14.5425, 49.1242, 'MWL', 0);
   }
 }
 
@@ -182,7 +179,9 @@ class FakeNotificationService implements LocalNotificationService {
   Future<bool> requestPermission() async => true;
 
   @override
-  Future<void> scheduleAll(List<ScheduledAppNotification> notifications) async {}
+  Future<void> scheduleAll(
+    List<ScheduledAppNotification> notifications,
+  ) async {}
 
   @override
   Future<void> cancelAll() async {}
@@ -217,7 +216,9 @@ Future<void> _loadFonts() async {
   for (final path in cairoFiles) {
     final file = File(path);
     if (file.existsSync()) {
-      cairoLoader.addFont(Future.value(ByteData.view(file.readAsBytesSync().buffer)));
+      cairoLoader.addFont(
+        Future.value(ByteData.view(file.readAsBytesSync().buffer)),
+      );
     }
   }
   await cairoLoader.load();
@@ -265,11 +266,17 @@ void main() {
   });
 
   testWidgets('Generate all 11 screenshots', (tester) async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-          const MethodChannel('dev.fluttercommunity.plus/connectivity'),
-          (call) async => <String>['wifi'],
-        );
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    // Screenshot tests run without device sensors or native audio players.
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('hemanthraj/flutter_compass'),
+      (_) async => null,
+    );
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('dev.fluttercommunity.plus/connectivity'),
+      (call) async => <String>['wifi'],
+    );
 
     print('Starting screenshot generation...');
     final storage = FakeLocalStorageService();
@@ -341,7 +348,9 @@ void main() {
           providers: [
             BlocProvider.value(value: settingsCubit),
             BlocProvider.value(value: shellCubit),
-            BlocProvider(create: (_) => HomeCubit(settingsCubit.state.settings)),
+            BlocProvider(
+              create: (_) => HomeCubit(settingsCubit.state.settings),
+            ),
             BlocProvider.value(value: quranCubit),
             BlocProvider.value(value: memorizationCubit),
             BlocProvider.value(value: adhkarCubit),
@@ -351,27 +360,27 @@ void main() {
             BlocProvider.value(value: libraryCubit),
           ],
           child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          locale: const Locale('ar'),
-          supportedLocales: const [Locale('ar')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
-          theme: baseTheme,
-          builder: (context, child) => Directionality(
-            textDirection: TextDirection.rtl,
-            child: MediaQuery(
-              data: MediaQueryData(
-                size: size,
-                padding: const EdgeInsets.only(top: 47, bottom: 34),
-                devicePixelRatio: 2.0,
+            debugShowCheckedModeBanner: false,
+            locale: const Locale('ar'),
+            supportedLocales: const [Locale('ar')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            theme: baseTheme,
+            builder: (context, child) => Directionality(
+              textDirection: TextDirection.rtl,
+              child: MediaQuery(
+                data: MediaQueryData(
+                  size: size,
+                  padding: const EdgeInsets.only(top: 47, bottom: 34),
+                  devicePixelRatio: 2.0,
+                ),
+                child: child!,
               ),
-              child: child!,
             ),
+            home: screen is AppShell ? screen : Scaffold(body: screen),
           ),
-          home: screen is AppShell ? screen : Scaffold(body: screen),
         ),
-      ),
-    );
-  }
+      );
+    }
 
     Future<void> captureScreen({
       required String filename,
@@ -397,8 +406,7 @@ void main() {
         final boundary =
             key.currentContext!.findRenderObject() as RenderRepaintBoundary;
         final image = await boundary.toImage(pixelRatio: 1.0);
-        final byteData =
-            await image.toByteData(format: ui.ImageByteFormat.png);
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
         final pngBytes = byteData!.buffer.asUint8List();
 
         final file = File('screenshots/$filename');
@@ -589,7 +597,7 @@ void main() {
     // 8. Tasbih (390x844)
     await captureScreen(
       filename: '08_tasbih.png',
-      screen: const TasbihPage(),
+      screen: TasbihPage(onCompletionSound: () {}),
       isDark: false,
       size: const Size(390, 844),
     );
@@ -649,7 +657,9 @@ void main() {
       endGlobalAyah: 4,
     );
     await activeOralCubit.startRecitation();
-    mockSpeechForScreenshots.emitTranscript('بسم الله الرحمن الرحيم الحمد لله رب العالمين');
+    mockSpeechForScreenshots.emitTranscript(
+      'بسم الله الرحمن الرحيم الحمد لله رب العالمين',
+    );
     await tester.pump(const Duration(milliseconds: 50));
 
     await captureScreen(

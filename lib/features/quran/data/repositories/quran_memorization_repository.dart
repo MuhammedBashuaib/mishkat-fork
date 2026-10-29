@@ -16,12 +16,15 @@ class QuranMemorizationRepository {
 
   /// Loads all persisted memorization plans, item records, session checkpoint, and review history.
   /// Highly resilient against corrupted JSON or malformed records.
-  Future<({
-    List<MemorizationPlan> plans,
-    Map<int, MemorizationItem> items,
-    MemorizationSession? sessionResume,
-    List<MemorizationReviewRecord> history,
-  })> loadData() async {
+  Future<
+    ({
+      List<MemorizationPlan> plans,
+      Map<int, MemorizationItem> items,
+      MemorizationSession? sessionResume,
+      List<MemorizationReviewRecord> history,
+    })
+  >
+  loadData() async {
     final rawMap = storage.readMap(storageKey);
 
     // 1. Parse plans
@@ -104,9 +107,9 @@ class QuranMemorizationRepository {
       for (final raw in rawHistory) {
         if (raw is Map) {
           try {
-            history.add(MemorizationReviewRecord.fromJson(
-              Map<String, dynamic>.from(raw),
-            ));
+            history.add(
+              MemorizationReviewRecord.fromJson(Map<String, dynamic>.from(raw)),
+            );
           } catch (_) {
             // Skip corrupt history record
           }
@@ -128,7 +131,9 @@ class QuranMemorizationRepository {
   Future<List<MemorizationReviewRecord>> loadHistory() async {
     final rawMap = storage.readMap(storageKey);
     final rawHistory = rawMap['history'];
-    final rawList = rawHistory is List ? rawHistory : storage.readList(historyStorageKey);
+    final rawList = rawHistory is List
+        ? rawHistory
+        : storage.readList(historyStorageKey);
     final history = <MemorizationReviewRecord>[];
     for (final raw in rawList) {
       if (raw is Map) {

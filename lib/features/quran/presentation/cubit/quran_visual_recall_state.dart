@@ -99,13 +99,12 @@ class QuranVisualRecallState extends Equatable {
       (phase == VisualRecallPhase.activeRecall ||
               phase == VisualRecallPhase.evaluating) &&
           (currentIndex >= 0 && currentIndex < queue.length)
-          ? queue[currentIndex]
-          : null;
+      ? queue[currentIndex]
+      : null;
 
   /// Whether the current active Ayah is currently unmasked.
   bool get isCurrentAyahRevealed =>
-      currentGlobalAyah != null &&
-      revealedGlobals.contains(currentGlobalAyah);
+      currentGlobalAyah != null && revealedGlobals.contains(currentGlobalAyah);
 
   /// Set of all Ayah indices in [queue] that must currently have visual masks painted.
   ///
@@ -125,8 +124,7 @@ class QuranVisualRecallState extends Equatable {
   int get completedCount => assessmentOutcomes.length;
 
   /// Remaining Ayahs in this drill including the current one.
-  int get remainingCount =>
-      (totalCount - currentIndex).clamp(0, totalCount);
+  int get remainingCount => (totalCount - currentIndex).clamp(0, totalCount);
 
   /// Fractional progress through the queue (0.0 .. 1.0).
   double get progress =>
@@ -210,26 +208,26 @@ class QuranVisualRecallState extends Equatable {
 
   @override
   List<Object?> get props => [
-        phase,
-        sessionId,
-        origin,
-        planId,
-        queue,
-        currentIndex,
-        revealedGlobals,
-        rangeSelectionStart,
-        rangeSelectionEnd,
-        assessmentOutcomes,
-        isAudioSyncEnabled,
-        isAudioPlaying,
-        isAudioPaused,
-        isTimedMaskActive,
-        remainingMaskDuration,
-        timerGeneration,
-        currentAudioAyah,
-        hasCheckpointAvailable,
-        checkpointToResume,
-        error,
-        isLoading,
-      ];
+    phase,
+    sessionId,
+    origin,
+    planId,
+    queue,
+    currentIndex,
+    revealedGlobals,
+    rangeSelectionStart,
+    rangeSelectionEnd,
+    assessmentOutcomes,
+    isAudioSyncEnabled,
+    isAudioPlaying,
+    isAudioPaused,
+    isTimedMaskActive,
+    remainingMaskDuration,
+    timerGeneration,
+    currentAudioAyah,
+    hasCheckpointAvailable,
+    checkpointToResume,
+    error,
+    isLoading,
+  ];
 }

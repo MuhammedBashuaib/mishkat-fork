@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:equatable/equatable.dart';
 
 /// Base class representing a geometric segment of an Ayah.
@@ -43,9 +44,9 @@ class AyahRectSegment extends AyahSegment {
 /// Present exclusively on Pages 1 and 2 for ornamental curved frame boundaries.
 class AyahPolygonSegment extends AyahSegment {
   AyahPolygonSegment(List<Offset> points)
-      : points = List.unmodifiable(points),
-        bounds = _computeBounds(points),
-        _samplePoint = _computeSamplePoint(points, _computeBounds(points));
+    : points = List.unmodifiable(points),
+      bounds = _computeBounds(points),
+      _samplePoint = _computeSamplePoint(points, _computeBounds(points));
 
   final List<Offset> points;
 
@@ -110,7 +111,8 @@ class AyahPolygonSegment extends AyahSegment {
     for (var i = 0, j = n - 1; i < n; j = i++) {
       final pi = points[i];
       final pj = points[j];
-      final intersects = ((pi.dy > point.dy) != (pj.dy > point.dy)) &&
+      final intersects =
+          ((pi.dy > point.dy) != (pj.dy > point.dy)) &&
           (point.dx <
               (pj.dx - pi.dx) * (point.dy - pi.dy) / (pj.dy - pi.dy) + pi.dx);
       if (intersects) {
@@ -136,6 +138,7 @@ class AyahBounds extends Equatable {
     required this.page,
     required this.bounds,
     required this.segments,
+    this.numberCenter,
   });
 
   /// The global 1-based index (1..6236).
@@ -155,6 +158,9 @@ class AyahBounds extends Equatable {
 
   /// Individual segments (lines / sub-regions) forming this Ayah.
   final List<AyahSegment> segments;
+
+  /// Exact Ayah-number center from the source SVG, in viewBox coordinates.
+  final Offset? numberCenter;
 
   /// A guaranteed interior point inside this Ayah, ideal for hit-testing and menu anchoring.
   Offset get samplePoint => segments.first.samplePoint;
@@ -186,7 +192,9 @@ class AyahBounds extends Equatable {
     if (json['r'] case final List rects) {
       for (final r in rects) {
         final nums = (r as List).map((e) => (e as num).toDouble()).toList();
-        segmentList.add(AyahRectSegment(Rect.fromLTRB(nums[0], nums[1], nums[2], nums[3])));
+        segmentList.add(
+          AyahRectSegment(Rect.fromLTRB(nums[0], nums[1], nums[2], nums[3])),
+        );
       }
     }
 
@@ -209,11 +217,24 @@ class AyahBounds extends Equatable {
       page: page,
       bounds: boundsRect,
       segments: List.unmodifiable(segmentList),
+      numberCenter: json['n'] is List
+          ? Offset(
+              (json['n'][0] as num).toDouble(),
+              (json['n'][1] as num).toDouble(),
+            )
+          : null,
     );
   }
 
   @override
-  List<Object?> get props => [globalAyah, surah, ayah, page, bounds];
+  List<Object?> get props => [
+    globalAyah,
+    surah,
+    ayah,
+    page,
+    bounds,
+    numberCenter,
+  ];
 }
 
 /// Geometry metadata for a single Mushaf page.
@@ -260,14 +281,13 @@ class MushafPageGeometry extends Equatable {
 
     final rawAyahs = json['ay'] as List? ?? const [];
     final ayahs = rawAyahs
-        .map((e) => AyahBounds.fromJson(Map<String, dynamic>.from(e as Map), pageNum))
+        .map(
+          (e) =>
+              AyahBounds.fromJson(Map<String, dynamic>.from(e as Map), pageNum),
+        )
         .toList(growable: false);
 
-    return MushafPageGeometry(
-      page: pageNum,
-      viewBox: viewBox,
-      ayahs: ayahs,
-    );
+    return MushafPageGeometry(page: pageNum, viewBox: viewBox, ayahs: ayahs);
   }
 
   @override
@@ -302,7 +322,9 @@ class MushafLayoutData extends Equatable {
     final ayahMap = <int, AyahBounds>{};
 
     for (final p in rawPages) {
-      final pageGeom = MushafPageGeometry.fromJson(Map<String, dynamic>.from(p as Map));
+      final pageGeom = MushafPageGeometry.fromJson(
+        Map<String, dynamic>.from(p as Map),
+      );
       pagesList.add(pageGeom);
       for (final ayah in pageGeom.ayahs) {
         ayahMap[ayah.globalAyah] = ayah;
@@ -320,5 +342,10 @@ class MushafLayoutData extends Equatable {
   }
 
   @override
-  List<Object?> get props => [version, coordinateSystem, totalPages, totalAyahs];
+  List<Object?> get props => [
+    version,
+    coordinateSystem,
+    totalPages,
+    totalAyahs,
+  ];
 }
