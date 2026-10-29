@@ -12,6 +12,7 @@ import 'package:mishkat_app/features/library/data/models/library_models.dart';
 import 'package:mishkat_app/features/library/data/repositories/library_repository.dart';
 import 'package:mishkat_app/features/library/presentation/cubit/library_cubit.dart';
 import 'package:mishkat_app/features/library/presentation/pages/library_page.dart';
+import 'package:mishkat_app/features/library/presentation/pages/library_reader_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -40,9 +41,11 @@ void main() {
     );
 
     final bukhari = catalog.singleWhere((book) => book.id == 'bukhari');
+    final hisn = catalog.singleWhere((book) => book.id == 'hisn');
     final nawawi = catalog.singleWhere((book) => book.id == 'nawawi40');
     final tafsir = catalog.singleWhere((book) => book.id == 'tafsir-muyassar');
     expect(await repository.loadBook(bukhari), hasLength(7252));
+    expect(await repository.loadBook(hisn), hasLength(268));
     expect(await repository.loadBook(nawawi), hasLength(42));
     final tafsirEntries = await repository.loadBook(tafsir);
     expect(tafsirEntries, hasLength(6236));
@@ -168,6 +171,41 @@ void main() {
     expect(find.text('المكتبة الإسلامية'), findsOneWidget);
     expect(find.textContaining('8 كتب'), findsOneWidget);
     expect(find.text('صحيح البخاري'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Hisn al-Muslim opens from the library into the reader', (
+    tester,
+  ) async {
+    final cubit = LibraryCubit(repository, _MemoryStorage());
+    await cubit.load();
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(
+      BlocProvider.value(
+        value: cubit,
+        child: MaterialApp(
+          locale: const Locale('ar'),
+          supportedLocales: const [Locale('ar')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          theme: AppTheme.light(),
+          home: const Scaffold(body: LibraryPage()),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final hisnTitle = find.text('حصن المسلم');
+    await tester.scrollUntilVisible(
+      hisnTitle,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(hisnTitle);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LibraryReaderPage), findsOneWidget);
+    expect(find.text('ذكر 1 من 268'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

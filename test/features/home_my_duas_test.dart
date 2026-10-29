@@ -414,4 +414,23 @@ void main() {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
+
+  testWidgets('Home Page exposes a shortcut to the tasbih session', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(840, 1800);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(buildApp());
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('المسبحة'), findsOneWidget);
+    await tester.tap(find.text('المسبحة'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('هدف الجلسة'), findsOneWidget);
+    expect(find.text('اضغط للتسبيح'), findsOneWidget);
+  });
 }

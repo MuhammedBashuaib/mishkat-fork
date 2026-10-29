@@ -30,13 +30,13 @@ enum WordAlignmentStatus {
   bool get isUpcoming => this == WordAlignmentStatus.upcoming;
 
   String get arabicLabel => switch (this) {
-        WordAlignmentStatus.matched => 'صحيح',
-        WordAlignmentStatus.omission => 'سقط / نسيان',
-        WordAlignmentStatus.substitution => 'خطأ / استبدال',
-        WordAlignmentStatus.repetition => 'تكرار / استدراك',
-        WordAlignmentStatus.uncertain => 'غير مؤكد',
-        WordAlignmentStatus.upcoming => 'قادم',
-      };
+    WordAlignmentStatus.matched => 'صحيح',
+    WordAlignmentStatus.omission => 'سقط / نسيان',
+    WordAlignmentStatus.substitution => 'خطأ / استبدال',
+    WordAlignmentStatus.repetition => 'تكرار / استدراك',
+    WordAlignmentStatus.uncertain => 'غير مؤكد',
+    WordAlignmentStatus.upcoming => 'قادم',
+  };
 }
 
 /// Represents an authoritative word token from the canonical Quran text.
@@ -70,13 +70,13 @@ class AuthoritativeWord extends Equatable {
 
   @override
   List<Object?> get props => [
-        globalAyah,
-        surah,
-        ayahInSurah,
-        wordIndex,
-        uthmaniText,
-        normalizedText,
-      ];
+    globalAyah,
+    surah,
+    ayahInSurah,
+    wordIndex,
+    uthmaniText,
+    normalizedText,
+  ];
 }
 
 /// Represents the aligned state of an individual word during an oral recitation session.
@@ -109,11 +109,11 @@ class RecitationWordAlignment extends Equatable {
 
   @override
   List<Object?> get props => [
-        authoritativeWord,
-        status,
-        recognizedWord,
-        confidence,
-      ];
+    authoritativeWord,
+    status,
+    recognizedWord,
+    confidence,
+  ];
 }
 
 /// Structured discrepancy information for inspection when a word is flagged.
@@ -144,17 +144,17 @@ class RecitationDiscrepancy extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        globalAyah,
-        surah,
-        ayahInSurah,
-        wordIndex,
-        expectedUthmani,
-        expectedNormalized,
-        recognizedWord,
-        status,
-        explanation,
-      ];
+    id,
+    globalAyah,
+    surah,
+    ayahInSurah,
+    wordIndex,
+    expectedUthmani,
+    expectedNormalized,
+    recognizedWord,
+    status,
+    explanation,
+  ];
 }
 
 /// Comprehensive summary of a completed Oral Recitation session.
@@ -196,7 +196,9 @@ class OralRecitationSessionSummary extends Equatable {
   final DateTime completedAt;
 
   ReviewOutcome get suggestedOutcome {
-    if (accuracyPercentage >= 95.0 && omissionsCount == 0 && substitutionsCount == 0) {
+    if (accuracyPercentage >= 95.0 &&
+        omissionsCount == 0 &&
+        substitutionsCount == 0) {
       return ReviewOutcome.easy;
     }
     if (accuracyPercentage >= 85.0 && substitutionsCount <= 1) {
@@ -210,23 +212,23 @@ class OralRecitationSessionSummary extends Equatable {
 
   @override
   List<Object?> get props => [
-        sessionId,
-        startGlobalAyah,
-        endGlobalAyah,
-        surahNumber,
-        surahName,
-        totalAyahs,
-        matchedAyahs,
-        totalWords,
-        matchedWords,
-        omissionsCount,
-        substitutionsCount,
-        uncertainCount,
-        accuracyPercentage,
-        durationSeconds,
-        discrepancies,
-        completedAt,
-      ];
+    sessionId,
+    startGlobalAyah,
+    endGlobalAyah,
+    surahNumber,
+    surahName,
+    totalAyahs,
+    matchedAyahs,
+    totalWords,
+    matchedWords,
+    omissionsCount,
+    substitutionsCount,
+    uncertainCount,
+    accuracyPercentage,
+    durationSeconds,
+    discrepancies,
+    completedAt,
+  ];
 }
 
 /// Lifecycle states of the Oral Recitation Cubit.
@@ -252,6 +254,9 @@ enum OralRecitationLifecycle {
   /// Speech recognizer is not available on this platform/device.
   recognizerUnavailable,
 
+  /// The recognizer exists, but Arabic is not installed/enabled for it.
+  languageUnavailable,
+
   /// Permissions granted, target passage loaded, ready to begin recitation.
   ready,
 
@@ -271,12 +276,20 @@ enum OralRecitationLifecycle {
   error;
 
   bool get isIdle => this == OralRecitationLifecycle.idle;
-  bool get isRequestingPermission => this == OralRecitationLifecycle.requestingPermission;
-  bool get isPermissionGranted => this == OralRecitationLifecycle.permissionGranted;
-  bool get isInitializingSpeechEngine => this == OralRecitationLifecycle.initializingSpeechEngine;
-  bool get isPermissionDenied => this == OralRecitationLifecycle.permissionDenied;
-  bool get isPermissionPermanentlyDenied => this == OralRecitationLifecycle.permissionPermanentlyDenied;
-  bool get isRecognizerUnavailable => this == OralRecitationLifecycle.recognizerUnavailable;
+  bool get isRequestingPermission =>
+      this == OralRecitationLifecycle.requestingPermission;
+  bool get isPermissionGranted =>
+      this == OralRecitationLifecycle.permissionGranted;
+  bool get isInitializingSpeechEngine =>
+      this == OralRecitationLifecycle.initializingSpeechEngine;
+  bool get isPermissionDenied =>
+      this == OralRecitationLifecycle.permissionDenied;
+  bool get isPermissionPermanentlyDenied =>
+      this == OralRecitationLifecycle.permissionPermanentlyDenied;
+  bool get isRecognizerUnavailable =>
+      this == OralRecitationLifecycle.recognizerUnavailable;
+  bool get isLanguageUnavailable =>
+      this == OralRecitationLifecycle.languageUnavailable;
   bool get isReady => this == OralRecitationLifecycle.ready;
   bool get isListening => this == OralRecitationLifecycle.listening;
   bool get isPaused => this == OralRecitationLifecycle.paused;

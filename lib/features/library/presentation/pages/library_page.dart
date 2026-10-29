@@ -469,14 +469,25 @@ class _CategoryChip extends StatelessWidget {
 }
 
 Future<void> _openBook(BuildContext context, LibraryBook book) async {
-  await context.read<LibraryCubit>().openBook(book);
-  if (context.mounted &&
-      context.read<LibraryCubit>().state.status == LibraryStatus.ready) {
+  final cubit = context.read<LibraryCubit>();
+  await cubit.openBook(book);
+  if (!context.mounted) return;
+
+  if (cubit.state.status == LibraryStatus.ready) {
     await Navigator.push(
       context,
       MaterialPageRoute<void>(builder: (_) => const LibraryReaderPage()),
     );
+    return;
   }
+
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(cubit.state.error ?? 'تعذّر فتح الكتاب، حاول مرة أخرى.'),
+      ),
+    );
 }
 
 IconData _bookIcon(LibraryBook book) => switch (book.category) {

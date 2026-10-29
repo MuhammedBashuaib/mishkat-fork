@@ -17,10 +17,7 @@ import '../cubit/quran_visual_recall_state.dart';
 /// - Actionable error banner with retry on persistence failure
 /// - Completion summary in [VisualRecallPhase.completed]
 class VisualRecallBottomBar extends StatelessWidget {
-  const VisualRecallBottomBar({
-    super.key,
-    required this.cubit,
-  });
+  const VisualRecallBottomBar({super.key, required this.cubit});
 
   final QuranVisualRecallCubit cubit;
 
@@ -41,11 +38,16 @@ class VisualRecallBottomBar extends StatelessWidget {
           child: Material(
             color: theme.colorScheme.surface,
             elevation: 12,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(MishkatRadius.lg)),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(MishkatRadius.lg),
+            ),
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -99,14 +101,19 @@ class VisualRecallBottomBar extends StatelessWidget {
             ),
           ),
           TextButton(
-            onPressed: state.isLoading ? null : () => cubit.retryLastOutcome().ignore(),
+            onPressed: state.isLoading
+                ? null
+                : () => cubit.retryLastOutcome().ignore(),
             style: TextButton.styleFrom(
               foregroundColor: colors.error,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('إعادة المحاولة', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'إعادة المحاولة',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -160,7 +167,9 @@ class VisualRecallBottomBar extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: total > 0 ? (state.currentIndex / total).clamp(0.0, 1.0) : 0.0,
+                      value: total > 0
+                          ? (state.currentIndex / total).clamp(0.0, 1.0)
+                          : 0.0,
                       minHeight: 5,
                       backgroundColor: colors.surfaceVariant,
                       valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
@@ -243,7 +252,9 @@ class VisualRecallBottomBar extends StatelessWidget {
             IconButton(
               tooltip: state.isAudioPaused ? 'استئناف' : 'إيقاف مؤقت',
               icon: Icon(
-                state.isAudioPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                state.isAudioPaused
+                    ? Icons.play_arrow_rounded
+                    : Icons.pause_rounded,
                 size: 20,
                 color: colors.primary,
               ),
@@ -266,7 +277,9 @@ class VisualRecallBottomBar extends StatelessWidget {
                 ? 'إيقاف التلاوة'
                 : (state.isAudioPaused ? 'استئناف التلاوة' : 'استماع للآية'),
             icon: Icon(
-              state.isAudioPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              state.isAudioPlaying
+                  ? Icons.pause_rounded
+                  : Icons.play_arrow_rounded,
               size: 20,
             ),
             onPressed: () => cubit.toggleAudioPlayback(),
@@ -277,11 +290,8 @@ class VisualRecallBottomBar extends StatelessWidget {
           child: Text(
             state.isAudioPlaying
                 ? 'تلاوة الآية جارية...'
-                : 'المس الآية في المصحف أو اضغط للتأكد والتقييم',
-            style: TextStyle(
-              color: colors.textSecondary,
-              fontSize: 13,
-            ),
+                : 'ردّد من حفظك، ثم اضغط رقم الآية الحالية لإظهارها',
+            style: TextStyle(color: colors.textSecondary, fontSize: 13),
           ),
         ),
         const SizedBox(width: 8),
@@ -344,7 +354,9 @@ class VisualRecallBottomBar extends StatelessWidget {
             Expanded(
               flex: 5,
               child: ElevatedButton.icon(
-                onPressed: isLoading ? null : () => cubit.recordKnown().ignore(),
+                onPressed: isLoading
+                    ? null
+                    : () => cubit.recordKnown().ignore(),
                 icon: const Icon(Icons.check_circle_rounded, size: 18),
                 label: const Text(
                   'أعرفها ومتقنة',
@@ -353,7 +365,9 @@ class VisualRecallBottomBar extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colors.primary,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: colors.primary.withValues(alpha: 0.5),
+                  disabledBackgroundColor: colors.primary.withValues(
+                    alpha: 0.5,
+                  ),
                   disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
@@ -368,8 +382,14 @@ class VisualRecallBottomBar extends StatelessWidget {
             Expanded(
               flex: 4,
               child: OutlinedButton.icon(
-                onPressed: isLoading ? null : () => cubit.recordNeedsRevision().ignore(),
-                icon: Icon(Icons.replay_rounded, size: 18, color: colors.warning),
+                onPressed: isLoading
+                    ? null
+                    : () => cubit.recordNeedsRevision().ignore(),
+                icon: Icon(
+                  Icons.replay_rounded,
+                  size: 18,
+                  color: colors.warning,
+                ),
                 label: Text(
                   'تحتاج مراجعة',
                   style: TextStyle(
@@ -379,7 +399,9 @@ class VisualRecallBottomBar extends StatelessWidget {
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: colors.warning.withValues(alpha: 0.6)),
+                  side: BorderSide(
+                    color: colors.warning.withValues(alpha: 0.6),
+                  ),
                   backgroundColor: colors.warning.withValues(alpha: 0.08),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(

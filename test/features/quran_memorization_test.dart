@@ -824,6 +824,72 @@ void main() {
       },
     );
 
+    testWidgets(
+      'Tutor session keeps the memorization flow to two clear actions',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        final plan = await cubit.createPlan(
+          title: 'خطة التلقين',
+          startGlobalAyah: 1,
+          endGlobalAyah: 2,
+          dailyTarget: 2,
+        );
+        cubit.startPlanSession(plan);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MultiBlocProvider(
+              providers: [
+                BlocProvider<QuranMemorizationCubit>.value(value: cubit),
+                BlocProvider<QuranCubit>.value(value: quranCubit),
+              ],
+              child: MemorizationSessionPage(
+                quranData: dummyData,
+                startWithAudio: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('جلسة حفظ الورد'), findsOneWidget);
+        expect(find.text('الآية 1 من 2'), findsOneWidget);
+        expect(find.text('استمع للآية'), findsOneWidget);
+        expect(find.text('ردّد في وقت الصمت'), findsOneWidget);
+        expect(find.text('أتقنتها، الآية التالية'), findsOneWidget);
+        expect(find.text('أعد التلقين'), findsOneWidget);
+        expect(find.text('تقييم الحفظ لهذه الآية'), findsNothing);
+        expect(find.text('التفسير'), findsNothing);
+
+        await tester.tap(find.text('أتقنتها، الآية التالية'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('الآية 2 من 2'), findsOneWidget);
+        expect(
+          find.text('الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ'),
+          findsOneWidget,
+        );
+
+        final finishButton = find.text('أتقنتها، إنهاء الجلسة');
+        await tester.ensureVisible(finishButton);
+        await tester.tap(finishButton);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('أتممت وردك'), findsOneWidget);
+        expect(find.text('إجمالي المحفوظ'), findsNothing);
+      },
+    );
+
     testWidgets('QuranMemorizationPage renders dashboard and statistics', (
       tester,
     ) async {

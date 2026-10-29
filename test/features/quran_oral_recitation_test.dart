@@ -320,6 +320,65 @@ void main() {
     });
 
     test(
+      '3a. Permanent permission denial directs the user to app settings',
+      () async {
+        mockSpeech
+          ..setPermission(false)
+          ..setPermanentlyDenied(true);
+        await oralCubit.prepareSession(
+          surahNumber: 1,
+          startGlobalAyah: 1,
+          endGlobalAyah: 2,
+        );
+
+        await oralCubit.startRecitation();
+
+        expect(
+          oralCubit.state.lifecycle,
+          OralRecitationLifecycle.permissionPermanentlyDenied,
+        );
+        expect(mockSpeech.permissionRequestCount, 1);
+
+        await oralCubit.openAppSettings();
+        expect(mockSpeech.openAppSettingsCount, 1);
+      },
+    );
+
+    test(
+      '3b. Missing Arabic locale shows repair state and recovers after setup',
+      () async {
+        await oralCubit.prepareSession(
+          surahNumber: 1,
+          startGlobalAyah: 1,
+          endGlobalAyah: 2,
+        );
+        await oralCubit.startRecitation();
+        mockSpeech.setArabicLocale(false);
+
+        mockSpeech.emitError(
+          'العربية غير مفعّلة في خدمة التعرف الصوتي.',
+          type: SpeechRecognitionFailureType.languageUnavailable,
+          isPermanent: true,
+        );
+        await pumpEventQueue();
+
+        expect(
+          oralCubit.state.lifecycle,
+          OralRecitationLifecycle.languageUnavailable,
+        );
+        expect(mockSpeech.isListening, isFalse);
+
+        await oralCubit.openSpeechRecognitionSettings();
+        expect(mockSpeech.openSpeechRecognitionSettingsCount, 1);
+
+        mockSpeech.setArabicLocale(true);
+        await oralCubit.checkAndRefreshPermission();
+        expect(oralCubit.state.lifecycle, OralRecitationLifecycle.ready);
+        expect(oralCubit.state.errorMessage, isNull);
+      },
+    );
+
+    test(
       '4. Streaming speech transcript updates alignment and progress',
       () async {
         await oralCubit.prepareSession(
@@ -546,6 +605,90 @@ void main() {
       expect(find.text('بدء التسميع'), findsOneWidget);
       expect(find.text('جاهز للتسميع'), findsOneWidget);
     });
+
+    testWidgets(
+      'Page requests microphone access on entry and becomes ready when granted',
+      (tester) async {
+        final gatedSpeech = MockSpeechRecognitionService(
+          initialPermission: false,
+        )..autoGrantOnRequest = true;
+
+        await tester.pumpWidget(
+          MultiBlocProvider(
+            providers: [
+              BlocProvider<QuranMemorizationCubit>.value(value: memCubit),
+              RepositoryProvider<QuranRepository>.value(value: fakeQuranRepo),
+            ],
+            child: MaterialApp(
+              home: QuranOralRecitationPage(
+                surahNumber: 1,
+                startGlobalAyah: 1,
+                endGlobalAyah: 2,
+                speechService: gatedSpeech,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(gatedSpeech.permissionRequestCount, 1);
+        expect(find.text('جاهز للتسميع'), findsOneWidget);
+        expect(find.text('بدء التسميع'), findsOneWidget);
+
+        await tester.pumpWidget(const SizedBox());
+        await gatedSpeech.dispose();
+      },
+    );
+
+    testWidgets(
+      'Arabic recognition failure shows an in-page settings repair action',
+      (tester) async {
+        final languageSpeech = MockSpeechRecognitionService();
+        final languageCubit = QuranOralRecitationCubit(
+          speechService: languageSpeech,
+          quranRepository: fakeQuranRepo,
+          memorizationCubit: memCubit,
+        );
+        await languageCubit.prepareSession(
+          surahNumber: 1,
+          startGlobalAyah: 1,
+          endGlobalAyah: 2,
+        );
+        await languageCubit.startRecitation();
+
+        await tester.pumpWidget(
+          MultiBlocProvider(
+            providers: [
+              BlocProvider<QuranMemorizationCubit>.value(value: memCubit),
+              RepositoryProvider<QuranRepository>.value(value: fakeQuranRepo),
+            ],
+            child: MaterialApp(
+              home: QuranOralRecitationPage(cubit: languageCubit),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        languageSpeech.emitError(
+          'العربية غير مفعّلة في خدمة التعرف الصوتي.',
+          type: SpeechRecognitionFailureType.languageUnavailable,
+          isPermanent: true,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(find.text('فعّل العربية للتسميع الصوتي'), findsOneWidget);
+        expect(find.text('فتح إعدادات الإدخال الصوتي'), findsOneWidget);
+
+        await tester.tap(find.text('فتح إعدادات الإدخال الصوتي'));
+        await tester.pump();
+        expect(languageSpeech.openSpeechRecognitionSettingsCount, 1);
+
+        await tester.pumpWidget(const SizedBox());
+        await languageCubit.close();
+        await languageSpeech.dispose();
+      },
+    );
 
     testWidgets(
       'Tapping start activates microphone listening state and updates UI',

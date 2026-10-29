@@ -87,7 +87,9 @@ class LibraryEntry extends Equatable {
     chapter: json['chapter'] as String,
     narrator: json['narrator'] as String? ?? '',
     text: json['text'] as String,
-    reference: json['reference'] as String,
+    // Some source records legitimately have no printed reference. Treat that
+    // field as optional so one incomplete record cannot block the whole book.
+    reference: json['reference'] as String? ?? '',
     sourceUrl: json['sourceUrl'] as String? ?? '',
   );
 

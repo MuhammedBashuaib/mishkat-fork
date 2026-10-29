@@ -8,6 +8,9 @@ import '../../data/models/adhkar_models.dart';
 import '../cubit/adhkar_cubit.dart';
 import '../cubit/adhkar_state.dart';
 import 'adhkar_reader_page.dart';
+import '../../../tasbih/presentation/cubit/tasbih_cubit.dart';
+import '../../../tasbih/presentation/cubit/tasbih_state.dart';
+import '../../../tasbih/presentation/pages/tasbih_page.dart';
 
 class AdhkarPage extends StatefulWidget {
   const AdhkarPage({super.key});
@@ -211,6 +214,8 @@ class _AdhkarPageState extends State<AdhkarPage> {
               ),
             ),
             if (!searching) ...[
+              const SizedBox(height: MishkatSpacing.base),
+              const _TasbihShortcut(),
               const SectionHeading(
                 title: 'ورد اليوم',
                 padding: EdgeInsets.only(top: 24, bottom: 10),
@@ -311,6 +316,91 @@ class _AdhkarPageState extends State<AdhkarPage> {
       MaterialPageRoute<void>(builder: (_) => const AdhkarReaderPage()),
     );
   }
+}
+
+class _TasbihShortcut extends StatelessWidget {
+  const _TasbihShortcut();
+
+  @override
+  Widget build(BuildContext context) => BlocBuilder<TasbihCubit, TasbihState>(
+    buildWhen: (previous, current) =>
+        previous.count != current.count ||
+        previous.target != current.target ||
+        previous.dhikrId != current.dhikrId,
+    builder: (context, state) {
+      final colors = context.mishkat;
+      return Semantics(
+        button: true,
+        label: 'فتح المسبحة الإلكترونية',
+        child: MishkatCard(
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const TasbihPage())),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          color: colors.primarySoft,
+          borderColor: colors.primary.withValues(alpha: 0.18),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.touch_app_outlined,
+                  color: colors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: MishkatSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'المسبحة الإلكترونية',
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      state.count == 0
+                          ? 'ابدأ جلسة ذكر بعد وردك'
+                          : '${state.dhikr.text} • ${state.count} من ${state.target}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: MishkatSpacing.sm),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.chevron_left_rounded,
+                  color: colors.primary,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _Header extends StatelessWidget {

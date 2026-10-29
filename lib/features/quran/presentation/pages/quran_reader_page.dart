@@ -133,7 +133,10 @@ class _QuranReaderPageState extends State<QuranReaderPage> {
 
     _scopedInteractionCubit ??= () {
       final cubit = MushafInteractionCubit()..load();
-      if (widget.initialGlobalAyah != null) {
+      if (widget.initialGlobalAyah != null &&
+          (widget.visualRecallInitialQueue == null ||
+              widget.visualRecallInitialQueue!.isEmpty) &&
+          widget.startRangeSelection != true) {
         cubit.selectAyahByGlobal(widget.initialGlobalAyah!);
       }
       return cubit;
@@ -780,6 +783,7 @@ class _MushafPageState extends State<_MushafPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = context.mishkat;
     final colorFilter = isDark
         ? const ColorFilter.mode(MushafThemeColors.darkInk, BlendMode.srcIn)
         : null;
@@ -834,12 +838,15 @@ class _MushafPageState extends State<_MushafPage> {
             BlocSelector<
               QuranVisualRecallCubit,
               QuranVisualRecallState,
-              Set<int>
+              ({Set<int> maskedGlobals, int? currentGlobalAyah})
             >(
               bloc: visualRecallCubit,
-              selector: (state) => state.activeMaskedGlobals,
-              builder: (context, activeMaskedGlobals) {
-                if (activeMaskedGlobals.isEmpty ||
+              selector: (state) => (
+                maskedGlobals: state.activeMaskedGlobals,
+                currentGlobalAyah: state.currentGlobalAyah,
+              ),
+              builder: (context, maskState) {
+                if (maskState.maskedGlobals.isEmpty ||
                     effectiveLayoutRepo == null ||
                     !effectiveLayoutRepo.isLoaded) {
                   return const SizedBox.shrink();
@@ -849,7 +856,8 @@ class _MushafPageState extends State<_MushafPage> {
 
                 final pageMaskedAyahs = geom.ayahs
                     .where(
-                      (ayah) => activeMaskedGlobals.contains(ayah.globalAyah),
+                      (ayah) =>
+                          maskState.maskedGlobals.contains(ayah.globalAyah),
                     )
                     .toList();
 
@@ -857,10 +865,17 @@ class _MushafPageState extends State<_MushafPage> {
 
                 return MushafVisualMaskOverlay(
                   maskedAyahs: pageMaskedAyahs,
+                  currentAyah: pageMaskedAyahs
+                      .where(
+                        (ayah) =>
+                            ayah.globalAyah == maskState.currentGlobalAyah,
+                      )
+                      .firstOrNull,
                   viewBox: viewBox,
                   maskColor: isDark
                       ? MushafThemeColors.darkBackground
                       : MushafThemeColors.lightBackground,
+                  currentNumberOutlineColor: colors.primary,
                 );
               },
             ),
@@ -879,11 +894,33 @@ class _MushafPageState extends State<_MushafPage> {
       }
 
       if (hasInteractionCubit) {
-        stack = MushafInteractionLayer(
-          page: widget.page,
-          onDoubleTap: _resetZoom,
-          child: stack,
-        );
+        if (visualRecallCubit == null) {
+          stack = MushafInteractionLayer(
+            page: widget.page,
+            onDoubleTap: _resetZoom,
+            child: stack,
+          );
+        } else {
+          final visualRecallStack = stack;
+          stack =
+              BlocSelector<
+                QuranVisualRecallCubit,
+                QuranVisualRecallState,
+                bool
+              >(
+                bloc: visualRecallCubit,
+                selector: (state) =>
+                    state.hasActiveSession || state.isRangeSelecting,
+                builder: (context, isVisualRecallActive) {
+                  if (isVisualRecallActive) return visualRecallStack;
+                  return MushafInteractionLayer(
+                    page: widget.page,
+                    onDoubleTap: _resetZoom,
+                    child: visualRecallStack,
+                  );
+                },
+              );
+        }
       }
 
       return stack;

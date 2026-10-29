@@ -10,8 +10,8 @@ import '../services/mushaf_coordinate_mapper.dart';
 ///
 /// Intercepts user taps on the Mushaf page, translates screen/widget coordinates into
 /// native SVG viewBox units via [MushafCoordinateMapper], hit-tests against pre-computed
-/// geometry via [MushafLayoutRepository.findAyahAt], verifies queue membership, and
-/// triggers per-Ayah reveal toggles on [QuranVisualRecallCubit].
+/// geometry via [MushafLayoutRepository.findAyahAt], verifies that the hit belongs
+/// to the current queue item, and reveals that Ayah through [QuranVisualRecallCubit].
 ///
 /// Seamlessly integrates with [InteractiveViewer] transformations (zoom and pan)
 /// and safely ignores non-queued Ayahs, empty margins, and decorative elements.
@@ -49,7 +49,8 @@ class MushafVisualRecallInteractionLayer extends StatelessWidget {
   final Widget child;
 
   void _onTapUp(TapUpDetails details, Size contentSize) {
-    final repo = effectiveLayoutRepo ??
+    final repo =
+        effectiveLayoutRepo ??
         (MushafLayoutRepository.instance.isLoaded
             ? MushafLayoutRepository.instance
             : null);
@@ -82,14 +83,16 @@ class MushafVisualRecallInteractionLayer extends StatelessWidget {
       return;
     }
 
-    // 2. Handle active recall session: queue filtering strictly enforced
+    // 2. Reveal only the Ayah whose turn has actually arrived. Future Ayahs stay
+    // masked even if they are tapped, so the learner cannot accidentally expose
+    // the rest of the passage before assessing the current Ayah.
     if (state.hasActiveSession) {
-      if (!state.queue.contains(hitAyah.globalAyah)) {
-        // Tapped Ayah does NOT belong to active recall queue -> no reveal
+      if (hitAyah.globalAyah != state.currentGlobalAyah ||
+          state.isCurrentAyahRevealed) {
         return;
       }
 
-      visualRecallCubit.toggleAyahReveal(hitAyah.globalAyah);
+      visualRecallCubit.revealCurrentAyah();
     }
   }
 
@@ -105,13 +108,21 @@ class MushafVisualRecallInteractionLayer extends StatelessWidget {
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final contentSize = Size(constraints.maxWidth, constraints.maxHeight);
+            final contentSize = Size(
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
 
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onDoubleTap: onDoubleTap,
-              onTapUp: (details) => _onTapUp(details, contentSize),
-              child: child,
+            return Semantics(
+              label: visualRecallCubit.state.hasActiveSession
+                  ? 'التسميع البصري. اضغط رقم الآية الحالية لإظهارها.'
+                  : 'تحديد نطاق التسميع البصري',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: onDoubleTap,
+                onTapUp: (details) => _onTapUp(details, contentSize),
+                child: child,
+              ),
             );
           },
         );

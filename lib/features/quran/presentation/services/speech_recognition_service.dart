@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart' as permissions;
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -25,6 +27,41 @@ class SpeechRecognitionResultData {
       'SpeechRecognitionResultData(words: $recognizedWords, isFinal: $isFinal, conf: $confidence)';
 }
 
+enum SpeechPermissionState {
+  granted,
+  denied,
+  permanentlyDenied,
+  restricted;
+
+  bool get isGranted => this == SpeechPermissionState.granted;
+  bool get requiresSettings =>
+      this == SpeechPermissionState.permanentlyDenied ||
+      this == SpeechPermissionState.restricted;
+}
+
+enum SpeechRecognitionFailureType {
+  noMatch,
+  timeout,
+  audio,
+  busy,
+  network,
+  languageUnavailable,
+  permissionDenied,
+  unknown,
+}
+
+class SpeechRecognitionFailure {
+  const SpeechRecognitionFailure({
+    required this.type,
+    required this.message,
+    this.isPermanent = false,
+  });
+
+  final SpeechRecognitionFailureType type;
+  final String message;
+  final bool isPermanent;
+}
+
 /// Abstract contract decoupling speech recognition and microphone capture from the application.
 abstract class SpeechRecognitionService {
   /// Initializes the recognition engine and checks hardware availability.
@@ -34,10 +71,18 @@ abstract class SpeechRecognitionService {
   Future<bool> hasPermission();
 
   /// Explicitly requests microphone and speech recognition permissions from the OS.
-  Future<bool> requestPermission();
+  Future<SpeechPermissionState> requestPermission();
 
   /// Opens application system settings on the device so the user can grant permission manually.
   Future<bool> openAppSettings();
+
+  /// Opens the closest system page for configuring the speech recognizer and
+  /// installing recognition languages. Falls back to app settings.
+  Future<bool> openSpeechRecognitionSettings();
+
+  /// Whether an Arabic recognition locale is installed. Returns `null` when
+  /// the platform cannot provide a reliable locale list.
+  Future<bool?> hasArabicLocale();
 
   /// Whether the platform recognizer is available and ready.
   bool get isAvailable;
@@ -52,7 +97,7 @@ abstract class SpeechRecognitionService {
   Stream<String> get statusStream;
 
   /// Stream of recognition errors.
-  Stream<String> get errorStream;
+  Stream<SpeechRecognitionFailure> get errorStream;
 
   /// Starts capturing microphone audio and streaming recognized speech.
   Future<bool> startListening({
@@ -77,10 +122,15 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
   final SpeechToText _stt;
 
+  static const MethodChannel _settingsChannel = MethodChannel(
+    'com.dakomn.mishkatapp/speech_settings',
+  );
+
   final _resultsController =
       StreamController<SpeechRecognitionResultData>.broadcast();
   final _statusController = StreamController<String>.broadcast();
-  final _errorController = StreamController<String>.broadcast();
+  final _errorController =
+      StreamController<SpeechRecognitionFailure>.broadcast();
 
   bool _isInitialized = false;
   bool _hasStartedListening = false;
@@ -93,7 +143,7 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
   Stream<String> get statusStream => _statusController.stream;
 
   @override
-  Stream<String> get errorStream => _errorController.stream;
+  Stream<SpeechRecognitionFailure> get errorStream => _errorController.stream;
 
   @override
   bool get isAvailable => _isInitialized && _stt.isAvailable;
@@ -123,7 +173,12 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
       _isInitialized = available;
       return available;
     } catch (e) {
-      _errorController.add('فشل تهيئة محرك التعرف الصوتي: $e');
+      _errorController.add(
+        SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.unknown,
+          message: 'فشل تهيئة محرك التعرف الصوتي: $e',
+        ),
+      );
       _isInitialized = false;
       return false;
     }
@@ -132,34 +187,110 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
   @override
   Future<bool> hasPermission() async {
     try {
-      return await _stt.hasPermission;
+      if (kIsWeb) return await _stt.hasPermission;
+
+      final microphone = await permissions.Permission.microphone.status;
+      if (!microphone.isGranted) return false;
+
+      if (Platform.isIOS) {
+        final speech = await permissions.Permission.speech.status;
+        return speech.isGranted;
+      }
+      return true;
     } catch (_) {
-      return false;
+      try {
+        return await _stt.hasPermission;
+      } catch (_) {
+        return false;
+      }
     }
   }
 
   @override
-  Future<bool> requestPermission() async {
+  Future<SpeechPermissionState> requestPermission() async {
     try {
       final already = await hasPermission();
-      if (already) return true;
+      if (already) return SpeechPermissionState.granted;
 
-      // On Android & iOS, SpeechToText.initialize triggers the native OS permission prompt
+      if (!kIsWeb) {
+        final microphone = await permissions.Permission.microphone.request();
+        final microphoneState = _permissionState(microphone);
+        if (!microphoneState.isGranted) return microphoneState;
+
+        if (Platform.isIOS) {
+          final speech = await permissions.Permission.speech.request();
+          return _permissionState(speech);
+        }
+        return SpeechPermissionState.granted;
+      }
+
       final available = await initialize();
       final hasPerm = await hasPermission();
-      return hasPerm || available;
+      return hasPerm || available
+          ? SpeechPermissionState.granted
+          : SpeechPermissionState.denied;
     } catch (e) {
-      _errorController.add('فشل طلب إذن الميكروفون: $e');
-      return false;
+      _errorController.add(
+        SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.permissionDenied,
+          message: 'فشل طلب إذن الميكروفون: $e',
+        ),
+      );
+      return SpeechPermissionState.denied;
     }
+  }
+
+  SpeechPermissionState _permissionState(permissions.PermissionStatus status) {
+    if (status.isGranted || status.isLimited) {
+      return SpeechPermissionState.granted;
+    }
+    if (status.isPermanentlyDenied) {
+      return SpeechPermissionState.permanentlyDenied;
+    }
+    if (status.isRestricted) return SpeechPermissionState.restricted;
+    return SpeechPermissionState.denied;
   }
 
   @override
   Future<bool> openAppSettings() async {
     try {
-      return await Geolocator.openAppSettings();
+      return await permissions.openAppSettings();
     } catch (_) {
       return false;
+    }
+  }
+
+  @override
+  Future<bool> openSpeechRecognitionSettings() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final opened = await _settingsChannel.invokeMethod<bool>(
+          'openVoiceInputSettings',
+        );
+        if (opened == true) return true;
+      } on PlatformException {
+        // Fall through to the universally available application settings.
+      } on MissingPluginException {
+        // Fall through when running on an older native shell.
+      }
+    }
+    return openAppSettings();
+  }
+
+  @override
+  Future<bool?> hasArabicLocale() async {
+    try {
+      if (!_isInitialized) {
+        final available = await initialize();
+        if (!available) return null;
+      }
+      final locales = await _stt.locales().timeout(const Duration(seconds: 4));
+      if (locales.isEmpty) return null;
+      return locales.any(
+        (locale) => locale.localeId.toLowerCase().startsWith('ar'),
+      );
+    } catch (_) {
+      return null;
     }
   }
 
@@ -232,7 +363,11 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
       return true;
     } catch (e) {
       _errorController.add(
-        'تعذّر بدء الاستماع. تأكد من تفعيل خدمة التعرف على الكلام في الجهاز ثم حاول مجددًا: $e',
+        SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.unknown,
+          message:
+              'تعذّر بدء الاستماع. تأكد من تفعيل خدمة التعرف على الكلام في الجهاز ثم حاول مجددًا: $e',
+        ),
       );
       return false;
     }
@@ -283,22 +418,48 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
   void _onError(SpeechRecognitionError error) {
     if (!_errorController.isClosed) {
-      final message = switch (error.errorMsg) {
-        'error_no_match' =>
-          'لم أتمكن من تمييز الكلام بوضوح. اقترب من الميكروفون وحاول مجددًا.',
-        'error_speech_timeout' =>
-          'لم يُسمع صوت لفترة. اضغط متابعة عندما تكون مستعدًا.',
-        'error_audio' =>
-          'تعذّر الوصول إلى الميكروفون. تحقق من عدم استخدامه في تطبيق آخر.',
-        'error_busy' || 'error_client' =>
-          'محرك التعرف الصوتي مشغول مؤقتًا. سيُعاد تشغيل الاستماع تلقائيًا.',
-        'error_network' || 'error_network_timeout' => 'تعذّر الوصول إلى خدمة التعرف على الكلام. تحقق من الاتصال أو نزّل حزمة العربية للتعرف دون اتصال.',
-        'error_language_not_supported' || 'error_language_unavailable' => 'اللغة العربية غير مفعّلة في خدمة التعرف على الكلام في الجهاز. أضف العربية من إعدادات اللغة ثم حاول مجددًا.',
-        'error_permission' || 'error_permission_denied' =>
-          'إذن الميكروفون أو التعرف على الكلام غير متاح.',
-        _ => 'توقف محرك التعرف الصوتي. حاول بدء التسميع مرة أخرى.',
+      final failure = switch (error.errorMsg) {
+        'error_no_match' => const SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.noMatch,
+          message: 'لم أتمكن من تمييز الكلام بوضوح. اقترب من الميكروفون وحاول مجددًا.',
+        ),
+        'error_speech_timeout' => const SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.timeout,
+          message: 'لم يُسمع صوت لفترة. اضغط متابعة عندما تكون مستعدًا.',
+        ),
+        'error_audio' => const SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.audio,
+          message:
+              'تعذّر الوصول إلى الميكروفون. تحقق من عدم استخدامه في تطبيق آخر.',
+        ),
+        'error_busy' || 'error_client' => const SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.busy,
+          message: 'محرك التعرف الصوتي مشغول مؤقتًا. سيُعاد تشغيل الاستماع تلقائيًا.',
+        ),
+        'error_network' ||
+        'error_network_timeout' => const SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.network,
+          message: 'تعذّر الوصول إلى خدمة التعرف على الكلام. تحقق من الاتصال أو نزّل حزمة العربية للتعرف دون اتصال.',
+        ),
+        'error_language_not_supported' ||
+        'error_language_unavailable' => SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.languageUnavailable,
+          message: 'العربية غير مفعّلة في خدمة التعرف الصوتي. افتح إعدادات الإدخال الصوتي وأضف العربية، ثم ارجع إلى مشكاة.',
+          isPermanent: error.permanent,
+        ),
+        'error_permission' ||
+        'error_permission_denied' => SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.permissionDenied,
+          message: 'إذن الميكروفون أو التعرف على الكلام غير متاح. اسمح به من إعدادات التطبيق للمتابعة.',
+          isPermanent: error.permanent,
+        ),
+        _ => SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.unknown,
+          message: 'توقف محرك التعرف الصوتي. حاول بدء التسميع مرة أخرى.',
+          isPermanent: error.permanent,
+        ),
       };
-      _errorController.add(message);
+      _errorController.add(failure);
     }
   }
 
@@ -316,18 +477,22 @@ class MockSpeechRecognitionService implements SpeechRecognitionService {
   MockSpeechRecognitionService({
     bool initialAvailable = true,
     bool initialPermission = true,
+    bool? initialArabicLocale = true,
   }) : _isAvailable = initialAvailable,
-       _hasPermission = initialPermission;
+       _hasPermission = initialPermission,
+       _hasArabicLocale = initialArabicLocale;
 
   bool _isAvailable;
   bool _hasPermission;
   bool _isListening = false;
   bool _isPermanentlyDenied = false;
+  bool? _hasArabicLocale;
 
   bool autoGrantOnRequest = false;
 
   int permissionRequestCount = 0;
   int openAppSettingsCount = 0;
+  int openSpeechRecognitionSettingsCount = 0;
   int initializeCount = 0;
   int startListeningCount = 0;
   String? lastLocaleId;
@@ -336,11 +501,13 @@ class MockSpeechRecognitionService implements SpeechRecognitionService {
   final _resultsController =
       StreamController<SpeechRecognitionResultData>.broadcast();
   final _statusController = StreamController<String>.broadcast();
-  final _errorController = StreamController<String>.broadcast();
+  final _errorController =
+      StreamController<SpeechRecognitionFailure>.broadcast();
 
   void setAvailable(bool value) => _isAvailable = value;
   void setPermission(bool value) => _hasPermission = value;
   void setPermanentlyDenied(bool value) => _isPermanentlyDenied = value;
+  void setArabicLocale(bool? value) => _hasArabicLocale = value;
 
   @override
   Stream<SpeechRecognitionResultData> get resultsStream =>
@@ -350,7 +517,7 @@ class MockSpeechRecognitionService implements SpeechRecognitionService {
   Stream<String> get statusStream => _statusController.stream;
 
   @override
-  Stream<String> get errorStream => _errorController.stream;
+  Stream<SpeechRecognitionFailure> get errorStream => _errorController.stream;
 
   @override
   bool get isAvailable => _isAvailable;
@@ -368,16 +535,18 @@ class MockSpeechRecognitionService implements SpeechRecognitionService {
   Future<bool> hasPermission() async => _hasPermission;
 
   @override
-  Future<bool> requestPermission() async {
+  Future<SpeechPermissionState> requestPermission() async {
     permissionRequestCount++;
     if (_isPermanentlyDenied) {
       _hasPermission = false;
-      return false;
+      return SpeechPermissionState.permanentlyDenied;
     }
     if (autoGrantOnRequest) {
       _hasPermission = true;
     }
-    return _hasPermission;
+    return _hasPermission
+        ? SpeechPermissionState.granted
+        : SpeechPermissionState.denied;
   }
 
   @override
@@ -385,6 +554,15 @@ class MockSpeechRecognitionService implements SpeechRecognitionService {
     openAppSettingsCount++;
     return true;
   }
+
+  @override
+  Future<bool> openSpeechRecognitionSettings() async {
+    openSpeechRecognitionSettingsCount++;
+    return true;
+  }
+
+  @override
+  Future<bool?> hasArabicLocale() async => _hasArabicLocale;
 
   @override
   Future<bool> startListening({
@@ -442,9 +620,28 @@ class MockSpeechRecognitionService implements SpeechRecognitionService {
   }
 
   /// Injects simulated error events.
-  void emitError(String error) {
+  void emitError(
+    String error, {
+    SpeechRecognitionFailureType type = SpeechRecognitionFailureType.unknown,
+    bool isPermanent = false,
+  }) {
     if (!_errorController.isClosed) {
-      _errorController.add(error);
+      final resolvedType = type != SpeechRecognitionFailureType.unknown
+          ? type
+          : error.startsWith('لم أتمكن من تمييز الكلام')
+          ? SpeechRecognitionFailureType.noMatch
+          : error.startsWith('لم يُسمع صوت لفترة')
+          ? SpeechRecognitionFailureType.timeout
+          : error.startsWith('محرك التعرف الصوتي مشغول مؤقتًا')
+          ? SpeechRecognitionFailureType.busy
+          : SpeechRecognitionFailureType.unknown;
+      _errorController.add(
+        SpeechRecognitionFailure(
+          type: resolvedType,
+          message: error,
+          isPermanent: isPermanent,
+        ),
+      );
     }
   }
 

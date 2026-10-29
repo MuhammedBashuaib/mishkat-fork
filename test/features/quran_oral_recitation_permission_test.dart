@@ -297,7 +297,7 @@ void main() {
 
   group('Q14 Microphone Permission Widget Tests', () {
     testWidgets(
-      'Tapping السماح والمتابعة triggers permission request and transitions to ready',
+      'Opening the page requests permission and transitions to ready',
       (tester) async {
         mockSpeech.setPermission(false);
         mockSpeech.autoGrantOnRequest = true;
@@ -321,16 +321,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // UI presents the introductory permission gate card
-        expect(find.text('إذن الميكروفون مطلوب'), findsOneWidget);
-        final allowButton = find.text('السماح والمتابعة');
-        expect(allowButton, findsOneWidget);
-
-        // Tap السماح والمتابعة
-        await tester.tap(allowButton);
-        await tester.pumpAndSettle();
-
-        // Native permission was requested
+        // The page immediately asks for the native permission.
         expect(mockSpeech.permissionRequestCount, 1);
 
         // Canvas transitions to ready
@@ -363,17 +354,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Tap السماح والمتابعة
-        final cubit = tester
-            .element(find.text('السماح والمتابعة'))
-            .read<QuranOralRecitationCubit>();
-        await tester.tap(find.text('السماح والمتابعة'));
-        await tester.pumpAndSettle();
-
-        // User denied -> permanently denied state
-        await cubit.openAppSettings();
-        await tester.pumpAndSettle();
-
+        // The automatic request detects permanent denial and offers Settings.
+        expect(mockSpeech.permissionRequestCount, 1);
         expect(
           find.text('إذن الميكروفون مرفوض من إعدادات الجهاز'),
           findsOneWidget,
@@ -384,7 +366,7 @@ void main() {
         // Tap فتح إعدادات التطبيق
         await tester.tap(find.text('فتح إعدادات التطبيق'));
         await tester.pumpAndSettle();
-        expect(mockSpeech.openAppSettingsCount, 2); // Initial open + button tap
+        expect(mockSpeech.openAppSettingsCount, 1);
       },
     );
   });

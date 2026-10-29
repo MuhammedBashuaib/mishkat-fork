@@ -21,6 +21,9 @@ import '../../../quran/presentation/pages/quran_reader_page.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
+import '../../../tasbih/presentation/cubit/tasbih_cubit.dart';
+import '../../../tasbih/presentation/cubit/tasbih_state.dart';
+import '../../../tasbih/presentation/pages/tasbih_page.dart';
 import '../cubit/home_cubit.dart';
 import '../cubit/home_state.dart';
 
@@ -280,6 +283,30 @@ class _DailyFocusCard extends StatelessWidget {
                       MaterialPageRoute<void>(
                         builder: (_) => QuranReaderPage(
                           initialGlobalAyah: quranState.lastRead?.global,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 68,
+                    color: colors.borderSubtle,
+                  ),
+                  BlocBuilder<TasbihCubit, TasbihState>(
+                    buildWhen: (previous, current) =>
+                        previous.count != current.count ||
+                        previous.target != current.target ||
+                        previous.dhikrId != current.dhikrId,
+                    builder: (context, tasbihState) => _FocusRow(
+                      icon: Icons.touch_app_outlined,
+                      title: 'المسبحة',
+                      subtitle: tasbihState.count == 0
+                          ? 'ابدأ جلسة ذكر هادئة'
+                          : '${tasbihState.dhikr.text} • ${tasbihState.count} من ${tasbihState.target}',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const TasbihPage(),
                         ),
                       ),
                     ),

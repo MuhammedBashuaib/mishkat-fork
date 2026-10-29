@@ -9,6 +9,7 @@ import 'package:mishkat_app/features/adhkar/data/models/adhkar_models.dart';
 import 'package:mishkat_app/features/adhkar/data/repositories/adhkar_repository.dart';
 import 'package:mishkat_app/features/adhkar/presentation/cubit/adhkar_cubit.dart';
 import 'package:mishkat_app/features/adhkar/presentation/pages/adhkar_page.dart';
+import 'package:mishkat_app/features/tasbih/presentation/cubit/tasbih_cubit.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -56,16 +57,19 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final cubit = AdhkarCubit(
-      _PreparedRepository(categories),
-      _MemoryStorage(),
-    );
+    final storage = _MemoryStorage();
+    final cubit = AdhkarCubit(_PreparedRepository(categories), storage);
+    final tasbihCubit = TasbihCubit(storage);
     await cubit.load();
     addTearDown(cubit.close);
+    addTearDown(tasbihCubit.close);
 
     await tester.pumpWidget(
-      BlocProvider.value(
-        value: cubit,
+      MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: cubit),
+          BlocProvider.value(value: tasbihCubit),
+        ],
         child: MaterialApp(
           locale: const Locale('ar'),
           supportedLocales: const [Locale('ar')],
@@ -83,7 +87,19 @@ void main() {
       find.text('133 بابًا موثوقًا، مرتّبة لتصل إلى ذكرك في لحظات.'),
       findsOneWidget,
     );
+    expect(find.text('المسبحة الإلكترونية'), findsOneWidget);
 
+    await tester.tap(find.text('المسبحة الإلكترونية'));
+    await tester.pumpAndSettle();
+    expect(find.text('هدف الجلسة'), findsOneWidget);
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('الصلاة'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('الصلاة'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.scrollUntilVisible(

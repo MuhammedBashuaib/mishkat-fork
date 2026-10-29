@@ -27,6 +27,8 @@ class VisualMaskPainter extends CustomPainter {
     required this.viewBox,
     this.mapper = const MushafCoordinateMapper(),
     required this.maskColor,
+    this.currentNumberOutlineColor,
+    this.preserveAyahNumbers = true,
     this.boundaryMode = MaskBoundaryMode.raw,
   });
 
@@ -45,6 +47,12 @@ class VisualMaskPainter extends CustomPainter {
   /// Solid opaque color used to conceal the Quranic text (matches page canvas/ink).
   final Color maskColor;
 
+  /// Outline drawn around the current Ayah number so the next reveal target is clear.
+  final Color? currentNumberOutlineColor;
+
+  /// Leaves the original Mushaf Ayah-number medallion visible while masking its text.
+  final bool preserveAyahNumbers;
+
   /// Boundary adjustment mode.
   final MaskBoundaryMode boundaryMode;
 
@@ -59,6 +67,48 @@ class VisualMaskPainter extends CustomPainter {
     for (final ayah in maskedAyahs) {
       _paintAyahGeometry(canvas, size, ayah, maskPaint);
     }
+
+    final focusedAyah = currentAyah;
+    final outlineColor = currentNumberOutlineColor;
+    if (preserveAyahNumbers &&
+        focusedAyah != null &&
+        outlineColor != null &&
+        maskedAyahs.any((ayah) => ayah.globalAyah == focusedAyah.globalAyah)) {
+      final numberWindow = ayahNumberWindow(focusedAyah, size);
+      if (numberWindow != null) {
+        final outlinePaint = Paint()
+          ..color = outlineColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2;
+        canvas.drawOval(numberWindow.inflate(2.5), outlinePaint);
+      }
+    }
+  }
+
+  /// Returns the local-canvas window containing the original Ayah-number medallion.
+  ///
+  /// KFQC geometry is stored in reading order. In an RTL line, the Ayah ends at the
+  /// left edge of its final segment, where the number medallion is rendered.
+  @visibleForTesting
+  Rect? ayahNumberWindow(AyahBounds ayah, Size size) {
+    if (ayah.segments.isEmpty || size.isEmpty || viewBox.isEmpty) return null;
+
+    final finalSegment = ayah.segments.last;
+    final localBounds = mapper.viewBoxRectToLocal(
+      viewBoxRect: finalSegment.bounds,
+      contentSize: size,
+      viewBox: viewBox,
+      padding: EdgeInsets.zero,
+    );
+    if (localBounds.isEmpty) return null;
+
+    final diameter = (localBounds.height * .72).clamp(14.0, 30.0).toDouble();
+    final centerX = (localBounds.left + diameter / 2).clamp(
+      localBounds.left,
+      localBounds.right,
+    );
+    final center = Offset(centerX.toDouble(), localBounds.center.dy);
+    return Rect.fromCenter(center: center, width: diameter, height: diameter);
   }
 
   void _paintAyahGeometry(
@@ -67,7 +117,15 @@ class VisualMaskPainter extends CustomPainter {
     AyahBounds ayah,
     Paint paint,
   ) {
-    for (final segment in ayah.segments) {
+    final numberWindow = preserveAyahNumbers
+        ? ayahNumberWindow(ayah, size)
+        : null;
+
+    for (var index = 0; index < ayah.segments.length; index++) {
+      final segment = ayah.segments[index];
+      final isFinalSegment = index == ayah.segments.length - 1;
+      Path localPath;
+
       if (segment is AyahRectSegment) {
         Rect effectiveRect = segment.rect;
 
@@ -89,26 +147,39 @@ class VisualMaskPainter extends CustomPainter {
           viewBoxRect: effectiveRect,
           contentSize: size,
           viewBox: viewBox,
-          padding: EdgeInsets.zero, // Exact 1:1 match with SvgPicture.asset inside the Stack
+          padding: EdgeInsets
+              .zero, // Exact 1:1 match with SvgPicture.asset inside the Stack
         );
 
         if (boundaryMode == MaskBoundaryMode.rounded) {
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(localRect, const Radius.circular(3.0)),
-            paint,
-          );
+          localPath = Path()
+            ..addRRect(
+              RRect.fromRectAndRadius(localRect, const Radius.circular(3.0)),
+            );
         } else {
-          canvas.drawRect(localRect, paint);
+          localPath = Path()..addRect(localRect);
         }
       } else if (segment is AyahPolygonSegment) {
-        final localPath = mapper.viewBoxPathToLocal(
+        localPath = mapper.viewBoxPathToLocal(
           points: segment.points,
           contentSize: size,
           viewBox: viewBox,
-          padding: EdgeInsets.zero, // Exact 1:1 match with SvgPicture.asset inside the Stack
+          padding: EdgeInsets
+              .zero, // Exact 1:1 match with SvgPicture.asset inside the Stack
         );
-        canvas.drawPath(localPath, paint);
+      } else {
+        continue;
       }
+
+      if (isFinalSegment && numberWindow != null) {
+        localPath = Path.combine(
+          PathOperation.difference,
+          localPath,
+          Path()..addOval(numberWindow),
+        );
+      }
+
+      canvas.drawPath(localPath, paint);
     }
   }
 
@@ -118,6 +189,8 @@ class VisualMaskPainter extends CustomPainter {
         oldDelegate.viewBox != viewBox ||
         oldDelegate.boundaryMode != boundaryMode ||
         oldDelegate.currentAyah != currentAyah ||
+        oldDelegate.currentNumberOutlineColor != currentNumberOutlineColor ||
+        oldDelegate.preserveAyahNumbers != preserveAyahNumbers ||
         !listEquals(oldDelegate.maskedAyahs, maskedAyahs);
   }
 }
@@ -131,6 +204,8 @@ class MushafVisualMaskOverlay extends StatelessWidget {
     required this.viewBox,
     this.mapper = const MushafCoordinateMapper(),
     required this.maskColor,
+    this.currentNumberOutlineColor,
+    this.preserveAyahNumbers = true,
     this.boundaryMode = MaskBoundaryMode.raw,
   });
 
@@ -139,6 +214,8 @@ class MushafVisualMaskOverlay extends StatelessWidget {
   final Rect viewBox;
   final MushafCoordinateMapper mapper;
   final Color maskColor;
+  final Color? currentNumberOutlineColor;
+  final bool preserveAyahNumbers;
   final MaskBoundaryMode boundaryMode;
 
   @override
@@ -157,6 +234,8 @@ class MushafVisualMaskOverlay extends StatelessWidget {
             viewBox: viewBox,
             mapper: mapper,
             maskColor: maskColor,
+            currentNumberOutlineColor: currentNumberOutlineColor,
+            preserveAyahNumbers: preserveAyahNumbers,
             boundaryMode: boundaryMode,
           ),
         ),

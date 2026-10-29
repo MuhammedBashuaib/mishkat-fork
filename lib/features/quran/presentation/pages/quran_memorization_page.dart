@@ -517,7 +517,7 @@ class _PracticeMethods extends StatelessWidget {
         _MethodTile(
           icon: Icons.headphones_rounded,
           title: 'التلقين والتكرار',
-          subtitle: 'اختر القارئ وعدد التكرارات والفاصل، ثم ابدأ.',
+          subtitle: 'استمع للآية وردّدها، خطوة بخطوة.',
           onTap: plan == null
               ? () => _showNeedPlan(context)
               : () => _showTutorSetup(context, plan, quranData),
@@ -1891,6 +1891,7 @@ void _showTutorSetup(
   var reciterId = context.read<QuranCubit>().reciter;
   var repetitions = 3;
   var pauseSeconds = 3;
+  var showAdvancedSettings = false;
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -1903,6 +1904,7 @@ void _showTutorSetup(
     builder: (sheetContext) => StatefulBuilder(
       builder: (sheetContext, setSheetState) {
         final colors = sheetContext.mishkat;
+        final reciterName = AppConstants.findReciter(reciterId).name;
         return SafeArea(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
@@ -1927,60 +1929,124 @@ void _showTutorSetup(
                 ),
                 const SizedBox(height: 18),
                 const Text(
-                  'إعداد جلسة التلقين',
+                  'ابدأ التلقين',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'استمع للآية، رددها في الفاصل، ثم انتقل تلقائياً.',
+                  'سنقرأ كل آية، ثم نترك لك وقتًا لترديدها.',
                   style: TextStyle(color: colors.textSecondary, fontSize: 12.5),
                 ),
                 const SizedBox(height: 18),
-                DropdownButtonFormField<String>(
-                  initialValue: reciterId,
-                  decoration: const InputDecoration(
-                    labelText: 'القارئ',
-                    prefixIcon: Icon(Icons.person_outline_rounded),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: colors.primarySoft,
+                    borderRadius: MishkatRadius.brMd,
                   ),
-                  items: AppConstants.reciters
-                      .map(
-                        (reciter) => DropdownMenuItem(
-                          value: reciter.id,
-                          child: Text(reciter.name),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.headphones_rounded,
+                        color: colors.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$repetitions مرات لكل آية',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$reciterName · $pauseSeconds ثوانٍ للترديد',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
                         ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) setSheetState(() => reciterId = value);
-                  },
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-                _StepperSetting(
-                  label: 'تكرار كل آية',
-                  value: repetitions,
-                  suffix: 'مرات',
-                  onMinus: repetitions > 1
-                      ? () => setSheetState(() => repetitions--)
-                      : null,
-                  onPlus: repetitions < 10
-                      ? () => setSheetState(() => repetitions++)
-                      : null,
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: () => setSheetState(
+                      () => showAdvancedSettings = !showAdvancedSettings,
+                    ),
+                    icon: Icon(
+                      showAdvancedSettings
+                          ? Icons.expand_less_rounded
+                          : Icons.tune_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      showAdvancedSettings
+                          ? 'إخفاء الإعدادات'
+                          : 'تعديل القارئ والتكرار',
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 10),
-                _StepperSetting(
-                  label: 'فاصل للترديد',
-                  value: pauseSeconds,
-                  suffix: 'ثوانٍ',
-                  onMinus: pauseSeconds > 0
-                      ? () => setSheetState(() => pauseSeconds--)
-                      : null,
-                  onPlus: pauseSeconds < 10
-                      ? () => setSheetState(() => pauseSeconds++)
-                      : null,
-                ),
+                if (showAdvancedSettings) ...[
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    initialValue: reciterId,
+                    decoration: const InputDecoration(
+                      labelText: 'القارئ',
+                      prefixIcon: Icon(Icons.person_outline_rounded),
+                    ),
+                    items: AppConstants.reciters
+                        .map(
+                          (reciter) => DropdownMenuItem(
+                            value: reciter.id,
+                            child: Text(reciter.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setSheetState(() => reciterId = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _StepperSetting(
+                    label: 'تكرار كل آية',
+                    value: repetitions,
+                    suffix: 'مرات',
+                    onMinus: repetitions > 1
+                        ? () => setSheetState(() => repetitions--)
+                        : null,
+                    onPlus: repetitions < 10
+                        ? () => setSheetState(() => repetitions++)
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
+                  _StepperSetting(
+                    label: 'وقت الترديد',
+                    value: pauseSeconds,
+                    suffix: 'ثوانٍ',
+                    onMinus: pauseSeconds > 0
+                        ? () => setSheetState(() => pauseSeconds--)
+                        : null,
+                    onPlus: pauseSeconds < 10
+                        ? () => setSheetState(() => pauseSeconds++)
+                        : null,
+                  ),
+                ],
                 const SizedBox(height: 20),
                 MishkatPrimaryAction(
-                  label: 'ابدأ التلقين',
+                  label: 'ابدأ الآن',
                   icon: const Icon(Icons.play_arrow_rounded),
                   isFullWidth: true,
                   onPressed: () {

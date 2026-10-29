@@ -73,12 +73,17 @@ class QuranOralRecitationPage extends StatelessWidget {
           audioService: audioService,
           ownsSpeechService: ownsSpeechService,
         );
-        cubit.prepareSession(
-          surahNumber: surahNumber,
-          startGlobalAyah: startGlobalAyah,
-          endGlobalAyah: endGlobalAyah,
-          planId: planId,
-        );
+        unawaited(() async {
+          await cubit.prepareSession(
+            surahNumber: surahNumber,
+            startGlobalAyah: startGlobalAyah,
+            endGlobalAyah: endGlobalAyah,
+            planId: planId,
+          );
+          if (!cubit.isClosed && cubit.state.lifecycle.isPermissionDenied) {
+            await cubit.requestPermissionAndInitialize();
+          }
+        }());
         return cubit;
       },
       child: const _QuranOralRecitationView(),
@@ -134,7 +139,11 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
     return BlocConsumer<QuranOralRecitationCubit, QuranOralRecitationState>(
       listenWhen: (previous, current) =>
           previous.errorMessage != current.errorMessage &&
-          current.errorMessage != null,
+          current.errorMessage != null &&
+          !current.lifecycle.isPermissionDenied &&
+          !current.lifecycle.isPermissionPermanentlyDenied &&
+          !current.lifecycle.isRecognizerUnavailable &&
+          !current.lifecycle.isLanguageUnavailable,
       listener: (context, state) {
         if (state.errorMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -206,7 +215,8 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
       OralRecitationLifecycle.permissionGranted => Colors.blue,
       OralRecitationLifecycle.permissionDenied ||
       OralRecitationLifecycle.permissionPermanentlyDenied => Colors.red,
-      OralRecitationLifecycle.recognizerUnavailable => Colors.orange,
+      OralRecitationLifecycle.recognizerUnavailable ||
+      OralRecitationLifecycle.languageUnavailable => Colors.orange,
       _ => colors.textSecondary,
     };
 
@@ -221,6 +231,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
       OralRecitationLifecycle.permissionPermanentlyDenied =>
         'مرفوض من الإعدادات',
       OralRecitationLifecycle.recognizerUnavailable => 'المحرك غير متاح',
+      OralRecitationLifecycle.languageUnavailable => 'العربية تحتاج تفعيل',
       _ => 'جاهز للتسميع',
     };
 
@@ -310,7 +321,8 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
         state.lifecycle.isInitializingSpeechEngine ||
         state.lifecycle.isPermissionDenied ||
         state.lifecycle.isPermissionPermanentlyDenied ||
-        state.lifecycle.isRecognizerUnavailable;
+        state.lifecycle.isRecognizerUnavailable ||
+        state.lifecycle.isLanguageUnavailable;
 
     if (isPermissionGate) {
       return Center(
@@ -788,6 +800,57 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
       );
     }
 
+    if (state.lifecycle.isLanguageUnavailable) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.record_voice_over_rounded,
+              size: 36,
+              color: Colors.orange.shade800,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'فعّل العربية للتسميع الصوتي',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            state.errorMessage ?? 'خدمة التعرف الصوتي موجودة، لكن العربية غير مفعّلة فيها. افتح إعدادات الإدخال الصوتي واختر خدمة التعرف ثم أضف العربية أو نزّل حزمة العربية.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: colors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          MishkatPrimaryAction(
+            label: 'فتح إعدادات الإدخال الصوتي',
+            icon: const Icon(Icons.settings_voice_rounded),
+            isFullWidth: true,
+            onPressed: () => cubit.openSpeechRecognitionSettings(),
+          ),
+          const SizedBox(height: 10),
+          MishkatSecondaryAction(
+            label: 'أضفت العربية — أعد الفحص',
+            icon: const Icon(Icons.refresh_rounded),
+            isFullWidth: true,
+            onPressed: () => cubit.checkAndRefreshPermission(),
+          ),
+        ],
+      );
+    }
+
     if (state.lifecycle.isRecognizerUnavailable) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -823,6 +886,13 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
           ),
           const SizedBox(height: 20),
           MishkatPrimaryAction(
+            label: 'فتح إعدادات الإدخال الصوتي',
+            icon: const Icon(Icons.settings_voice_rounded),
+            isFullWidth: true,
+            onPressed: () => cubit.openSpeechRecognitionSettings(),
+          ),
+          const SizedBox(height: 10),
+          MishkatSecondaryAction(
             label: 'إعادة المحاولة',
             icon: const Icon(Icons.refresh_rounded),
             isFullWidth: true,

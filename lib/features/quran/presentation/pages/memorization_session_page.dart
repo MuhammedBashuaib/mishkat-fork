@@ -65,24 +65,48 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
     if (widget.startWithAudio) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        final session = context
-            .read<QuranMemorizationCubit>()
-            .state
-            .activeSession;
-        if (session == null || session.queue.isEmpty) return;
-        context.read<QuranCubit>().startRepeatPlayback(
-          AudioRepeatConfig(
-            mode: AudioRepeatMode.perAyahRange,
-            startGlobalAyah: session.queue.first,
-            endGlobalAyah: session.queue.last,
-            ayahRepeatCount: _sessionRepeatCount,
-            delaySeconds: _sessionDelaySeconds,
-          ),
-          initialGlobalAyah: session.queue.first,
-          customQueue: session.queue,
-          autoScroll: false,
-        );
+        final memorizationCubit = context.read<QuranMemorizationCubit>();
+        final session = memorizationCubit.state.activeSession;
+        final currentAyah = session?.currentGlobalAyah;
+        if (session == null || currentAyah == null) return;
+        memorizationCubit.revealText();
+        _startTutorPlayback(currentAyah);
       });
+    }
+  }
+
+  void _startTutorPlayback(int globalAyah) {
+    context.read<QuranCubit>().startRepeatPlayback(
+      AudioRepeatConfig(
+        mode: AudioRepeatMode.singleAyah,
+        startGlobalAyah: globalAyah,
+        endGlobalAyah: globalAyah,
+        ayahRepeatCount: _sessionRepeatCount,
+        delaySeconds: _sessionDelaySeconds,
+      ),
+      initialGlobalAyah: globalAyah,
+      autoScroll: false,
+    );
+  }
+
+  Future<void> _completeTutorAyah({
+    required int globalAyah,
+    required MemorizationSession session,
+  }) async {
+    final quranCubit = context.read<QuranCubit>();
+    final memorizationCubit = context.read<QuranMemorizationCubit>();
+    await quranCubit.stopAudio();
+    await memorizationCubit.recordReviewOutcome(
+      globalAyah: globalAyah,
+      outcome: ReviewOutcome.good,
+      sessionId: session.id,
+    );
+    if (!mounted) return;
+
+    final nextAyah = memorizationCubit.state.activeSession?.currentGlobalAyah;
+    if (nextAyah != null) {
+      memorizationCubit.revealText();
+      _startTutorPlayback(nextAyah);
     }
   }
 
@@ -91,6 +115,9 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
     final session = cubit.state.activeSession;
 
     if (session == null || session.isFinished) {
+      if (widget.startWithAudio) {
+        await context.read<QuranCubit>().stopAudio();
+      }
       cubit.endSession();
       if (mounted) Navigator.of(context).pop();
       return;
@@ -118,6 +145,10 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
     );
 
     if (shouldExit == true && mounted) {
+      if (widget.startWithAudio) {
+        await context.read<QuranCubit>().stopAudio();
+        if (!mounted) return;
+      }
       cubit.endSession();
       Navigator.of(context).pop();
     }
@@ -196,11 +227,17 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
         }
 
         if (session.isFinished) {
+          if (widget.startWithAudio) {
+            return _buildTutorFinishedView(context, session);
+          }
           return _buildFinishedView(context, memState, session);
         }
 
         final globalAyah = session.currentGlobalAyah;
         if (globalAyah == null) {
+          if (widget.startWithAudio) {
+            return _buildTutorFinishedView(context, session);
+          }
           return _buildFinishedView(context, memState, session);
         }
         final point = widget.quranData.pointForGlobal(globalAyah);
@@ -211,6 +248,17 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
             : '';
         final pageNumber = widget.quranData.pageForGlobal(globalAyah);
         final item = memState.getItem(globalAyah);
+
+        if (widget.startWithAudio) {
+          return _buildTutorView(
+            context: context,
+            session: session,
+            globalAyah: globalAyah,
+            chapter: chapter,
+            point: point,
+            ayahText: ayahText,
+          );
+        }
 
         return Scaffold(
           appBar: AppBar(
@@ -571,6 +619,303 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
     );
   }
 
+  Widget _buildTutorView({
+    required BuildContext context,
+    required MemorizationSession session,
+    required int globalAyah,
+    required QuranChapter chapter,
+    required QuranPoint point,
+    required String ayahText,
+  }) {
+    final colors = context.mishkat;
+    final theme = Theme.of(context);
+    final isLastAyah = session.currentIndex == session.queue.length - 1;
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          tooltip: 'إنهاء الجلسة',
+          onPressed: _confirmExit,
+        ),
+        title: Column(
+          children: [
+            Text(
+              'جلسة حفظ الورد',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'الآية ${session.currentIndex + 1} من ${session.queue.length}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: LinearProgressIndicator(
+            value: session.progress,
+            backgroundColor: colors.border.withValues(alpha: 0.3),
+            valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            Text(
+              'سورة ${chapter.name} · الآية ${point.ayah}',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: colors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: MishkatSpacing.md),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: colors.primarySoft,
+                borderRadius: MishkatRadius.brMd,
+              ),
+              child: Row(
+                children: [
+                  _TutorStepNumber(number: '1', color: colors.primary),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'استمع للآية',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_back_rounded,
+                    size: 16,
+                    color: colors.textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  _TutorStepNumber(number: '2', color: colors.primary),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'ردّد في وقت الصمت',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: MishkatSpacing.base),
+            Container(
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: MishkatRadius.brXl,
+                border: Border.all(color: colors.borderSubtle),
+                boxShadow: MishkatShadows.subtle(context),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    ayahText,
+                    textAlign: TextAlign.center,
+                    textDirection: TextDirection.rtl,
+                    style: const TextStyle(
+                      fontFamily: 'Amiri',
+                      fontSize: 25,
+                      height: 2,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: MishkatSpacing.sm),
+                  Text(
+                    '﴿ ${point.ayah} ﴾',
+                    style: TextStyle(
+                      fontFamily: 'Amiri',
+                      color: colors.primary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: MishkatSpacing.base),
+            _buildTutorPlaybackControl(
+              context: context,
+              globalAyah: globalAyah,
+            ),
+            const SizedBox(height: MishkatSpacing.xl),
+            MishkatPrimaryAction(
+              onPressed: () =>
+                  _completeTutorAyah(globalAyah: globalAyah, session: session),
+              label: isLastAyah
+                  ? 'أتقنتها، إنهاء الجلسة'
+                  : 'أتقنتها، الآية التالية',
+              icon: const Icon(Icons.check_rounded),
+              isFullWidth: true,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+            ),
+            const SizedBox(height: MishkatSpacing.sm),
+            MishkatSecondaryAction(
+              onPressed: () => _startTutorPlayback(globalAyah),
+              label: 'أعد التلقين',
+              icon: const Icon(Icons.replay_rounded),
+              isFullWidth: true,
+            ),
+            const SizedBox(height: MishkatSpacing.sm),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 4,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _openSessionRepeatSettings(context),
+                  icon: const Icon(Icons.tune_rounded, size: 17),
+                  label: const Text('الإعدادات'),
+                ),
+                TextButton.icon(
+                  onPressed: () => _openInMushaf(globalAyah),
+                  icon: const Icon(Icons.auto_stories_outlined, size: 17),
+                  label: const Text('فتح المصحف'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTutorPlaybackControl({
+    required BuildContext context,
+    required int globalAyah,
+  }) {
+    final colors = context.mishkat;
+    return BlocBuilder<QuranCubit, QuranState>(
+      builder: (context, quranState) {
+        final repeat = quranState.repeatState;
+        final ownsCurrentAyah =
+            quranState.audioGlobalAyah == globalAyah ||
+            (repeat.currentAyah == globalAyah && repeat.isActive);
+        final isLoading =
+            ownsCurrentAyah &&
+            quranState.audioStatus == QuranAudioStatus.loading;
+        final isActive = ownsCurrentAyah && repeat.isActive;
+        final isPaused = isActive && repeat.isPaused;
+        final isDelaying = isActive && repeat.isDelaying;
+
+        final String title;
+        final String subtitle;
+        if (isLoading) {
+          title = 'جارٍ تحضير التلاوة...';
+          subtitle = 'ستبدأ خلال لحظة';
+        } else if (isDelaying) {
+          title = 'ردّد الآن';
+          subtitle = '${repeat.remainingDelaySeconds} ثوانٍ قبل التكرار';
+        } else if (isPaused) {
+          title = 'متوقف مؤقتًا';
+          subtitle = 'اضغط للمتابعة';
+        } else if (isActive) {
+          title = 'استمع الآن';
+          subtitle =
+              'المرة ${repeat.currentAyahRepeat} من $_sessionRepeatCount';
+        } else if (quranState.audioStatus == QuranAudioStatus.failure) {
+          title = 'تعذر التشغيل';
+          subtitle = 'اضغط للمحاولة مرة أخرى';
+        } else {
+          title = 'استمع وردّد';
+          subtitle =
+              '$_sessionRepeatCount مرات · $_sessionDelaySeconds ثوانٍ للترديد';
+        }
+
+        return Material(
+          color: isDelaying ? colors.primarySoft : colors.surfaceVariant,
+          borderRadius: MishkatRadius.brLg,
+          child: InkWell(
+            borderRadius: MishkatRadius.brLg,
+            onTap: isLoading
+                ? null
+                : () {
+                    if (isActive) {
+                      context.read<QuranCubit>().toggleAudio(continuous: false);
+                    } else {
+                      _startTutorPlayback(globalAyah);
+                    }
+                  },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: colors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Icon(
+                            isActive && !isPaused
+                                ? Icons.pause_rounded
+                                : isPaused
+                                ? Icons.play_arrow_rounded
+                                : Icons.volume_up_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildRecallCard({
     required BuildContext context,
     required MemorizationSession session,
@@ -905,71 +1250,172 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        final theme = Theme.of(ctx);
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: theme.scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'إعدادات تكرار الاستماع في الجلسة',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final theme = Theme.of(ctx);
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  decoration: BoxDecoration(
+                    color: theme.scaffoldBackgroundColor,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'إعدادات التلقين',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'اختر ما يناسبك، ثم ابدأ الآية من جديد.',
+                        style: TextStyle(
+                          color: ctx.mishkat.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'كم مرة تُقرأ الآية؟',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [1, 2, 3, 5, 7, 10].map((count) {
+                          return ChoiceChip(
+                            label: Text('$count'),
+                            selected: _sessionRepeatCount == count,
+                            onSelected: (_) {
+                              setState(() => _sessionRepeatCount = count);
+                              setSheetState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'وقت الترديد بعدها',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [0, 2, 3, 5, 7, 10].map((seconds) {
+                          return ChoiceChip(
+                            label: Text(
+                              seconds == 0 ? 'بدون' : '$seconds ثوانٍ',
+                            ),
+                            selected: _sessionDelaySeconds == seconds,
+                            onSelected: (_) {
+                              setState(() => _sessionDelaySeconds = seconds);
+                              setSheetState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+                      MishkatPrimaryAction(
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          final ayah = context
+                              .read<QuranMemorizationCubit>()
+                              .state
+                              .activeSession
+                              ?.currentGlobalAyah;
+                          if (widget.startWithAudio && ayah != null) {
+                            _startTutorPlayback(ayah);
+                          }
+                        },
+                        label: 'تطبيق والبدء من جديد',
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        isFullWidth: true,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 14),
-                const Text(
-                  'عدد التكرارات للآية:',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  children: [1, 2, 3, 5, 7, 10].map((c) {
-                    return ChoiceChip(
-                      label: Text('$c×'),
-                      selected: _sessionRepeatCount == c,
-                      onSelected: (_) {
-                        setState(() => _sessionRepeatCount = c);
-                        Navigator.of(ctx).pop();
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'مهلة الترديد (صمت للحفظ):',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  children: [0, 1, 2, 3, 5, 7, 10].map((d) {
-                    return ChoiceChip(
-                      label: Text(d == 0 ? 'بدون' : '$d ث'),
-                      selected: _sessionDelaySeconds == d,
-                      onSelected: (_) {
-                        setState(() => _sessionDelaySeconds = d);
-                        Navigator.of(ctx).pop();
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 10),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _buildTutorFinishedView(
+    BuildContext context,
+    MemorizationSession session,
+  ) {
+    final colors = context.mishkat;
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('اكتمل الورد'), centerTitle: true),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                child: Container(
+                  width: 88,
+                  height: 88,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.primarySoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.check_rounded,
+                    size: 48,
+                    color: colors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: MishkatSpacing.xl),
+              Text(
+                'أتممت وردك',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: MishkatSpacing.sm),
+              Text(
+                'لقّنت ${session.completedCount} آيات اليوم. بارك الله في حفظك.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 14,
+                  height: 1.7,
+                ),
+              ),
+              const SizedBox(height: MishkatSpacing.xxl),
+              MishkatPrimaryAction(
+                onPressed: () {
+                  context.read<QuranMemorizationCubit>().endSession();
+                  Navigator.of(context).pop();
+                },
+                label: 'العودة للحفظ',
+                icon: const Icon(Icons.arrow_back_rounded),
+                isFullWidth: true,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1087,6 +1533,31 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TutorStepNumber extends StatelessWidget {
+  const _TutorStepNumber({required this.number, required this.color});
+
+  final String number;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Text(
+        number,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
