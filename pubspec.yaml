@@ -28,7 +28,7 @@ dependencies:
   timezone: ^0.10.1
   url_launcher: ^6.3.2
   webview_flutter: ^4.13.0
-  wakelock_plus: ^1.3.2
+  wakelock_plus: ^1.8.0
   speech_to_text: ^7.5.0
   geomag: ^0.3.0
 

@@ -295,6 +295,11 @@ void main() {
         expect(fakeAudioService.stopCalled, isTrue);
         expect(mockSpeech.isListening, isTrue);
         expect(oralCubit.state.lifecycle, OralRecitationLifecycle.listening);
+        expect(mockSpeech.lastLocaleId, 'ar_SA');
+        expect(
+          mockSpeech.lastContextualPhrases,
+          containsAll(<String>['بسم', 'الله', 'الرحمن', 'الرحيم']),
+        );
       },
     );
 
@@ -354,28 +359,25 @@ void main() {
       },
     );
 
-    test(
-      '5a. completed native cycle restarts only after done',
-      () async {
-        await oralCubit.prepareSession(
-          surahNumber: 1,
-          startGlobalAyah: 1,
-          endGlobalAyah: 2,
-        );
-        await oralCubit.startRecitation();
-        expect(mockSpeech.startListeningCount, 1);
+    test('5a. completed native cycle restarts only after done', () async {
+      await oralCubit.prepareSession(
+        surahNumber: 1,
+        startGlobalAyah: 1,
+        endGlobalAyah: 2,
+      );
+      await oralCubit.startRecitation();
+      expect(mockSpeech.startListeningCount, 1);
 
-        mockSpeech.emitStatus('notListening');
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-        expect(mockSpeech.startListeningCount, 1);
+      mockSpeech.emitStatus('notListening');
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(mockSpeech.startListeningCount, 1);
 
-        mockSpeech.emitStatus('done');
-        await Future<void>.delayed(const Duration(milliseconds: 150));
-        expect(mockSpeech.startListeningCount, 2);
-        expect(oralCubit.state.lifecycle, OralRecitationLifecycle.listening);
-        expect(mockSpeech.isListening, isTrue);
-      },
-    );
+      mockSpeech.emitStatus('done');
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(mockSpeech.startListeningCount, 2);
+      expect(oralCubit.state.lifecycle, OralRecitationLifecycle.listening);
+      expect(mockSpeech.isListening, isTrue);
+    });
 
     test(
       '5b. silence error re-arms recognition without pausing the session',
@@ -581,6 +583,44 @@ void main() {
         expect(find.text('بسم الله'), findsOneWidget);
       },
     );
+
+    testWidgets('Omitted Quran word remains visible in red at its position', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<QuranMemorizationCubit>.value(value: memCubit),
+            RepositoryProvider<QuranRepository>.value(value: fakeQuranRepo),
+          ],
+          child: MaterialApp(
+            home: QuranOralRecitationPage(
+              surahNumber: 1,
+              startGlobalAyah: 1,
+              endGlobalAyah: 3,
+              speechService: mockSpeech,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('بدء التسميع'));
+      await tester.pump();
+
+      // Omit «رَبِّ» while continuing with «ٱلْعَٰلَمِينَ».
+      mockSpeech.emitTranscript(
+        'بسم الله الرحمن الرحيم الحمد لله العالمين',
+        isFinal: true,
+      );
+      await tester.pump();
+
+      final omitted = tester.widget<Text>(find.text('رَبِّ'));
+      expect(omitted.style?.color, isNotNull);
+      expect(omitted.style?.decoration, TextDecoration.underline);
+      final color = omitted.style!.color!;
+      expect(color.r, greaterThan(color.g));
+      expect(color.r, greaterThan(color.b));
+    });
 
     testWidgets('Moving app to background pauses microphone capture', (
       tester,

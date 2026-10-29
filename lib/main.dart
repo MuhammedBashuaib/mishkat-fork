@@ -30,7 +30,20 @@ Future<void> main() async {
   final storage = LocalStorageService();
   await storage.init();
   final notifications = LocalNotificationService();
-  await notifications.initialize();
+  try {
+    await notifications.initialize();
+  } on Object catch (error, stackTrace) {
+    // Notifications are optional at startup. A native configuration problem
+    // must not prevent Flutter from drawing its first frame.
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'local notifications',
+        context: ErrorDescription('while initializing notifications'),
+      ),
+    );
+  }
   final settingsCubit = SettingsCubit(
     storage: storage,
     locationService: LocationService(),

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  These resources are selected by name from Dart code. The Android release
+  resource shrinker cannot see those string references and would otherwise
+  remove them from the APK.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_mishkat,@raw/adhan1,@raw/adhan2,@raw/adhan3,@raw/adhan4,@raw/adhan5,@raw/adhan6" />

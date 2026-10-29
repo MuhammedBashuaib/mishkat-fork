@@ -120,7 +120,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
           lifecycle = OralRecitationLifecycle.ready;
         } else {
           lifecycle = OralRecitationLifecycle.recognizerUnavailable;
-          errorMessage = 'التعرف الصوتي المحلي غير جاهز. نزّل حزمة اللغة العربية من إعدادات الجهاز ثم أعد المحاولة.';
+          errorMessage = 'خدمة التعرف الصوتي غير جاهزة على هذا الجهاز. فعّل خدمة التعرف على الكلام أو نزّل حزمة اللغة العربية ثم أعد المحاولة.';
         }
       }
 
@@ -232,7 +232,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
           emit(
             state.copyWith(
               lifecycle: OralRecitationLifecycle.recognizerUnavailable,
-              errorMessage: 'التعرف الصوتي المحلي غير جاهز. نزّل حزمة اللغة العربية من إعدادات الجهاز ثم أعد المحاولة.',
+              errorMessage: 'خدمة التعرف الصوتي غير جاهزة على هذا الجهاز. فعّل خدمة التعرف على الكلام أو نزّل حزمة اللغة العربية ثم أعد المحاولة.',
             ),
           );
         }
@@ -307,7 +307,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       emit(
         state.copyWith(
           lifecycle: OralRecitationLifecycle.recognizerUnavailable,
-          errorMessage: 'التعرف الصوتي المحلي غير جاهز. نزّل حزمة اللغة العربية من إعدادات الجهاز ثم أعد المحاولة.',
+          errorMessage: 'خدمة التعرف الصوتي غير جاهزة على هذا الجهاز. فعّل خدمة التعرف على الكلام أو نزّل حزمة اللغة العربية ثم أعد المحاولة.',
         ),
       );
     }
@@ -338,8 +338,20 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     _errorSubscription = speechService.errorStream.listen(_onSpeechError);
     _statusSubscription = speechService.statusStream.listen(_onSpeechStatus);
 
-    // 4. Start native microphone capture
-    final ok = await speechService.startListening(localeId: 'ar_SA');
+    // 4. Enter listening before awaiting the native callback. Some engines
+    // emit their first status/result synchronously with the listen request;
+    // those events must not be discarded while the state is still `ready`.
+    emit(
+      state.copyWith(
+        lifecycle: OralRecitationLifecycle.listening,
+        clearError: true,
+      ),
+    );
+
+    final ok = await speechService.startListening(
+      localeId: 'ar_SA',
+      contextualPhrases: _recognitionHints(),
+    );
     if (!ok) {
       _cancelSubscriptions();
       emit(
@@ -351,14 +363,9 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       return;
     }
 
-    _startDurationTimer();
-
-    emit(
-      state.copyWith(
-        lifecycle: OralRecitationLifecycle.listening,
-        clearError: true,
-      ),
-    );
+    if (state.lifecycle.isListening) {
+      _startDurationTimer();
+    }
   }
 
   /// Pauses microphone capture and pauses the timer.
@@ -382,11 +389,21 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       } catch (_) {}
     }
 
-    final ok = await speechService.startListening(localeId: 'ar_SA');
-    if (ok) {
+    // As with the initial start, do not leave a window where native callbacks
+    // arrive while the Cubit still reports `paused`.
+    emit(
+      state.copyWith(
+        lifecycle: OralRecitationLifecycle.listening,
+        clearError: true,
+      ),
+    );
+    final ok = await speechService.startListening(
+      localeId: 'ar_SA',
+      contextualPhrases: _recognitionHints(),
+    );
+    if (ok && state.lifecycle.isListening) {
       _startDurationTimer();
-      emit(state.copyWith(lifecycle: OralRecitationLifecycle.listening));
-    } else {
+    } else if (!ok) {
       emit(
         state.copyWith(
           lifecycle: OralRecitationLifecycle.paused,
@@ -642,7 +659,10 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         await speechService.cancelListening();
       } catch (_) {}
       if (isClosed || !state.lifecycle.isListening) return;
-      final restarted = await speechService.startListening(localeId: 'ar_SA');
+      final restarted = await speechService.startListening(
+        localeId: 'ar_SA',
+        contextualPhrases: _recognitionHints(),
+      );
       if (!restarted && !isClosed && state.lifecycle.isListening) {
         _durationTimer?.cancel();
         _durationTimer = null;
@@ -677,6 +697,21 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     }
     if (score >= 65) return ReviewOutcome.difficult;
     return ReviewOutcome.failed;
+  }
+
+  /// Supplies a compact window of upcoming Quranic words to recognizers that
+  /// support contextual vocabulary (notably Apple Speech). Duplicates are
+  /// removed to stay well below platform phrase limits.
+  List<String> _recognitionHints() {
+    if (state.targetWords.isEmpty) return const [];
+    final start = _committedTargetIndex.clamp(0, state.targetWords.length);
+    final end = min(state.targetWords.length, start + 80);
+    return state.targetWords
+        .sublist(start, end)
+        .map((word) => word.normalizedText)
+        .where((word) => word.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
   }
 
   void _startDurationTimer() {

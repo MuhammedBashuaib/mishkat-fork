@@ -813,7 +813,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
           ),
           const SizedBox(height: 8),
           Text(
-            state.errorMessage ?? 'التعرف الصوتي المحلي غير جاهز. نزّل حزمة اللغة العربية من إعدادات الجهاز ثم أعد المحاولة.',
+            state.errorMessage ?? 'خدمة التعرف الصوتي غير جاهزة. فعّلها أو نزّل حزمة اللغة العربية ثم أعد المحاولة.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
@@ -853,7 +853,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
         ),
         const SizedBox(height: 8),
         Text(
-          'نحتاج إلى إذن الميكروفون حتى نتمكن من الاستماع إلى تلاوتك ومطابقتها محلياً على جهازك دون إرسال التسجيلات لأي خوادم خارجية.',
+          'نحتاج إلى إذن الميكروفون حتى نتمكن من الاستماع إلى تلاوتك ومطابقة الكلمات مع الآيات. لا يحتفظ مشكاة بتسجيلك الصوتي.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,

@@ -55,7 +55,10 @@ abstract class SpeechRecognitionService {
   Stream<String> get errorStream;
 
   /// Starts capturing microphone audio and streaming recognized speech.
-  Future<bool> startListening({String localeId = 'ar_SA'});
+  Future<bool> startListening({
+    String localeId = 'ar_SA',
+    List<String> contextualPhrases = const [],
+  });
 
   /// Stops capturing microphone audio, completing the current stream.
   Future<void> stopListening();
@@ -107,6 +110,15 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
         onError: _onError,
         onStatus: _onStatus,
         debugLogging: kDebugMode,
+        options: [
+          // Tasmee uses the phone microphone, not a Bluetooth audio route.
+          // Disabling Bluetooth here avoids an unrelated runtime permission
+          // preventing recognition on Android 12+ devices.
+          SpeechToText.androidNoBluetooth,
+          // A few Android vendors do not expose their default recognizer
+          // through the standard intent lookup path.
+          SpeechToText.androidIntentLookup,
+        ],
       );
       _isInitialized = available;
       return available;
@@ -152,7 +164,10 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
   }
 
   @override
-  Future<bool> startListening({String localeId = 'ar_SA'}) async {
+  Future<bool> startListening({
+    String localeId = 'ar_SA',
+    List<String> contextualPhrases = const [],
+  }) async {
     if (!_isInitialized) {
       final ok = await initialize();
       if (!ok) return false;
@@ -195,19 +210,29 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           listenMode: ListenMode.dictation,
           partialResults: true,
           cancelOnError: true,
-          // Prefer the operating-system language pack so Tasmee keeps working
-          // in airplane mode and microphone audio is not sent to a server.
-          onDevice: true,
+          // Do not force offline recognition. Many otherwise-supported phones
+          // do not have the Arabic on-device model installed and silently
+          // produce no words when `onDevice` is forced. The system recognizer
+          // can still choose its local engine when it is available.
+          onDevice: false,
           listenFor: const Duration(minutes: 5),
           pauseFor: const Duration(seconds: 4),
           localeId: targetLocale,
+          contextualPhrases: contextualPhrases.isEmpty
+              ? null
+              : contextualPhrases,
         ),
       );
       _hasStartedListening = true;
-      return _stt.isListening;
+      // `SpeechToText.isListening` only becomes true after the platform emits
+      // its asynchronous "listening" status. Reading it immediately here
+      // incorrectly reports a successful native listen call as failed on real
+      // devices. Reaching this line means the platform accepted the request;
+      // later failures are delivered through `_onError`.
+      return true;
     } catch (e) {
       _errorController.add(
-        'تعذّر بدء التسميع المحلي. تأكد من تنزيل حزمة التعرف على العربية من إعدادات الجهاز: $e',
+        'تعذّر بدء الاستماع. تأكد من تفعيل خدمة التعرف على الكلام في الجهاز ثم حاول مجددًا: $e',
       );
       return false;
     }
@@ -267,7 +292,8 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           'تعذّر الوصول إلى الميكروفون. تحقق من عدم استخدامه في تطبيق آخر.',
         'error_busy' || 'error_client' =>
           'محرك التعرف الصوتي مشغول مؤقتًا. سيُعاد تشغيل الاستماع تلقائيًا.',
-        'error_network' || 'error_network_timeout' => 'التعرف المحلي غير جاهز. نزّل حزمة اللغة العربية من إعدادات الجهاز ثم حاول مجددًا.',
+        'error_network' || 'error_network_timeout' => 'تعذّر الوصول إلى خدمة التعرف على الكلام. تحقق من الاتصال أو نزّل حزمة العربية للتعرف دون اتصال.',
+        'error_language_not_supported' || 'error_language_unavailable' => 'اللغة العربية غير مفعّلة في خدمة التعرف على الكلام في الجهاز. أضف العربية من إعدادات اللغة ثم حاول مجددًا.',
         'error_permission' || 'error_permission_denied' =>
           'إذن الميكروفون أو التعرف على الكلام غير متاح.',
         _ => 'توقف محرك التعرف الصوتي. حاول بدء التسميع مرة أخرى.',
@@ -304,6 +330,8 @@ class MockSpeechRecognitionService implements SpeechRecognitionService {
   int openAppSettingsCount = 0;
   int initializeCount = 0;
   int startListeningCount = 0;
+  String? lastLocaleId;
+  List<String> lastContextualPhrases = const [];
 
   final _resultsController =
       StreamController<SpeechRecognitionResultData>.broadcast();
@@ -359,8 +387,13 @@ class MockSpeechRecognitionService implements SpeechRecognitionService {
   }
 
   @override
-  Future<bool> startListening({String localeId = 'ar_SA'}) async {
+  Future<bool> startListening({
+    String localeId = 'ar_SA',
+    List<String> contextualPhrases = const [],
+  }) async {
     startListeningCount++;
+    lastLocaleId = localeId;
+    lastContextualPhrases = List.unmodifiable(contextualPhrases);
     if (!_hasPermission || !_isAvailable) return false;
     _isListening = true;
     _statusController.add('listening');
