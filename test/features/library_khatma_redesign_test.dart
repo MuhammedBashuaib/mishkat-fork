@@ -171,6 +171,8 @@ void main() {
     expect(find.text('المكتبة الإسلامية'), findsOneWidget);
     expect(find.textContaining('8 كتب'), findsOneWidget);
     expect(find.text('صحيح البخاري'), findsOneWidget);
+    expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
+    expect(find.byIcon(Icons.favorite_rounded), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

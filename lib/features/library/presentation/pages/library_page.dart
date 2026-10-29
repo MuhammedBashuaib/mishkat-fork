@@ -167,7 +167,6 @@ class _BooksView extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: _BookCard(
                 book: book,
-                favorite: state.favorites.contains(book.id),
                 bookmarkCount: cubit.bookmarksForBook(book.id),
                 hasSavedPosition: state.readingPositions.containsKey(book.id),
                 loading:
@@ -264,13 +263,11 @@ class _ContinueReadingCard extends StatelessWidget {
 class _BookCard extends StatelessWidget {
   const _BookCard({
     required this.book,
-    required this.favorite,
     required this.bookmarkCount,
     required this.hasSavedPosition,
     required this.loading,
   });
   final LibraryBook book;
-  final bool favorite;
   final int bookmarkCount;
   final bool hasSavedPosition;
   final bool loading;
@@ -303,34 +300,10 @@ class _BookCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      book.title,
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(99),
-                    onTap: () =>
-                        context.read<LibraryCubit>().toggleFavorite(book.id),
-                    child: Padding(
-                      padding: const EdgeInsets.all(5),
-                      child: Icon(
-                        favorite
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: favorite
-                            ? context.mishkat.error
-                            : context.mishkat.textMuted,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ],
+              Text(
+                book.title,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w900),
               ),
               Text(
                 book.author,
