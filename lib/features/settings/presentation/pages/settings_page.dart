@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -12,6 +13,7 @@ import '../../../prayer_times/data/services/prayer_calculator.dart';
 import '../../../quran/presentation/pages/offline_audio_downloads_page.dart';
 import '../cubit/settings_cubit.dart';
 import '../cubit/settings_state.dart';
+import '../../data/models/adhan_preferences.dart';
 import '../../data/models/app_settings.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -43,6 +45,8 @@ class SettingsPage extends StatelessWidget {
                 _LocationSettings(state: state),
                 const SectionHeading(title: 'التنبيهات'),
                 _NotificationSettings(settings: settings),
+                const SizedBox(height: 12),
+                _AdhanSettings(settings: settings),
                 const SectionHeading(title: 'المظهر والقراءة'),
                 _AppearanceSettings(settings: settings),
                 const SizedBox(height: 16),
@@ -215,32 +219,208 @@ class _NotificationSettings extends StatelessWidget {
         ),
         if (settings.notificationsEnabled) ...[
           const Divider(),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final prayer in PrayerCalculator.order.where(
-                (item) => !item.noAdhan,
-              ))
-                FilterChip(
-                  label: Text(prayer.name),
-                  selected: settings.prayerNotifications[prayer.key] == true,
-                  onSelected: (value) => context
-                      .read<SettingsCubit>()
-                      .setPrayerNotification(prayer.key, value),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: context.read<SettingsCubit>().testNotification,
-            icon: const Icon(Icons.notification_add_outlined),
-            label: const Text('إرسال تنبيه تجريبي'),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.check_circle_outline_rounded),
+            title: const Text('جاهز للعمل في الخلفية'),
+            subtitle: const Text(
+              'تُجدول المواقيت محليًا وتعمل التنبيهات دون إنترنت.',
+            ),
+            trailing: settings.adhanSound
+                ? null
+                : IconButton(
+                    onPressed: context.read<SettingsCubit>().testNotification,
+                    icon: const Icon(Icons.notification_add_outlined),
+                    tooltip: 'إرسال تنبيه تجريبي',
+                  ),
           ),
         ],
       ],
     ),
   );
+}
+
+class _AdhanSettings extends StatelessWidget {
+  const _AdhanSettings({required this.settings});
+  final AppSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final notificationsReady = settings.notificationsEnabled;
+    final selectedVoice = AdhanVoice.byId(settings.adhanFile);
+    final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+    return MishkatCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: context.mishkat.primarySoft,
+                borderRadius: MishkatRadius.brMd,
+              ),
+              child: Icon(
+                Icons.campaign_outlined,
+                color: context.mishkat.primary,
+              ),
+            ),
+            title: const Text(
+              'الأذان عند دخول الوقت',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            subtitle: Text(
+              notificationsReady
+                  ? 'اختر المؤذن والمدة والصلوات التي تريدها'
+                  : 'فعّل نظام التنبيهات أولًا لاستخدام الأذان',
+            ),
+            value: settings.adhanSound,
+            onChanged: notificationsReady
+                ? context.read<SettingsCubit>().setAdhanSound
+                : null,
+          ),
+          if (settings.adhanSound && notificationsReady) ...[
+            const Divider(height: 28),
+            const Text(
+              'مدة التشغيل',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<AdhanPlaybackMode>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: AdhanPlaybackMode.full,
+                  icon: Icon(Icons.graphic_eq_rounded),
+                  label: Text('الأذان كامل'),
+                ),
+                ButtonSegment(
+                  value: AdhanPlaybackMode.short,
+                  icon: Icon(Icons.timelapse_rounded),
+                  label: Text('مختصر · 29 ثانية'),
+                ),
+              ],
+              selected: {settings.adhanPlaybackMode},
+              onSelectionChanged: (selection) => context
+                  .read<SettingsCubit>()
+                  .setAdhanPlaybackMode(selection.first),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: selectedVoice.id,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'المؤذن',
+                prefixIcon: Icon(Icons.record_voice_over_outlined),
+              ),
+              items: [
+                for (final voice in AdhanVoice.voices)
+                  DropdownMenuItem(
+                    value: voice.id,
+                    child: Text(
+                      voice.muezzin,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  context.read<SettingsCubit>().setAdhanFile(value);
+                }
+              },
+            ),
+            Padding(
+              padding: const EdgeInsetsDirectional.only(top: 6, start: 12),
+              child: Text(
+                selectedVoice.description,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.mishkat.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'الصلوات التي يرفع عندها الأذان',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'أوقف أو فعّل الصوت لكل صلاة بشكل مستقل.',
+              style: TextStyle(
+                fontSize: 12,
+                color: context.mishkat.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final prayer in PrayerCalculator.order.where(
+                  (item) => !item.noAdhan,
+                ))
+                  FilterChip(
+                    avatar: Icon(
+                      settings.prayerAdhanEnabled[prayer.key] == true
+                          ? Icons.volume_up_rounded
+                          : Icons.volume_off_rounded,
+                      size: 18,
+                    ),
+                    label: Text(prayer.name),
+                    selected: settings.prayerAdhanEnabled[prayer.key] == true,
+                    onSelected: (enabled) => context
+                        .read<SettingsCubit>()
+                        .setPrayerAdhan(prayer.key, enabled),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: context.read<SettingsCubit>().testNotification,
+              icon: const Icon(Icons.play_circle_outline_rounded),
+              label: Text('تجربة صوت ${selectedVoice.muezzin}'),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: context.mishkat.surfaceVariant,
+                borderRadius: MishkatRadius.brMd,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 19,
+                    color: context.mishkat.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isIos
+                          ? 'في iPhone يسمح النظام لصوت الإشعار بحد أقصى 30 ثانية عند إغلاق التطبيق؛ لذلك يُستخدم المقطع المختصر تلقائيًا.'
+                          : 'يعمل الصوت المختار من ملفات التطبيق دون إنترنت، حتى عند إغلاق التطبيق. قد يؤثر وضع الصامت أو عدم الإزعاج بحسب إعدادات جهازك.',
+                      style: TextStyle(
+                        height: 1.5,
+                        fontSize: 12,
+                        color: context.mishkat.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _AppearanceSettings extends StatelessWidget {
@@ -603,7 +783,7 @@ class _AdvancedNotificationSettings extends StatelessWidget {
     child: ExpansionTile(
       key: const PageStorageKey('settings-notifications'),
       title: const Text(
-        'الصوت والتذكير',
+        'التذكير والأذكار',
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
       subtitle: const Text('التذكير المبكر وأذكار متنوعة على مدار اليوم'),
@@ -625,31 +805,6 @@ class _AdvancedNotificationSettings extends StatelessWidget {
               context.read<SettingsCubit>().setPreMinutes(value);
             }
           },
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('صوت الأذان'),
-          value: settings.adhanSound,
-          onChanged: context.read<SettingsCubit>().setAdhanSound,
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: settings.adhanFile,
-          decoration: const InputDecoration(labelText: 'اختيار صوت الأذان'),
-          items: List.generate(
-            6,
-            (index) => DropdownMenuItem(
-              value: 'adhan${index + 1}',
-              child: Text('أذان ${index + 1}'),
-            ),
-          ),
-          onChanged: settings.adhanSound
-              ? (value) {
-                  if (value != null) {
-                    context.read<SettingsCubit>().setAdhanFile(value);
-                  }
-                }
-              : null,
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,

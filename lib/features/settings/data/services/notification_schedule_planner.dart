@@ -5,6 +5,7 @@ import '../../../prayer_times/domain/models/prayer_models.dart';
 import '../../../quran/data/models/memorization_plan.dart';
 import '../../../quran/data/repositories/quran_memorization_repository.dart';
 import '../models/app_settings.dart';
+import '../models/adhan_preferences.dart';
 import '../../../../core/services/local_storage_service.dart';
 
 /// Builds one coherent notification calendar from the user's local data.
@@ -83,6 +84,9 @@ class NotificationSchedulePlanner {
       )) {
         final at = times[prayer.key];
         final enabled = settings.prayerNotifications[prayer.key] == true;
+        final adhanEnabled =
+            settings.adhanSound &&
+            settings.prayerAdhanEnabled[prayer.key] == true;
         if (at != null && enabled) {
           if (settings.preMinutes > 0) {
             final reminderAt = at.subtract(
@@ -96,7 +100,7 @@ class NotificationSchedulePlanner {
                   body: 'بقي ${settings.preMinutes} دقيقة على الأذان.',
                   at: reminderAt,
                   payload: 'prayer:${prayer.key}:pre',
-                  sound: settings.adhanSound,
+                  sound: true,
                   vibrate: settings.vibrate,
                   kind: AppNotificationKind.prayerReminder,
                 ),
@@ -114,9 +118,12 @@ class NotificationSchedulePlanner {
                     : '$place — حيّ على الصلاة، حيّ على الفلاح.',
                 at: at,
                 payload: 'prayer:${prayer.key}',
-                sound: settings.adhanSound,
+                sound: adhanEnabled,
                 vibrate: settings.vibrate,
-                soundName: settings.adhanSound ? settings.adhanFile : null,
+                soundName: adhanEnabled
+                    ? AdhanVoice.byId(settings.adhanFile)
+                          .soundName(settings.adhanPlaybackMode)
+                    : null,
                 kind: AppNotificationKind.adhan,
               ),
             );

@@ -3,6 +3,7 @@ import 'package:mishkat_app/core/services/local_notification_service.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/features/khatma/data/models/khatma_plan.dart';
 import 'package:mishkat_app/features/quran/data/models/memorization_plan.dart';
+import 'package:mishkat_app/features/settings/data/models/adhan_preferences.dart';
 import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
 import 'package:mishkat_app/features/settings/data/services/notification_schedule_planner.dart';
 
@@ -114,6 +115,63 @@ void main() {
       NotificationSchedulePlanner.memorizationReminderId,
     );
     expect(result.single.at.isBefore(DateTime(2000)), isTrue);
+  });
+
+  test('applies the selected adhan length and per-prayer sound settings', () {
+    final now = DateTime(2026, 10, 19);
+    const settings = AppSettings(
+      latitude: 21.4225,
+      longitude: 39.8262,
+      city: 'مكة المكرمة',
+      notificationsEnabled: true,
+      adhanFile: 'adhan4',
+      adhanPlaybackMode: AdhanPlaybackMode.short,
+      preMinutes: 10,
+      prayerAdhanEnabled: {
+        'fajr': false,
+        'dhuhr': true,
+        'asr': true,
+        'maghrib': true,
+        'isha': true,
+      },
+    );
+
+    final result = NotificationSchedulePlanner.build(
+      storage: _MemoryStorage(const {}),
+      settings: settings,
+      now: now,
+      days: 1,
+    );
+
+    final fajr = result.singleWhere((item) => item.payload == 'prayer:fajr');
+    expect(fajr.sound, isFalse);
+    expect(fajr.soundName, isNull);
+
+    final dhuhr = result.singleWhere((item) => item.payload == 'prayer:dhuhr');
+    expect(dhuhr.sound, isTrue);
+    expect(dhuhr.soundName, 'adhan4_short');
+
+    final earlyReminder = result.singleWhere(
+      (item) => item.payload == 'prayer:dhuhr:pre',
+    );
+    expect(earlyReminder.sound, isTrue);
+    expect(earlyReminder.soundName, isNull);
+  });
+
+  test('migrates legacy prayer choices into per-prayer adhan settings', () {
+    final settings = AppSettings.fromJson({
+      'adhanFile': 'a2',
+      'prayerNotifications': {'fajr': false, 'dhuhr': true},
+    });
+
+    expect(settings.adhanFile, 'adhan2');
+    expect(settings.adhanPlaybackMode, AdhanPlaybackMode.full);
+    expect(settings.prayerAdhanEnabled['fajr'], isFalse);
+    expect(settings.prayerAdhanEnabled['dhuhr'], isTrue);
+    expect(settings.prayerAdhanEnabled['asr'], isTrue);
+
+    final restored = AppSettings.fromJson(settings.toJson());
+    expect(restored, settings);
   });
 }
 

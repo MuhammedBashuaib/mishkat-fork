@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
+import 'adhan_preferences.dart';
+
 const _unset = Object();
 
 enum AppThemePreference { system, light, dark }
@@ -27,8 +29,16 @@ class AppSettings extends Equatable {
     this.notificationsEnabled = false,
     this.adhanSound = true,
     this.adhanFile = 'adhan1',
+    this.adhanPlaybackMode = AdhanPlaybackMode.full,
     this.preMinutes = 0,
     this.prayerNotifications = const {
+      'fajr': true,
+      'dhuhr': true,
+      'asr': true,
+      'maghrib': true,
+      'isha': true,
+    },
+    this.prayerAdhanEnabled = const {
       'fajr': true,
       'dhuhr': true,
       'asr': true,
@@ -60,8 +70,10 @@ class AppSettings extends Equatable {
   final bool notificationsEnabled;
   final bool adhanSound;
   final String adhanFile;
+  final AdhanPlaybackMode adhanPlaybackMode;
   final int preMinutes;
   final Map<String, bool> prayerNotifications;
+  final Map<String, bool> prayerAdhanEnabled;
   final bool adhkarNotifications;
   final AppThemePreference theme;
   final double uiFontScale;
@@ -102,6 +114,15 @@ class AppSettings extends Equatable {
     }
 
     final themeName = json['theme'] as String? ?? 'system';
+    const defaultPrayers = {
+      'fajr': true,
+      'dhuhr': true,
+      'asr': true,
+      'maghrib': true,
+      'isha': true,
+    };
+    final prayerNotifications = boolMap('prayerNotifications', defaultPrayers);
+    final adhanModeName = json['adhanPlaybackMode'] as String? ?? 'full';
     return AppSettings(
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
@@ -123,14 +144,13 @@ class AppSettings extends Equatable {
       notificationsEnabled: json['notificationsEnabled'] == true,
       adhanSound: json['adhanSound'] != false,
       adhanFile: _validAdhanFile(json['adhanFile'] as String?),
+      adhanPlaybackMode: AdhanPlaybackMode.values.firstWhere(
+        (mode) => mode.name == adhanModeName,
+        orElse: () => AdhanPlaybackMode.full,
+      ),
       preMinutes: (json['preMinutes'] as num?)?.toInt() ?? 0,
-      prayerNotifications: boolMap('prayerNotifications', const {
-        'fajr': true,
-        'dhuhr': true,
-        'asr': true,
-        'maghrib': true,
-        'isha': true,
-      }),
+      prayerNotifications: prayerNotifications,
+      prayerAdhanEnabled: boolMap('prayerAdhanEnabled', prayerNotifications),
       adhkarNotifications: json['adhkarNotifications'] == true,
       theme: AppThemePreference.values.firstWhere(
         (item) => item.name == themeName,
@@ -162,8 +182,10 @@ class AppSettings extends Equatable {
     'notificationsEnabled': notificationsEnabled,
     'adhanSound': adhanSound,
     'adhanFile': adhanFile,
+    'adhanPlaybackMode': adhanPlaybackMode.name,
     'preMinutes': preMinutes,
     'prayerNotifications': prayerNotifications,
+    'prayerAdhanEnabled': prayerAdhanEnabled,
     'adhkarNotifications': adhkarNotifications,
     'theme': theme.name,
     'uiFontScale': uiFontScale,
@@ -190,8 +212,10 @@ class AppSettings extends Equatable {
     bool? notificationsEnabled,
     bool? adhanSound,
     String? adhanFile,
+    AdhanPlaybackMode? adhanPlaybackMode,
     int? preMinutes,
     Map<String, bool>? prayerNotifications,
+    Map<String, bool>? prayerAdhanEnabled,
     bool? adhkarNotifications,
     AppThemePreference? theme,
     double? uiFontScale,
@@ -218,8 +242,10 @@ class AppSettings extends Equatable {
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     adhanSound: adhanSound ?? this.adhanSound,
     adhanFile: adhanFile ?? this.adhanFile,
+    adhanPlaybackMode: adhanPlaybackMode ?? this.adhanPlaybackMode,
     preMinutes: preMinutes ?? this.preMinutes,
     prayerNotifications: prayerNotifications ?? this.prayerNotifications,
+    prayerAdhanEnabled: prayerAdhanEnabled ?? this.prayerAdhanEnabled,
     adhkarNotifications: adhkarNotifications ?? this.adhkarNotifications,
     theme: theme ?? this.theme,
     uiFontScale: uiFontScale ?? this.uiFontScale,
@@ -247,8 +273,10 @@ class AppSettings extends Equatable {
     notificationsEnabled,
     adhanSound,
     adhanFile,
+    adhanPlaybackMode,
     preMinutes,
     prayerNotifications,
+    prayerAdhanEnabled,
     adhkarNotifications,
     theme,
     uiFontScale,
@@ -263,9 +291,9 @@ class AppSettings extends Equatable {
 }
 
 String _validAdhanFile(String? value) {
-  const allowed = {'adhan1', 'adhan2', 'adhan3', 'adhan4', 'adhan5', 'adhan6'};
+  const allowed = {'adhan1', 'adhan2', 'adhan4'};
   if (value != null && allowed.contains(value)) return value;
-  if (value != null && RegExp(r'^a[1-6]$').hasMatch(value)) {
+  if (value != null && RegExp(r'^a[124]$').hasMatch(value)) {
     return 'adhan${value.substring(1)}';
   }
   return 'adhan1';

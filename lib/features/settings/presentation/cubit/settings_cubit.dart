@@ -7,6 +7,7 @@ import '../../../../core/services/local_notification_service.dart';
 import '../../../../core/services/local_storage_service.dart';
 import '../../../../core/services/location_service.dart';
 import '../../data/models/app_settings.dart';
+import '../../data/models/adhan_preferences.dart';
 import '../../data/services/notification_schedule_planner.dart';
 import 'settings_state.dart';
 
@@ -101,6 +102,10 @@ class SettingsCubit extends Cubit<SettingsState> {
       _save(state.settings.copyWith(adhanSound: value), reschedule: true);
   Future<void> setAdhanFile(String value) =>
       _save(state.settings.copyWith(adhanFile: value), reschedule: true);
+  Future<void> setAdhanPlaybackMode(AdhanPlaybackMode value) => _save(
+    state.settings.copyWith(adhanPlaybackMode: value),
+    reschedule: true,
+  );
   Future<void> setVibration(bool value) =>
       _save(state.settings.copyWith(vibrate: value), reschedule: true);
   Future<void> setAutoScroll(bool value) =>
@@ -137,6 +142,25 @@ class SettingsCubit extends Cubit<SettingsState> {
     );
   }
 
+  Future<void> setPrayerAdhan(String prayer, bool enabled) {
+    final adhanValues = Map<String, bool>.from(
+      state.settings.prayerAdhanEnabled,
+    )..[prayer] = enabled;
+    final notificationValues = Map<String, bool>.from(
+      state.settings.prayerNotifications,
+    );
+    // A system notification is the reliable, OS-supported trigger for an
+    // adhan while the application is closed.
+    if (enabled) notificationValues[prayer] = true;
+    return _save(
+      state.settings.copyWith(
+        prayerAdhanEnabled: adhanValues,
+        prayerNotifications: notificationValues,
+      ),
+      reschedule: true,
+    );
+  }
+
   Future<bool> setNotificationsEnabled(bool enabled) async {
     if (enabled && !await _notifications.requestPermission()) {
       emit(
@@ -159,7 +183,10 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> testNotification() => _notifications.showTest(
     sound: state.settings.adhanSound,
     vibrate: state.settings.vibrate,
-    soundName: state.settings.adhanSound ? state.settings.adhanFile : null,
+    soundName: state.settings.adhanSound
+        ? AdhanVoice.byId(state.settings.adhanFile)
+              .soundName(state.settings.adhanPlaybackMode)
+        : null,
   );
 
   Future<void> clearAllData() async {

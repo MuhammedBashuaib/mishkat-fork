@@ -144,18 +144,27 @@ class LocalNotificationService {
   }) {
     final item = ScheduledAppNotification(
       id: 999999,
-      title: 'مشكاة',
-      body: 'التنبيهات تعمل بنجاح — بارك الله في وقتك.',
+      title: soundName == null ? 'تنبيه تجريبي' : 'تجربة صوت الأذان',
+      body: soundName == null
+          ? 'التنبيهات تعمل بنجاح — بارك الله في وقتك.'
+          : 'هذا هو الصوت الذي سيعمل عند دخول وقت الصلاة.',
       at: DateTime.now(),
       sound: sound,
       vibrate: vibrate,
       soundName: soundName,
+      kind: soundName == null
+          ? AppNotificationKind.general
+          : AppNotificationKind.adhan,
     );
     return _plugin.show(item.id, item.title, item.body, _detailsFor(item));
   }
 
   NotificationDetails _detailsFor(ScheduledAppNotification item) {
     final customSound = item.sound && item.soundName != null;
+    final androidSoundName = item.soundName;
+    // iOS notification sounds are limited to 30 seconds. The bundled CAF
+    // files use the base name and contain a 29-second excerpt.
+    final iosSoundName = item.soundName?.replaceFirst(RegExp(r'_short$'), '');
     final channelSuffix = !item.sound
         ? 'silent'
         : customSound
@@ -173,13 +182,13 @@ class LocalNotificationService {
         category: AndroidNotificationCategory.reminder,
         playSound: item.sound,
         sound: customSound
-            ? RawResourceAndroidNotificationSound(item.soundName!)
+            ? RawResourceAndroidNotificationSound(androidSoundName!)
             : null,
         enableVibration: item.vibrate,
       ),
       iOS: DarwinNotificationDetails(
         presentSound: item.sound,
-        sound: customSound ? '${item.soundName}.caf' : null,
+        sound: customSound ? '$iosSoundName.caf' : null,
         interruptionLevel: item.kind == AppNotificationKind.adhan
             ? InterruptionLevel.timeSensitive
             : InterruptionLevel.active,
