@@ -16,6 +16,8 @@ import '../cubit/quran_cubit.dart';
 import '../cubit/quran_oral_recitation_cubit.dart';
 import '../cubit/quran_oral_recitation_state.dart';
 import '../services/speech_recognition_service.dart';
+import '../services/arabic_speech_model_service.dart';
+import '../widgets/arabic_speech_model_sheet.dart';
 
 /// Production page for real microphone-based Oral Recitation, real-time Quran alignment,
 /// mistake inspection, and memorization progress recording.
@@ -103,11 +105,13 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
     with WidgetsBindingObserver {
   final Map<int, GlobalKey> _ayahKeys = <int, GlobalKey>{};
   int? _lastFocusedGlobalAyah;
+  final _arabicModel = ArabicSpeechModelService.instance;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_arabicModel.refresh());
   }
 
   @override
@@ -120,6 +124,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       context.read<QuranOralRecitationCubit>().checkAndRefreshPermission();
+      unawaited(_arabicModel.refresh());
     } else if ((state == AppLifecycleState.inactive ||
             state == AppLifecycleState.paused ||
             state == AppLifecycleState.detached ||
@@ -181,6 +186,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
                 : Column(
                     children: [
                       _buildHeaderBanner(context, state),
+                      _buildArabicModelButton(),
                       Expanded(child: _buildRecitationCanvas(context, state)),
                       if (state.liveTranscript.isNotEmpty)
                         _buildTranscriptTicker(context, state),
@@ -190,6 +196,39 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildArabicModelButton() {
+    return AnimatedBuilder(
+      animation: _arabicModel,
+      builder: (context, _) => TextButton.icon(
+        onPressed: _showArabicModel,
+        icon: Icon(_arabicModel.status.isInstalled
+            ? Icons.offline_pin_outlined
+            : Icons.download_rounded, size: 19),
+        label: Text(_arabicModel.status.isInstalled
+            ? 'العربية جاهزة دون إنترنت'
+            : _arabicModel.status.isPending
+                ? 'حزمة العربية قيد التنزيل'
+                : 'تحميل حزمة العربية · التسميع دون إنترنت'),
+      ),
+    );
+  }
+
+  Future<void> _showArabicModel() async {
+    final cubit = context.read<QuranOralRecitationCubit>();
+    // Model selection changes take effect on a fresh capture session.
+    await cubit.pauseRecitation();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => ArabicSpeechModelSheet(
+        service: _arabicModel,
+        openSettings: cubit.openSpeechRecognitionSettings,
+      ),
     );
   }
 

@@ -9,18 +9,36 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
+    private var speechModels: ArabicSpeechModelManager? = null
+    private var speechSettingsChannel: MethodChannel? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(
+        speechModels?.dispose()
+        val channel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "com.dakomn.mishkatapp/speech_settings",
-        ).setMethodCallHandler { call, result ->
+        )
+        val models = ArabicSpeechModelManager(this, channel)
+        speechModels = models
+        speechSettingsChannel = channel
+        channel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "openVoiceInputSettings" -> result.success(openVoiceInputSettings())
+                "getArabicModelStatus" -> models.getStatus { result.success(it) }
+                "downloadArabicModel" -> models.download { result.success(it) }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        speechSettingsChannel?.setMethodCallHandler(null)
+        speechSettingsChannel = null
+        speechModels?.dispose()
+        speechModels = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     private fun openVoiceInputSettings(): Boolean {

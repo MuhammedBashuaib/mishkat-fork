@@ -8,6 +8,8 @@ import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import 'arabic_speech_model_service.dart';
+
 /// Transcribed speech result payload emitted by a [SpeechRecognitionService].
 class SpeechRecognitionResultData {
   const SpeechRecognitionResultData({
@@ -117,10 +119,15 @@ abstract class SpeechRecognitionService {
 
 /// Production implementation of [SpeechRecognitionService] backed by native platform ASR ([SpeechToText]).
 class NativeSpeechRecognitionService implements SpeechRecognitionService {
-  NativeSpeechRecognitionService({SpeechToText? speechToText})
-    : _stt = speechToText ?? SpeechToText();
+  NativeSpeechRecognitionService({
+    SpeechToText? speechToText,
+    ArabicSpeechModelService? arabicModelService,
+  }) : _stt = speechToText ?? SpeechToText(),
+       _arabicModelService =
+           arabicModelService ?? ArabicSpeechModelService.instance;
 
   final SpeechToText _stt;
+  final ArabicSpeechModelService _arabicModelService;
 
   static const MethodChannel _settingsChannel = MethodChannel(
     'com.dakomn.mishkatapp/speech_settings',
@@ -141,9 +148,13 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
   Future<bool>? _initialization;
   Future<bool>? _startOperation;
   Completer<bool>? _startAcknowledgement;
+  Future<void>? _releaseOperation;
+  bool _hasCheckedArabicModel = false;
 
   static const _startupTimeout = Duration(seconds: 6);
   static const _localeTimeout = Duration(seconds: 3);
+  static const _initializationTimeout = Duration(seconds: 8);
+  static const _releaseTimeout = Duration(seconds: 3);
 
   bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -197,7 +208,7 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           // selects the first installed service, which can select a different
           // (or unsupported) engine on phones with several voice services.
         ],
-      );
+      ).timeout(_initializationTimeout);
       if (_isDisposed) return false;
       // SpeechToText() is a singleton and its initialize() ignores callbacks
       // after its first successful call. A reopened recitation page must own
@@ -364,6 +375,11 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
     List<String> contextualPhrases,
   ) async {
     final generation = ++_sessionGeneration;
+    // A rapid resume can arrive while the previous stop/cancel platform call
+    // is still in flight. Starting earlier lets that old teardown stop the
+    // new microphone session.
+    await _releaseOperation;
+    if (!_isCurrentSession(generation)) return false;
     final initialized = await initialize();
     if (!initialized || !_isCurrentSession(generation)) return false;
 
@@ -374,17 +390,41 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
     if (_hasStartedListening) {
       _acceptRecognitionEvents = false;
       try {
-        await _stt.cancel();
+        await _stt.cancel().timeout(_releaseTimeout);
       } catch (_) {}
       _hasStartedListening = false;
     }
     if (!_isCurrentSession(generation)) return false;
 
+    if (!_hasCheckedArabicModel) {
+      try {
+        await _arabicModelService.refresh();
+      } catch (_) {
+        // Online recognition can still work when the OS cannot inspect its
+        // local language models. Explicit offline mode is checked below.
+      }
+      _hasCheckedArabicModel = true;
+    }
+    if (!_isCurrentSession(generation)) return false;
+    final arabicModel = _arabicModelService.status;
+    final useOnDevice = arabicModel.isInstalled;
+    if (_arabicModelService.offlineOnly && !useOnDevice) {
+      _errorController.add(
+        const SpeechRecognitionFailure(
+          type: SpeechRecognitionFailureType.languageUnavailable,
+          message:
+              'التسميع دون إنترنت يحتاج حزمة عربية جاهزة على الجهاز. نزّل الحزمة وأعد فحصها، أو أوقف خيار دون إنترنت فقط.',
+        ),
+      );
+      return false;
+    }
+
     // Android accepts a BCP-47 locale directly, including online-only Arabic.
     // Never put its unreliable on-device language enumeration on the startup
     // path: this used to prevent the microphone opening on Android 13+ phones.
     var targetLocale = _isAndroid ? localeId.replaceAll('_', '-') : localeId;
-    if (!_isAndroid) {
+    if (useOnDevice) targetLocale = arabicModel.localeId;
+    if (!_isAndroid && !useOnDevice) {
       try {
         final locales = await _stt.locales().timeout(_localeTimeout);
         final arabicLocales = locales
@@ -420,12 +460,12 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
             listenOptions: SpeechListenOptions(
               listenMode: ListenMode.dictation,
               partialResults: true,
-              cancelOnError: true,
-              // Do not force offline recognition. Many otherwise-supported phones
-              // do not have the Arabic on-device model installed and silently
-              // produce no words when `onDevice` is forced. The system recognizer
-              // can still choose its local engine when it is available.
-              onDevice: false,
+              // The adapter owns cancellation so it can await teardown before
+              // a restart. Plugin auto-cancel otherwise races with resume.
+              cancelOnError: false,
+              // Only force local capture after the OS confirms this exact
+              // Arabic model is installed. Offline-only never falls online.
+              onDevice: useOnDevice,
               listenFor: const Duration(minutes: 5),
               pauseFor: const Duration(seconds: 4),
               localeId: targetLocale,
@@ -489,22 +529,35 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
   }
 
   @override
-  Future<void> stopListening() async {
+  Future<void> stopListening() {
     _invalidateSession();
     // The native microphone may already be starting before isListening is
     // reported. End that request as well as an acknowledged listening session.
-    if (_hasStartedListening) {
-      await _stt.stop();
-    }
+    return _releaseCapture(stop: true);
   }
 
   @override
-  Future<void> cancelListening() async {
+  Future<void> cancelListening() {
     _invalidateSession();
-    if (_hasStartedListening) {
-      _hasStartedListening = false;
-      await _stt.cancel();
-    }
+    return _releaseCapture(stop: false);
+  }
+
+  Future<void> _releaseCapture({required bool stop}) {
+    final previous = _releaseOperation;
+    final shouldRelease = _hasStartedListening;
+    if (!stop) _hasStartedListening = false;
+    final operation = () async {
+      await previous;
+      if (!shouldRelease) return;
+      try {
+        await (stop ? _stt.stop() : _stt.cancel()).timeout(_releaseTimeout);
+      } catch (_) {
+        // A failed teardown must not lock the UI; the next native start
+        // creates/reconnects its recognizer.
+      }
+    }();
+    _releaseOperation = operation;
+    return operation;
   }
 
   void _onResult(SpeechRecognitionResult result) {
@@ -542,6 +595,9 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
   void _onError(SpeechRecognitionError error) {
     if (!_acceptRecognitionEvents) return;
     _acknowledgeStart(false);
+    // Ignore terminal callbacks from this failed cycle. In particular `done`
+    // must not replace a network/busy recovery delay with an immediate retry.
+    unawaited(cancelListening());
     if (!_errorController.isClosed) {
       final failure = switch (error.errorMsg) {
         'error_no_match' => const SpeechRecognitionFailure(
@@ -557,7 +613,10 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           message:
               'تعذّر الوصول إلى الميكروفون. تحقق من عدم استخدامه في تطبيق آخر.',
         ),
-        'error_busy' || 'error_client' => const SpeechRecognitionFailure(
+        'error_busy' ||
+        'error_client' ||
+        'error_retry' ||
+        'error_too_many_requests' => const SpeechRecognitionFailure(
           type: SpeechRecognitionFailureType.busy,
           message: 'محرك التعرف الصوتي مشغول مؤقتًا. سيُعاد تشغيل الاستماع تلقائيًا.',
         ),

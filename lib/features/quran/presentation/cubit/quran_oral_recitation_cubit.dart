@@ -47,6 +47,25 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   bool _isClosing = false;
   int _captureOperation = 0;
   int _busyRestartAttempts = 0;
+  int _networkRestartAttempts = 0;
+  bool _recoveryPending = false;
+  Future<void>? _captureRelease;
+
+  Future<void> _releaseCapture({bool stop = false}) {
+    final previous = _captureRelease;
+    final release = () async {
+      await previous;
+      try {
+        if (stop) {
+          await speechService.stopListening();
+        } else {
+          await speechService.cancelListening();
+        }
+      } catch (_) {}
+    }();
+    _captureRelease = release;
+    return release;
+  }
 
   bool _isCurrentOperation(int operation) =>
       !isClosed && !_isClosing && operation == _captureOperation;
@@ -66,13 +85,15 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     if (isClosed || _isClosing) return;
     final operation = ++_captureOperation;
     _busyRestartAttempts = 0;
+    _networkRestartAttempts = 0;
+    _recoveryPending = false;
     _durationTimer?.cancel();
     _durationTimer = null;
     _recognitionRestartTimer?.cancel();
     _recognitionRestartTimer = null;
     _cancelSubscriptions();
     try {
-      await speechService.cancelListening();
+      await _releaseCapture();
     } catch (_) {}
     if (!_isCurrentOperation(operation)) return;
     _committedTargetIndex = 0;
@@ -411,9 +432,13 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     _isStartingRecognition = true;
     final operation = ++_captureOperation;
     _busyRestartAttempts = 0;
+    _networkRestartAttempts = 0;
+    _recoveryPending = false;
     _recognitionRestartTimer?.cancel();
     _recognitionRestartTimer = null;
     try {
+      await _captureRelease;
+      if (!_isCurrentOperation(operation)) return;
       // Release playback before acquiring the microphone.
       try {
         await audioService?.stop();
@@ -443,7 +468,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       if (!_isCurrentOperation(operation) || !state.lifecycle.isListening) {
         // A late native start must not turn the mic back on after pause/exit.
         try {
-          await speechService.cancelListening();
+          await _releaseCapture();
         } catch (_) {}
         return;
       }
@@ -490,7 +515,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     _recognitionRestartTimer = null;
     emit(state.copyWith(lifecycle: OralRecitationLifecycle.paused));
     try {
-      await speechService.stopListening();
+      await _releaseCapture(stop: true);
     } catch (_) {}
   }
 
@@ -531,7 +556,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     );
 
     try {
-      await speechService.stopListening();
+      await _releaseCapture(stop: true);
     } catch (_) {}
   }
 
@@ -593,6 +618,10 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
     final transcript = result.recognizedWords.trim();
     if (transcript.isEmpty) return;
+    // Actual recognized speech establishes a healthy cycle. A previous
+    // intermittent failure must not consume the budget for this whole session.
+    _busyRestartAttempts = 0;
+    _networkRestartAttempts = 0;
     _busyRestartAttempts = 0;
 
     // Deduplicate identical repeated callbacks if transcript hasn't changed
@@ -668,15 +697,26 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     // Silence/no-match and a recognizer-busy race are normal boundaries of a
     // native speech session, especially on Android. Keep the UI listening and
     // start a clean recognition cycle instead of presenting a fatal error.
+    final isBusy = failure.type == SpeechRecognitionFailureType.busy;
+    final isNetwork = failure.type == SpeechRecognitionFailureType.network;
     final recoverable =
         failure.type == SpeechRecognitionFailureType.noMatch ||
         failure.type == SpeechRecognitionFailureType.timeout ||
-        failure.type == SpeechRecognitionFailureType.busy;
+        isBusy ||
+        isNetwork;
     final exhaustedBusyRetries =
-        failure.type == SpeechRecognitionFailureType.busy &&
-        ++_busyRestartAttempts > 3;
-    if (recoverable && !exhaustedBusyRetries) {
-      _scheduleRecognitionRestart();
+        isBusy && ++_busyRestartAttempts > 3;
+    final exhaustedNetworkRetries =
+        isNetwork && ++_networkRestartAttempts > 2;
+    if (recoverable && !exhaustedBusyRetries && !exhaustedNetworkRetries) {
+      _recoveryPending = true;
+      _scheduleRecognitionRestart(
+        delay: isNetwork
+            ? Duration(milliseconds: 750 * (1 << (_networkRestartAttempts - 1)))
+            : isBusy
+            ? Duration(milliseconds: 250 * _busyRestartAttempts)
+            : const Duration(milliseconds: 250),
+      );
       return;
     }
 
@@ -684,8 +724,9 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     _durationTimer = null;
     _recognitionRestartTimer?.cancel();
     _recognitionRestartTimer = null;
+    _recoveryPending = false;
     // End capture on every fatal error, including network/audio failures.
-    unawaited(speechService.cancelListening().catchError((Object _) {}));
+    unawaited(_releaseCapture());
     if (failure.type == SpeechRecognitionFailureType.languageUnavailable) {
       emit(
         state.copyWith(
@@ -727,6 +768,9 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     }
     if ((status == 'notListening' || status == 'done') &&
         state.lifecycle.isListening) {
+      // Errors are commonly followed by both status events. Preserve the
+      // error recovery backoff instead of repeatedly shortening it to 80ms.
+      if (_recoveryPending || _isRestartingRecognition) return;
       // On pause / utterance end: commit current target progress if forward
       if (state.currentWordIndex > _committedTargetIndex) {
         _committedTargetIndex = state.currentWordIndex;
@@ -779,18 +823,19 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       // Ensure the prior timed-out/error cycle releases the native recognizer
       // before the next listen call. This prevents Android's error_busy loop.
       try {
-        await speechService.cancelListening();
+        await _releaseCapture();
       } catch (_) {}
       if (!_isCurrentOperation(operation) || !state.lifecycle.isListening) {
         return;
       }
+      _recoveryPending = false;
       final restarted = await speechService.startListening(
         localeId: 'ar_SA',
         contextualPhrases: _recognitionHints(),
       );
       if (!_isCurrentOperation(operation) || !state.lifecycle.isListening) {
         try {
-          await speechService.cancelListening();
+          await _releaseCapture();
         } catch (_) {}
         return;
       }
@@ -913,7 +958,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       if (ownsSpeechService) {
         await speechService.dispose();
       } else {
-        await speechService.stopListening();
+        await _releaseCapture(stop: true);
       }
     } catch (_) {}
     return super.close();

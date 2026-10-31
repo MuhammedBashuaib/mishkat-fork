@@ -29,7 +29,9 @@ dependencies:
   url_launcher: ^6.3.2
   webview_flutter: ^4.13.0
   wakelock_plus: ^1.8.0
-  speech_to_text: ^7.5.0
+  # Local 7.5.0 patch releases Android recognition resources between sessions.
+  speech_to_text:
+    path: packages/speech_to_text
   geomag: ^0.3.0
   permission_handler: ^12.0.1
   home_widget: ^0.10.0
