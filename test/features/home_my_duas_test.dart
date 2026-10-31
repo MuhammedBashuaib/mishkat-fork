@@ -15,8 +15,10 @@ import 'package:mishkat_app/core/theme/app_theme.dart';
 import 'package:mishkat_app/features/adhkar/data/models/adhkar_models.dart';
 import 'package:mishkat_app/features/adhkar/data/repositories/adhkar_repository.dart';
 import 'package:mishkat_app/features/adhkar/presentation/cubit/adhkar_cubit.dart';
+import 'package:mishkat_app/features/adhkar/presentation/pages/adhkar_reader_page.dart';
 import 'package:mishkat_app/features/home/presentation/cubit/home_cubit.dart';
 import 'package:mishkat_app/features/home/presentation/pages/home_page.dart';
+import 'package:mishkat_app/features/home/presentation/models/home_dhikr_moment.dart';
 import 'package:mishkat_app/features/khatma/presentation/cubit/khatma_cubit.dart';
 import 'package:mishkat_app/features/qibla/presentation/cubit/qibla_cubit.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_repository.dart';
@@ -25,6 +27,7 @@ import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:mishkat_app/features/shell/presentation/cubit/shell_cubit.dart';
 import 'package:mishkat_app/features/tasbih/presentation/cubit/tasbih_cubit.dart';
+import 'package:mishkat_app/features/tasbih/presentation/pages/tasbih_page.dart';
 
 class FakeLocalStorageService implements LocalStorageService {
   final Map<String, dynamic> _store = {};
@@ -175,7 +178,11 @@ class FakeQuranAudioService implements QuranAudioService {
 
 class FakeAdhkarRepository extends AdhkarRepository {
   @override
-  Future<List<AdhkarCategory>> load() async => [];
+  Future<List<AdhkarCategory>> load() async => const [
+    AdhkarCategory(id: 1, name: 'أذكار الصباح', items: []),
+    AdhkarCategory(id: 133, name: 'أذكار المساء', items: []),
+    AdhkarCategory(id: 2, name: 'أذكار النوم', items: []),
+  ];
 }
 
 Future<void> _loadFonts() async {
@@ -231,6 +238,7 @@ void main() {
   late QiblaCubit qiblaCubit;
   late TasbihCubit tasbihCubit;
   late KhatmaCubit khatmaCubit;
+  late DateTime now;
 
   setUpAll(() async {
     await _loadFonts();
@@ -267,7 +275,8 @@ void main() {
     );
     await settingsCubit.load();
 
-    homeCubit = HomeCubit(settingsCubit.state.settings);
+    now = DateTime(2026, 10, 31, 9);
+    homeCubit = HomeCubit(settingsCubit.state.settings, now: () => now);
 
     audioService = FakeQuranAudioService();
     quranCubit = QuranCubit(
@@ -446,5 +455,88 @@ void main() {
 
     expect(find.text('هدف الجلسة'), findsOneWidget);
     expect(find.text('اضغط للتسبيح'), findsOneWidget);
+  });
+
+  for (final hour in [0, 5, 12, 13, 14, 15, 16, 22]) {
+    testWidgets('daily dhikr at $hour opens its displayed destination', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(840, 1800);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      now = DateTime(2026, 10, 31, hour);
+      homeCubit.refresh();
+      final moment = HomeDhikrMoment.forTime(now);
+      // Start with a different chapter and dhikr to catch stale selections.
+      adhkarCubit.select(0);
+      await tasbihCubit.selectDhikr('allahu_akbar');
+      await tasbihCubit.increment();
+      await tester.pumpWidget(buildApp());
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text(moment.title));
+      await tester.pumpAndSettle();
+
+      if (moment.categoryId != null) {
+        expect(find.byType(AdhkarReaderPage), findsOneWidget);
+        expect(adhkarCubit.state.selectedId, moment.categoryId);
+        expect(adhkarCubit.state.selected?.name, moment.title);
+        expect(tasbihCubit.state.count, 1);
+      } else {
+        expect(find.byType(TasbihPage), findsOneWidget);
+        expect(tasbihCubit.state.dhikrId, moment.dhikrId);
+        expect(tasbihCubit.state.dhikr.text, moment.title);
+        expect(tasbihCubit.state.count, 0);
+        expect(tasbihCubit.state.total, 1);
+        expect(adhkarCubit.state.selectedId, 0);
+      }
+    });
+  }
+
+  testWidgets('daily dhikr updates across time boundaries without a location', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(840, 1800);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    now = DateTime(2026, 10, 31, 11, 59, 59);
+    homeCubit.updateSettings(const AppSettings());
+    await tester.pumpWidget(buildApp());
+    expect(find.text('أذكار الصباح'), findsOneWidget);
+
+    now = DateTime(2026, 10, 31, 12);
+    homeCubit.refresh();
+    await tester.pumpAndSettle();
+    expect(find.text('أذكار الصباح'), findsNothing);
+    expect(find.text('سبحان الله'), findsOneWidget);
+
+    for (final hour in [13, 14, 16, 22, 5]) {
+      now = DateTime(2026, 11, 1, hour);
+      homeCubit.refresh();
+      await tester.pumpAndSettle();
+      expect(find.text(HomeDhikrMoment.forTime(now).title), findsOneWidget);
+    }
+  });
+
+  testWidgets('opening the same suggested dhikr preserves its session', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(840, 1800);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    now = DateTime(2026, 10, 31, 12);
+    homeCubit.refresh();
+    await tasbihCubit.increment();
+    await tasbihCubit.setTarget(50);
+    await tester.pumpWidget(buildApp());
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('سبحان الله'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TasbihPage), findsOneWidget);
+    expect(tasbihCubit.state.count, 1);
+    expect(tasbihCubit.state.target, 50);
   });
 }

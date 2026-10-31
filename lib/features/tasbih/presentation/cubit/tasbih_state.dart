@@ -35,6 +35,7 @@ const tasbihDhikrOptions = <TasbihDhikr>[
     text: 'اللهم صلِّ وسلم على نبينا محمد',
     suggestedTarget: 100,
   ),
+  TasbihDhikr(id: 'istighfar', text: 'أستغفر الله', suggestedTarget: 100),
 ];
 
 const tasbihCustomDhikrId = 'custom';

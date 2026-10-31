@@ -27,6 +27,7 @@ import '../../../tasbih/presentation/cubit/tasbih_state.dart';
 import '../../../tasbih/presentation/pages/tasbih_page.dart';
 import '../cubit/home_cubit.dart';
 import '../cubit/home_state.dart';
+import '../models/home_dhikr_moment.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -36,7 +37,8 @@ class HomePage extends StatelessWidget {
     return BlocBuilder<HomeCubit, HomeState>(
       buildWhen: (previous, current) =>
           previous.schedule != current.schedule ||
-          previous.now.day != current.now.day,
+          previous.now.hour != current.now.hour ||
+          DateUtils.dateOnly(previous.now) != DateUtils.dateOnly(current.now),
       builder: (context, state) {
         final settings = context.watch<SettingsCubit>().state.settings;
         final now = state.now;
@@ -60,11 +62,12 @@ class HomePage extends StatelessWidget {
                   _LocationPrompt(
                     onTap: context.read<SettingsCubit>().useCurrentLocation,
                   )
-                else ...[
+                else
                   _NextPrayerHero(schedule: state.schedule!),
-                  const SizedBox(height: MishkatSpacing.lg),
-                  _DailyFocusCard(now: now),
-                  const SizedBox(height: MishkatSpacing.xl),
+                const SizedBox(height: MishkatSpacing.lg),
+                _DailyFocusCard(now: now),
+                const SizedBox(height: MishkatSpacing.xl),
+                if (state.schedule != null) ...[
                   _PrayerScheduleSection(
                     schedule: state.schedule!,
                     settings: settings,
@@ -201,43 +204,9 @@ class _DailyFocusCard extends StatelessWidget {
 
   final DateTime now;
 
-  ({String title, String subtitle, IconData icon, int categoryId})
-  get _adhkarMoment {
-    if (now.hour >= 5 && now.hour < 12) {
-      return (
-        title: 'أذكار الصباح',
-        subtitle: 'ابدأ يومك بذكر هادئ',
-        icon: Icons.wb_sunny_outlined,
-        categoryId: 1,
-      );
-    }
-    if (now.hour >= 16 && now.hour < 22) {
-      return (
-        title: 'أذكار المساء',
-        subtitle: 'اختم يومك بالسكينة',
-        icon: Icons.wb_twilight_rounded,
-        categoryId: 133,
-      );
-    }
-    if (now.hour >= 22 || now.hour < 5) {
-      return (
-        title: 'أذكار النوم',
-        subtitle: 'حصّن ليلتك قبل النوم',
-        icon: Icons.nights_stay_outlined,
-        categoryId: 2,
-      );
-    }
-    return (
-      title: 'ذكر قصير',
-      subtitle: 'لحظة ذكر تعيد لك هدوءك',
-      icon: Icons.auto_awesome_outlined,
-      categoryId: 1,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final moment = _adhkarMoment;
+    final moment = HomeDhikrMoment.forTime(now);
     final colors = context.mishkat;
 
     return BlocBuilder<KhatmaCubit, KhatmaState>(
@@ -264,15 +233,28 @@ class _DailyFocusCard extends StatelessWidget {
               child: Column(
                 children: [
                   _FocusRow(
-                    icon: moment.icon,
+                    icon: switch (moment) {
+                      HomeDhikrMoment.morning => Icons.wb_sunny_outlined,
+                      HomeDhikrMoment.evening => Icons.wb_twilight_rounded,
+                      HomeDhikrMoment.sleep => Icons.nights_stay_outlined,
+                      _ => Icons.auto_awesome_outlined,
+                    },
                     title: moment.title,
                     subtitle: moment.subtitle,
                     emphasized: true,
                     onTap: () {
-                      context.read<AdhkarCubit>().select(moment.categoryId);
+                      if (moment.categoryId case final int categoryId) {
+                        context.read<AdhkarCubit>().select(categoryId);
+                      } else {
+                        context.read<TasbihCubit>().selectDhikr(
+                          moment.dhikrId!,
+                        );
+                      }
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => const AdhkarReaderPage(),
+                          builder: (_) => moment.categoryId != null
+                              ? const AdhkarReaderPage()
+                              : const TasbihPage(),
                         ),
                       );
                     },

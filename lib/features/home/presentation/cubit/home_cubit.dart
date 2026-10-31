@@ -7,14 +7,17 @@ import '../../../settings/data/models/app_settings.dart';
 import 'home_state.dart';
 
 class HomeCubit extends Cubit<HomeState> {
-  HomeCubit(this._settings, {this._calculator = const PrayerCalculator()})
-    : super(HomeState(now: DateTime.now())) {
+  HomeCubit(this._settings, {DateTime Function()? now})
+    : _calculator = const PrayerCalculator(),
+      _now = now ?? DateTime.now,
+      super(HomeState(now: (now ?? DateTime.now)())) {
     _refresh(force: true);
     // Periodically refresh every 15 seconds to detect prayer transitions without thrashing the UI
     _timer = Timer.periodic(const Duration(seconds: 15), (_) => _refresh());
   }
 
   final PrayerCalculator _calculator;
+  final DateTime Function() _now;
   late final Timer _timer;
   AppSettings _settings;
 
@@ -23,10 +26,18 @@ class HomeCubit extends Cubit<HomeState> {
     _refresh(force: true);
   }
 
+  void refresh() => _refresh(force: true);
+
   void _refresh({bool force = false}) {
-    final now = DateTime.now();
+    final now = _now();
+    final minuteChanged =
+        state.now.year != now.year ||
+        state.now.month != now.month ||
+        state.now.day != now.day ||
+        state.now.hour != now.hour ||
+        state.now.minute != now.minute;
     if (!_settings.hasLocation) {
-      if (force || state.schedule != null || state.now.minute != now.minute) {
+      if (force || state.schedule != null || minuteChanged) {
         emit(HomeState(now: now));
       }
       return;
@@ -43,7 +54,7 @@ class HomeCubit extends Cubit<HomeState> {
       tune: _settings.tune,
     );
 
-    if (force || state.schedule != schedule || state.now.minute != now.minute) {
+    if (force || state.schedule != schedule || minuteChanged) {
       emit(HomeState(now: now, schedule: schedule));
     }
   }
