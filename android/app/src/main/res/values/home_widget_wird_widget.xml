@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_widget_wird_widget_label">الورد اليومي</string>
+    <string name="home_widget_wird_widget_description">ورد ختمتك وموضع القراءة المحفوظ</string>
+</resources>

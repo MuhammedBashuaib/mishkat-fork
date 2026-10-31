@@ -38,6 +38,16 @@
 		EA43875D18A71AFCF91B3D0B /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A6DD8009390C32510A56C42 /* SwiftUI.framework */; };
 		49B31ED5CCD137FAA09084B3 /* Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFEB62CE4153B51D3C822588 /* Widget.swift */; };
 		F4BD9ED56022923AF899CA8B /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0179BA6523A643D2736C330 /* WidgetBundle.swift */; };
+		25A33512820C3705A3D3D948 /* WirdWidgetHomeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 01A95C5B49158320D35AE7CD /* WirdWidgetHomeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DB133AE12B1A25C2140D0E87 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7151AF695D676D92B8A0F00 /* WidgetKit.framework */; };
+		2B4FAE16861BE371C5A4B254 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79A0FEA518026CBE4274B067 /* SwiftUI.framework */; };
+		E8036A6EA47325DFEFDC5A7C /* Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C591F736DAF5DD690A820ED /* Widget.swift */; };
+		415EEA6E3CF5B71FCEDA5ED4 /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D3CF70B902985768E3A7DD5 /* WidgetBundle.swift */; };
+		CE665BBB51D7E150F60C0A61 /* TasbihWidgetHomeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EC88D49EE91B4109892E39A8 /* TasbihWidgetHomeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3AF0C0D427258F6B5B6778C2 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C0ACD57E7488D1CDCF6CE69 /* WidgetKit.framework */; };
+		153B0F77F8DAB3A453D032F5 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04737CF0864B578F9F22F122 /* SwiftUI.framework */; };
+		DF934EFF9257694A3468866D /* Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA9ED506D3D24F3773D0ADC8 /* Widget.swift */; };
+		211ACEFFD0F0358A0808F375 /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB4C8A0E152B7BD7EA847920 /* WidgetBundle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,6 +78,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4039637D3E3CDF9E7BE9091F;
 			remoteInfo = QiblaWidgetHomeWidget;
+		};
+		025872DD40D166B65B432CBB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 90DF44B67B6A474377907F98;
+			remoteInfo = WirdWidgetHomeWidget;
+		};
+		AAAE1A38EFAAA517E713277E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1D26B317EF686A1665CEFB71;
+			remoteInfo = TasbihWidgetHomeWidget;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -111,6 +135,28 @@
 			dstSubfolderSpec = 13;
 			files = (
 				0C798989DB90ECE07960030F /* QiblaWidgetHomeWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D17EF66314BF57967E1298BD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				25A33512820C3705A3D3D948 /* WirdWidgetHomeWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE9C63B65DCE94F7ED37C198 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				CE665BBB51D7E150F60C0A61 /* TasbihWidgetHomeWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -170,6 +216,20 @@
 		DFEB62CE4153B51D3C822588 /* Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widget.swift; sourceTree = "<group>"; };
 		D0179BA6523A643D2736C330 /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
 		56B27AC9AE4C0AF2780F6C37 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		01A95C5B49158320D35AE7CD /* WirdWidgetHomeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WirdWidgetHomeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D7151AF695D676D92B8A0F00 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		79A0FEA518026CBE4274B067 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		06CFB3B4A9C565898715ECD2 /* WirdWidgetHomeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WirdWidgetHomeWidget.entitlements; sourceTree = "<group>"; };
+		6C591F736DAF5DD690A820ED /* Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widget.swift; sourceTree = "<group>"; };
+		8D3CF70B902985768E3A7DD5 /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
+		6D544452F32220D75A559F50 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		EC88D49EE91B4109892E39A8 /* TasbihWidgetHomeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TasbihWidgetHomeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C0ACD57E7488D1CDCF6CE69 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		04737CF0864B578F9F22F122 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		9C833A556E64A58CCFEB0E7B /* TasbihWidgetHomeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TasbihWidgetHomeWidget.entitlements; sourceTree = "<group>"; };
+		BA9ED506D3D24F3773D0ADC8 /* Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widget.swift; sourceTree = "<group>"; };
+		CB4C8A0E152B7BD7EA847920 /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
+		A42FF1FB1B244D126EE95339 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -216,6 +276,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B5202D87F47FD48E20EF82D5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B4FAE16861BE371C5A4B254 /* SwiftUI.framework in Frameworks */,
+				DB133AE12B1A25C2140D0E87 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C7052FC2839B361F65258620 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				153B0F77F8DAB3A453D032F5 /* SwiftUI.framework in Frameworks */,
+				3AF0C0D427258F6B5B6778C2 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -254,6 +332,10 @@
 				F348189D2151E7DED00588BF /* AdhkarWidgetHomeWidget */,
 				902E89EB62D39554628EBC49 /* QiblaWidgetHomeWidget.entitlements */,
 				0F23C36375963212CA522BB5 /* QiblaWidgetHomeWidget */,
+				06CFB3B4A9C565898715ECD2 /* WirdWidgetHomeWidget.entitlements */,
+				5A15026CAD57487727B505CE /* WirdWidgetHomeWidget */,
+				9C833A556E64A58CCFEB0E7B /* TasbihWidgetHomeWidget.entitlements */,
+				9787905D11FD96324338065F /* TasbihWidgetHomeWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -265,6 +347,8 @@
 				E1767CEEDB1CB36778E502B0 /* PrayerTimesWidgetHomeWidget.appex */,
 				8E89AC1AE72A88C93024C694 /* AdhkarWidgetHomeWidget.appex */,
 				96C3FD76B60EEA8701C324E8 /* QiblaWidgetHomeWidget.appex */,
+				01A95C5B49158320D35AE7CD /* WirdWidgetHomeWidget.appex */,
+				EC88D49EE91B4109892E39A8 /* TasbihWidgetHomeWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -351,6 +435,26 @@
 			path = QiblaWidgetHomeWidget;
 			sourceTree = "<group>";
 		};
+		5A15026CAD57487727B505CE /* WirdWidgetHomeWidget */ = {
+			isa = PBXGroup;
+			children = (
+				6C591F736DAF5DD690A820ED /* Widget.swift */,
+				8D3CF70B902985768E3A7DD5 /* WidgetBundle.swift */,
+				6D544452F32220D75A559F50 /* Info.plist */,
+			);
+			path = WirdWidgetHomeWidget;
+			sourceTree = "<group>";
+		};
+		9787905D11FD96324338065F /* TasbihWidgetHomeWidget */ = {
+			isa = PBXGroup;
+			children = (
+				BA9ED506D3D24F3773D0ADC8 /* Widget.swift */,
+				CB4C8A0E152B7BD7EA847920 /* WidgetBundle.swift */,
+				A42FF1FB1B244D126EE95339 /* Info.plist */,
+			);
+			path = TasbihWidgetHomeWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -386,6 +490,8 @@
 				F32D61E68EFF6DCD059333C0 /* Embed Foundation Extensions */,
 				80AAF9F234F517775D302B64 /* Embed Foundation Extensions */,
 				CB6AE7BEE50B5BDD8988D718 /* Embed Foundation Extensions */,
+				D17EF66314BF57967E1298BD /* Embed Foundation Extensions */,
+				FE9C63B65DCE94F7ED37C198 /* Embed Foundation Extensions */,
 				590160C700D7E75E7BEA9D18 /* [CP] Embed Pods Frameworks */,
 				F9547D5676EA19394581C6E1 /* [CP] Copy Pods Resources */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
@@ -396,6 +502,8 @@
 				185545F13F75905017362DE7 /* PBXTargetDependency */,
 				DD2658CB7B3CF2747C7DFC49 /* PBXTargetDependency */,
 				E3B1C009995D59482C43D907 /* PBXTargetDependency */,
+				192634929C8C0AADC07BEAA0 /* PBXTargetDependency */,
+				1BE4273B2E1DD9887E6EB489 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
@@ -453,6 +561,40 @@
 			productReference = 96C3FD76B60EEA8701C324E8 /* QiblaWidgetHomeWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		90DF44B67B6A474377907F98 /* WirdWidgetHomeWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DB3982932EC841FCBFFE8741 /* Build configuration list for PBXNativeTarget "WirdWidgetHomeWidget" */;
+			buildPhases = (
+				4BD5997C57E1FD8305046A8E /* Sources */,
+				B5202D87F47FD48E20EF82D5 /* Frameworks */,
+				C856E55D4074EE92FE6EA49B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WirdWidgetHomeWidget;
+			productName = WirdWidgetHomeWidget;
+			productReference = 01A95C5B49158320D35AE7CD /* WirdWidgetHomeWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		1D26B317EF686A1665CEFB71 /* TasbihWidgetHomeWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 36796C263E7D79ED32167834 /* Build configuration list for PBXNativeTarget "TasbihWidgetHomeWidget" */;
+			buildPhases = (
+				33A95D6D7A6B4656A578BC1F /* Sources */,
+				C7052FC2839B361F65258620 /* Frameworks */,
+				079C10B833D2713BBA2108DE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TasbihWidgetHomeWidget;
+			productName = TasbihWidgetHomeWidget;
+			productReference = EC88D49EE91B4109892E39A8 /* TasbihWidgetHomeWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -491,6 +633,8 @@
 				B46C562DFC2267062DF75E6F /* PrayerTimesWidgetHomeWidget */,
 				D6E68C97317146523B345771 /* AdhkarWidgetHomeWidget */,
 				4039637D3E3CDF9E7BE9091F /* QiblaWidgetHomeWidget */,
+				90DF44B67B6A474377907F98 /* WirdWidgetHomeWidget */,
+				1D26B317EF686A1665CEFB71 /* TasbihWidgetHomeWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -535,6 +679,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4E3CCEB8C4A08E0929265EB6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C856E55D4074EE92FE6EA49B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		079C10B833D2713BBA2108DE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -701,6 +859,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4BD5997C57E1FD8305046A8E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E8036A6EA47325DFEFDC5A7C /* Widget.swift in Sources */,
+				415EEA6E3CF5B71FCEDA5ED4 /* WidgetBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		33A95D6D7A6B4656A578BC1F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF934EFF9257694A3468866D /* Widget.swift in Sources */,
+				211ACEFFD0F0358A0808F375 /* WidgetBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -723,6 +899,16 @@
 			isa = PBXTargetDependency;
 			target = 4039637D3E3CDF9E7BE9091F /* QiblaWidgetHomeWidget */;
 			targetProxy = 1EAE8F383A64E97D3F5D3356 /* PBXContainerItemProxy */;
+		};
+		192634929C8C0AADC07BEAA0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 90DF44B67B6A474377907F98 /* WirdWidgetHomeWidget */;
+			targetProxy = 025872DD40D166B65B432CBB /* PBXContainerItemProxy */;
+		};
+		1BE4273B2E1DD9887E6EB489 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1D26B317EF686A1665CEFB71 /* TasbihWidgetHomeWidget */;
+			targetProxy = AAAE1A38EFAAA517E713277E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1281,6 +1467,168 @@
 			};
 			name = Profile;
 		};
+		5C6661B850DABFB7BCA4D966 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = WirdWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = WirdWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = WirdWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.WirdWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		299510C27C1E7AA9639340C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = WirdWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = WirdWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = WirdWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.WirdWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		12B8AADE7BB49D39CA9DB398 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = WirdWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = WirdWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = WirdWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.WirdWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
+		};
+		EECDFE91EAC729721D29A647 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = TasbihWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = TasbihWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = TasbihWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.TasbihWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F18DF26B47EDE12CE6775229 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = TasbihWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = TasbihWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = TasbihWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.TasbihWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7B4CE0AF6FC464FC29014F71 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = TasbihWidgetHomeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = Z6WLFR3247;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = TasbihWidgetHomeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = TasbihWidgetHomeWidget;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dakomn.mishkatapp.TasbihWidgetHomeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1340,6 +1688,26 @@
 				27DE9BBF6CC6E6527E9E38ED /* Debug */,
 				5C8D5BF90FDBCA7447E0C6A7 /* Release */,
 				1139F9C59285F70439B1E51F /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DB3982932EC841FCBFFE8741 /* Build configuration list for PBXNativeTarget "WirdWidgetHomeWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5C6661B850DABFB7BCA4D966 /* Debug */,
+				299510C27C1E7AA9639340C0 /* Release */,
+				12B8AADE7BB49D39CA9DB398 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		36796C263E7D79ED32167834 /* Build configuration list for PBXNativeTarget "TasbihWidgetHomeWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EECDFE91EAC729721D29A647 /* Debug */,
+				F18DF26B47EDE12CE6775229 /* Release */,
+				7B4CE0AF6FC464FC29014F71 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

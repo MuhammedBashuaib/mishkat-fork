@@ -2,13 +2,17 @@ package com.dakomn.mishkatapp
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.SoundPool
 import android.net.Uri
 import android.provider.Settings
 import com.ryanheise.audioservice.AudioServiceActivity
+import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
+    private var tasbihSound: TasbihSound? = null
     private var adhanChannel: MethodChannel? = null
     private var speechModels: ArabicSpeechModelManager? = null
     private var speechSettingsChannel: MethodChannel? = null
@@ -39,6 +43,9 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
+        tasbihSound?.dispose()
+        tasbihSound = TasbihSound(this, flutterEngine)
+
         speechModels?.dispose()
         val channel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -58,6 +65,8 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        tasbihSound?.dispose()
+        tasbihSound = null
         adhanChannel?.setMethodCallHandler(null)
         adhanChannel = null
         speechSettingsChannel?.setMethodCallHandler(null)
@@ -97,5 +106,90 @@ class MainActivity : AudioServiceActivity() {
         } catch (_: SecurityException) {
             false
         }
+    }
+}
+
+/** Native effects do not allocate a second just_audio_background player. */
+private class TasbihSound(
+    private val activity: MainActivity,
+    private val engine: FlutterEngine,
+) {
+    private val channel = MethodChannel(
+        engine.dartExecutor.binaryMessenger,
+        "com.dakomn.mishkatapp/tasbih_sound",
+    )
+    private var pool: SoundPool? = null
+    private var soundId = 0
+    private var ready = false
+    private val pending = mutableListOf<MethodChannel.Result>()
+
+    init {
+        channel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "prepare" -> prepare(result)
+                "play" -> {
+                    val stream = if (ready) pool?.play(soundId, 1f, 1f, 1, 0, 1f) else 0
+                    if (stream == null || stream == 0) {
+                        result.error("tasbih_sound_error", "Cannot start chime", null)
+                    } else {
+                        result.success(null)
+                    }
+                }
+                "dispose" -> { release(); result.success(null) }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun prepare(result: MethodChannel.Result) {
+        if (ready) { result.success(null); return }
+        pending.add(result)
+        if (pool != null) return
+        try {
+            val player = SoundPool.Builder()
+                .setMaxStreams(1)
+                .setAudioAttributes(AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build())
+                .build()
+            pool = player
+            player.setOnLoadCompleteListener { loadedPool, _, status ->
+                activity.runOnUiThread {
+                    if (pool !== loadedPool) return@runOnUiThread
+                    ready = status == 0
+                    val callbacks = pending.toList()
+                    pending.clear()
+                    if (!ready) release()
+                    callbacks.forEach {
+                        if (status == 0) it.success(null)
+                        else it.error("tasbih_sound_error", "Cannot load chime", null)
+                    }
+                }
+            }
+            val key = FlutterInjector.instance().flutterLoader().getLookupKeyForAsset("assets/audio/tasbih_complete.wav")
+            activity.assets.openFd(key).use { soundId = player.load(it, 1) }
+            if (soundId == 0) throw IllegalStateException("Cannot load chime asset")
+        } catch (error: Exception) {
+            val callbacks = pending.toList()
+            pending.clear()
+            release()
+            callbacks.forEach { it.error("tasbih_sound_error", error.message, null) }
+        }
+    }
+
+    private fun release() {
+        ready = false
+        pool?.release()
+        pool = null
+        soundId = 0
+        val callbacks = pending.toList()
+        pending.clear()
+        callbacks.forEach { it.error("tasbih_sound_disposed", "Sound player disposed", null) }
+    }
+
+    fun dispose() {
+        channel.setMethodCallHandler(null)
+        release()
     }
 }

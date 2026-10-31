@@ -47,27 +47,23 @@ class TasbihCubit extends Cubit<TasbihState> {
     emit(
       _withCurrentDay(state).copyWith(
         target: value,
-        customDhikrTarget: state.dhikrId == tasbihCustomDhikrId
-            ? value
-            : state.customDhikrTarget,
+        customDhikrs: List.unmodifiable([
+          for (final item in state.customDhikrs)
+            if (item.id == state.dhikrId)
+              TasbihDhikr(id: item.id, text: item.text, suggestedTarget: value)
+            else
+              item,
+        ]),
       ),
     );
     await _persist();
   }
 
   Future<void> selectDhikr(String id) async {
-    if (id == tasbihCustomDhikrId && state.customDhikrText.isNotEmpty) {
-      if (state.dhikrId == id) return;
-      emit(
-        _withCurrentDay(state)
-            .copyWith(count: 0, dhikrId: id, target: state.customDhikrTarget),
-      );
-      await _persist();
-      return;
-    }
-    final selected = tasbihDhikrOptions
-        .where((item) => item.id == id)
-        .firstOrNull;
+    final selected = [
+      ...tasbihDhikrOptions,
+      ...state.customDhikrs,
+    ].where((item) => item.id == id).firstOrNull;
     if (selected == null || selected.id == state.dhikrId) return;
     emit(
       _withCurrentDay(state).copyWith(
@@ -79,17 +75,64 @@ class TasbihCubit extends Cubit<TasbihState> {
     await _persist();
   }
 
-  Future<void> setCustomDhikr(String text, {required int target}) async {
+  /// Adds a new entry, or edits the entry identified by [id].
+  Future<void> setCustomDhikr(
+    String text, {
+    required int target,
+    String? id,
+  }) async {
     final normalized = text.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (normalized.isEmpty || normalized.length > 160) return;
     if (target < 1 || target > 9999) return;
+    final existing = state.customDhikrs
+        .where((item) => item.id == id)
+        .firstOrNull;
+    if (id != null && existing == null) return;
+    if (existing?.text == normalized && existing?.suggestedTarget == target) {
+      return;
+    }
+    var entryId = id ?? 'custom_${_now().microsecondsSinceEpoch}';
+    if (id == null) {
+      final base = entryId;
+      var suffix = 0;
+      while (state.customDhikrs.any((item) => item.id == entryId)) {
+        entryId = '${base}_${++suffix}';
+      }
+    }
+    final entry = TasbihDhikr(
+      id: entryId,
+      text: normalized,
+      suggestedTarget: target,
+    );
+    final activates = id == null || state.dhikrId == id;
     emit(
       _withCurrentDay(state).copyWith(
-        count: 0,
-        dhikrId: tasbihCustomDhikrId,
-        target: target,
-        customDhikrText: normalized,
-        customDhikrTarget: target,
+        count: activates ? 0 : state.count,
+        dhikrId: activates ? entryId : state.dhikrId,
+        target: activates ? target : state.target,
+        customDhikrs: List.unmodifiable([
+          for (final item in state.customDhikrs)
+            if (item.id == entryId) entry else item,
+          if (id == null) entry,
+        ]),
+      ),
+    );
+    await _persist();
+  }
+
+  Future<void> deleteCustomDhikr(String id) async {
+    if (!state.customDhikrs.any((item) => item.id == id)) return;
+    final isActive = state.dhikrId == id;
+    emit(
+      _withCurrentDay(state).copyWith(
+        customDhikrs: List.unmodifiable(
+          state.customDhikrs.where((item) => item.id != id),
+        ),
+        dhikrId: isActive ? tasbihDhikrOptions.first.id : state.dhikrId,
+        target: isActive
+            ? tasbihDhikrOptions.first.suggestedTarget
+            : state.target,
+        count: isActive ? 0 : state.count,
       ),
     );
     await _persist();
@@ -115,8 +158,10 @@ class TasbihCubit extends Cubit<TasbihState> {
       'dhikrId': value.dhikrId,
       'hapticsEnabled': value.hapticsEnabled,
       'completionSoundEnabled': value.completionSoundEnabled,
-      'customDhikrText': value.customDhikrText,
-      'customDhikrTarget': value.customDhikrTarget,
+      'customDhikrs': [
+        for (final item in value.customDhikrs)
+          {'id': item.id, 'text': item.text, 'target': item.suggestedTarget},
+      ],
       'sessionDate': value.sessionDate,
     });
   }
@@ -132,21 +177,57 @@ class TasbihCubit extends Cubit<TasbihState> {
     final today = _dateKey(now);
     final savedDate = saved['sessionDate'] as String? ?? today;
     final rawDhikrId = saved['dhikrId'] as String? ?? 'subhan_allah';
-    final customDhikrText = saved['customDhikrText'] is String
-        ? (saved['customDhikrText'] as String).trim()
-        : '';
-    final hasValidCustomDhikr =
-        rawDhikrId == tasbihCustomDhikrId && customDhikrText.isNotEmpty;
+    final customDhikrs = <TasbihDhikr>[];
+    final rawCustom = saved['customDhikrs'];
+    if (rawCustom is List) {
+      for (final item in rawCustom) {
+        if (item is! Map) continue;
+        final id = item['id'];
+        final text = item['text'];
+        final target = item['target'];
+        if (id is! String ||
+            (id != tasbihCustomDhikrId && !id.startsWith('custom_')) ||
+            customDhikrs.any((entry) => entry.id == id) ||
+            text is! String ||
+            text.trim().isEmpty ||
+            text.length > 160 ||
+            target is! int ||
+            target < 1 ||
+            target > 9999) {
+          continue;
+        }
+        customDhikrs.add(
+          TasbihDhikr(
+            id: id,
+            text: text.trim().replaceAll(RegExp(r'\s+'), ' '),
+            suggestedTarget: target,
+          ),
+        );
+      }
+    } else {
+      // Migrate the single custom entry without losing its active session.
+      final text = saved['customDhikrText'];
+      if (text is String && text.trim().isNotEmpty) {
+        customDhikrs.add(
+          TasbihDhikr(
+            id: tasbihCustomDhikrId,
+            text: text.trim(),
+            suggestedTarget: _readPositiveInt(
+              saved['customDhikrTarget'],
+              33,
+            ).clamp(1, 9999),
+          ),
+        );
+      }
+    }
     final validDhikrId =
-        hasValidCustomDhikr ||
-            tasbihDhikrOptions.any((item) => item.id == rawDhikrId)
+        [
+          ...tasbihDhikrOptions,
+          ...customDhikrs,
+        ].any((item) => item.id == rawDhikrId)
         ? rawDhikrId
         : tasbihDhikrOptions.first.id;
     final target = _readPositiveInt(saved['target'], 33).clamp(1, 9999);
-    final customDhikrTarget = _readPositiveInt(
-      saved['customDhikrTarget'],
-      33,
-    ).clamp(1, 9999);
     final total = _readPositiveInt(
       saved['total'],
       storage.readInt('tasbihTotal'),
@@ -166,8 +247,7 @@ class TasbihCubit extends Cubit<TasbihState> {
       completionSoundEnabled: saved['completionSoundEnabled'] is bool
           ? saved['completionSoundEnabled'] as bool
           : true,
-      customDhikrText: customDhikrText,
-      customDhikrTarget: customDhikrTarget,
+      customDhikrs: List.unmodifiable(customDhikrs),
       sessionDate: today,
     );
   }

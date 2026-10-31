@@ -3,7 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:just_audio/just_audio.dart';
+
+import '../../../../core/services/tasbih_completion_sound.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
@@ -21,49 +22,26 @@ class TasbihPage extends StatefulWidget {
 }
 
 class _TasbihPageState extends State<TasbihPage> {
-  static const _completionSoundAsset = 'assets/audio/tasbih_complete.wav';
-
-  AudioPlayer? _completionSoundPlayer;
-  Future<void>? _completionSoundReady;
+  final _completionSound = TasbihCompletionSound();
 
   @override
   void initState() {
     super.initState();
-    if (widget.onCompletionSound == null) {
-      final player = AudioPlayer();
-      _completionSoundPlayer = player;
-      _completionSoundReady = _loadCompletionSound(player);
-    }
+    if (widget.onCompletionSound == null) _completionSound.prepare();
   }
 
   @override
   void dispose() {
-    _completionSoundPlayer?.dispose();
+    _completionSound.dispose();
     super.dispose();
   }
 
-  Future<void> _loadCompletionSound(AudioPlayer player) async {
-    try {
-      await player.setAsset(_completionSoundAsset);
-    } on Object {
-      // A missing audio backend must never interrupt the counter.
-    }
-  }
-
-  Future<void> _playCompletionSound() async {
+  void _playCompletionSound() {
     final injectedPlayer = widget.onCompletionSound;
     if (injectedPlayer != null) {
       injectedPlayer();
-      return;
-    }
-    final player = _completionSoundPlayer;
-    if (player == null) return;
-    try {
-      await _completionSoundReady;
-      await player.seek(Duration.zero);
-      await player.play();
-    } on Object {
-      // Keep counting even if the device cannot play the short chime.
+    } else {
+      _completionSound.play();
     }
   }
 
@@ -136,7 +114,6 @@ class _TasbihPageState extends State<TasbihPage> {
 class _DhikrSelector extends StatelessWidget {
   const _DhikrSelector({required this.state});
 
-  static const _editCustomValue = '__edit_custom__';
   final TasbihState state;
 
   @override
@@ -202,150 +179,193 @@ class _DhikrSelector extends StatelessWidget {
     BuildContext pageContext,
     TasbihState state,
   ) async {
-    final options = <TasbihDhikr>[
-      ...tasbihDhikrOptions,
-      if (state.customDhikrText.isNotEmpty)
-        TasbihDhikr(
-          id: tasbihCustomDhikrId,
-          text: state.customDhikrText,
-          suggestedTarget: state.customDhikrTarget,
-        ),
-    ];
-    final selected = await showModalBottomSheet<String>(
+    final options = [...state.customDhikrs, ...tasbihDhikrOptions];
+    final selected =
+        await showModalBottomSheet<({String action, TasbihDhikr? dhikr})>(
+          context: pageContext,
+          showDragHandle: true,
+          useSafeArea: true,
+          isScrollControlled: true,
+          builder: (context) => ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'اختر الذكر',
+                        style: Theme.of(context).textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'عند تغيير الذكر تبدأ جلسة جديدة، ويبقى مجموعك محفوظًا.',
+                        style: TextStyle(
+                          color: context.mishkat.textSecondary,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    itemCount: options.length,
+                    separatorBuilder: (_, _) => Divider(
+                      height: 1,
+                      indent: 56,
+                      color: context.mishkat.borderSubtle,
+                    ),
+                    itemBuilder: (context, index) {
+                      final item = options[index];
+                      final isSelected = item.id == state.dhikrId;
+                      final isCustom = state.customDhikrs.any(
+                        (entry) => entry.id == item.id,
+                      );
+                      return ListTile(
+                        onTap: () => Navigator.pop(context, (
+                          action: 'select',
+                          dhikr: item,
+                        )),
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? context.mishkat.primarySoft
+                                : context.mishkat.surfaceVariant,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isSelected
+                                ? Icons.check_rounded
+                                : isCustom
+                                ? Icons.edit_note_rounded
+                                : Icons.auto_awesome_outlined,
+                            size: 18,
+                            color: context.mishkat.primary,
+                          ),
+                        ),
+                        title: Text(
+                          item.text,
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                          ),
+                        ),
+                        trailing: isCustom
+                            ? PopupMenuButton<String>(
+                                key: ValueKey('custom-actions-${item.id}'),
+                                tooltip: 'خيارات الذكر المخصص',
+                                onSelected: (action) => Navigator.pop(context, (
+                                  action: action,
+                                  dhikr: item,
+                                )),
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text('تعديل الذكر'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('حذف الذكر'),
+                                  ),
+                                ],
+                              )
+                            : null,
+                        subtitle: Text(
+                          isCustom
+                              ? 'ذكر مخصص · الهدف ${item.suggestedTarget}'
+                              : 'الهدف المقترح ${item.suggestedTarget}',
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  child: FilledButton.tonalIcon(
+                    onPressed: () =>
+                        Navigator.pop(context, (action: 'add', dhikr: null)),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('إضافة ذكر مخصص'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+    if (selected == null || !pageContext.mounted) return;
+    switch (selected.action) {
+      case 'add':
+        await _showCustomDhikrSheet(pageContext, state);
+      case 'edit':
+        await _showCustomDhikrSheet(pageContext, state, entry: selected.dhikr);
+      case 'delete':
+        await _confirmDeleteCustomDhikr(pageContext, selected.dhikr!);
+      case 'select':
+        await pageContext.read<TasbihCubit>().selectDhikr(selected.dhikr!.id);
+    }
+  }
+
+  Future<void> _confirmDeleteCustomDhikr(
+    BuildContext pageContext,
+    TasbihDhikr entry,
+  ) async {
+    final confirmed = await showDialog<bool>(
       context: pageContext,
-      showDragHandle: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      builder: (context) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الذكر المخصص؟'),
+        content: Text(
+          'سيُحذف «${entry.text}» من قائمتك، وسيبقى مجموعك محفوظًا.',
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'اختر الذكر',
-                    style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'عند تغيير الذكر تبدأ جلسة جديدة، ويبقى مجموعك محفوظًا.',
-                    style: TextStyle(
-                      color: context.mishkat.textSecondary,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                itemCount: options.length,
-                separatorBuilder: (_, _) => Divider(
-                  height: 1,
-                  indent: 56,
-                  color: context.mishkat.borderSubtle,
-                ),
-                itemBuilder: (context, index) {
-                  final item = options[index];
-                  final isSelected = item.id == state.dhikrId;
-                  final isCustom = item.id == tasbihCustomDhikrId;
-                  return ListTile(
-                    onTap: () => Navigator.pop(context, item.id),
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? context.mishkat.primarySoft
-                            : context.mishkat.surfaceVariant,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isSelected
-                            ? Icons.check_rounded
-                            : isCustom
-                            ? Icons.edit_note_rounded
-                            : Icons.auto_awesome_outlined,
-                        size: 18,
-                        color: context.mishkat.primary,
-                      ),
-                    ),
-                    title: Text(
-                      item.text,
-                      style: TextStyle(
-                        fontWeight: isSelected
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      isCustom
-                          ? 'ذكر مخصص · الهدف ${item.suggestedTarget}'
-                          : 'الهدف المقترح ${item.suggestedTarget}',
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: FilledButton.tonalIcon(
-                onPressed: () => Navigator.pop(context, _editCustomValue),
-                icon: Icon(
-                  state.customDhikrText.isEmpty
-                      ? Icons.add_rounded
-                      : Icons.edit_rounded,
-                ),
-                label: Text(
-                  state.customDhikrText.isEmpty
-                      ? 'إضافة ذكر مخصص'
-                      : 'تعديل الذكر المخصص',
-                ),
-              ),
-            ),
-          ],
-        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف'),
+          ),
+        ],
       ),
     );
-    if (selected == _editCustomValue && pageContext.mounted) {
-      await _showCustomDhikrSheet(pageContext, state);
-      return;
-    }
-    if (selected != null && pageContext.mounted) {
-      await pageContext.read<TasbihCubit>().selectDhikr(selected);
+    if (confirmed == true && pageContext.mounted) {
+      await pageContext.read<TasbihCubit>().deleteCustomDhikr(entry.id);
     }
   }
 
   Future<void> _showCustomDhikrSheet(
     BuildContext pageContext,
-    TasbihState state,
-  ) async {
+    TasbihState state, {
+    TasbihDhikr? entry,
+  }) async {
     final value = await showModalBottomSheet<_CustomDhikrValue>(
       context: pageContext,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
       builder: (context) => _CustomDhikrSheet(
-        initialText: state.customDhikrText,
-        initialTarget: state.customDhikrText.isEmpty
-            ? state.target
-            : state.customDhikrTarget,
+        initialText: entry?.text ?? '',
+        initialTarget: entry?.suggestedTarget ?? state.target,
       ),
     );
     if (value != null && pageContext.mounted) {
       await pageContext.read<TasbihCubit>().setCustomDhikr(
         value.text,
         target: value.target,
+        id: entry?.id,
       );
     }
   }
@@ -544,7 +564,9 @@ class _CustomDhikrSheetState extends State<_CustomDhikrSheet> {
                   const SizedBox(width: MishkatSpacing.sm),
                   Expanded(
                     child: Text(
-                      'سيبدأ عدّ جديد لهذا الذكر، وسيبقى إجماليك محفوظًا.',
+                      widget.initialText.isEmpty
+                          ? 'سيبدأ عدّ جديد لهذا الذكر، وسيبقى إجماليك محفوظًا.'
+                          : 'سيُحفظ النص والهدف في قائمتك، وسيبقى إجماليك محفوظًا.',
                       style: TextStyle(
                         color: colors.textSecondary,
                         fontSize: 11.5,
@@ -850,6 +872,7 @@ class _CounterSurface extends StatelessWidget {
             child: MishkatPressable(
               scaleDown: 0.965,
               onTap: () {
+                final state = context.read<TasbihCubit>().state;
                 final completesGoal = state.count + 1 == state.target;
                 if (state.hapticsEnabled) {
                   if (completesGoal) {

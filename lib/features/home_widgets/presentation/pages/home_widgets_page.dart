@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/services/home_widget_service.dart';
+import '../../../../core/services/home_widget_content.dart';
+import '../../../khatma/presentation/cubit/khatma_cubit.dart';
+import '../../../tasbih/presentation/cubit/tasbih_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/utils/app_formatters.dart';
@@ -27,6 +30,8 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
   bool _pinSupported = false;
   bool _loading = true;
   MishkatHomeWidget? _adding;
+  _GalleryFilter _filter = _GalleryFilter.all;
+  bool? _darkPreview;
 
   HomeWidgetService get _service => context.read<HomeWidgetService>();
 
@@ -65,8 +70,9 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
   }
 
   Future<void> _add(MishkatHomeWidget widget) async {
+    if (_adding != null) return;
     if (!_pinSupported) {
-      await _showManualInstructions();
+      await _showManualInstructions(widget);
       return;
     }
     setState(() => _adding = widget);
@@ -86,65 +92,79 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
     }
   }
 
-  Future<void> _showManualInstructions() => showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    useSafeArea: true,
-    builder: (sheetContext) {
-      final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'أضف ودجت مشكاة',
-              style: Theme.of(sheetContext).textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w800),
+  Future<void> _showManualInstructions([MishkatHomeWidget? widget]) =>
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        useSafeArea: true,
+        isScrollControlled: true,
+        builder: (sheetContext) {
+          final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'أضف ودجت مشكاة',
+                  style: Theme.of(sheetContext).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isIOS
+                      ? 'يمنح iPhone التحكم في الإضافة للمستخدم، وتستغرق الخطوات ثوانٍ قليلة.'
+                      : 'مشغّل الشاشة في جهازك لا يدعم الإضافة التلقائية؛ استخدم الخطوات التالية.',
+                  style: TextStyle(color: sheetContext.mishkat.textSecondary),
+                ),
+                const SizedBox(height: 20),
+                _InstructionStep(
+                  number: '١',
+                  text: 'اضغط مطولًا على مساحة فارغة في الشاشة الرئيسية.',
+                ),
+                _InstructionStep(
+                  number: '٢',
+                  text: isIOS
+                      ? 'اضغط «تعديل» ثم «إضافة ودجت» أو علامة +.'
+                      : 'اختر «الأدوات» أو «Widgets» من القائمة.',
+                ),
+                _InstructionStep(
+                  number: '٣',
+                  text: widget == null
+                      ? 'ابحث عن «مشكاة»، ثم اختر الإضافة التي تريدها.'
+                      : 'ابحث عن «مشكاة»، ثم اختر «${_widgetTitle(widget)}».',
+                ),
+                const _InstructionStep(
+                  number: '٤',
+                  text: 'اضغط «إضافة» وضعها حيث تريد.',
+                  isLast: true,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('فهمت'),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              isIOS
-                  ? 'يمنح iPhone التحكم في الإضافة للمستخدم، وتستغرق الخطوات ثوانٍ قليلة.'
-                  : 'مشغّل الشاشة في جهازك لا يدعم الإضافة التلقائية؛ استخدم الخطوات التالية.',
-              style: TextStyle(color: sheetContext.mishkat.textSecondary),
-            ),
-            const SizedBox(height: 20),
-            _InstructionStep(
-              number: '١',
-              text: 'اضغط مطولًا على مساحة فارغة في الشاشة الرئيسية.',
-            ),
-            _InstructionStep(
-              number: '٢',
-              text: isIOS
-                  ? 'اضغط «تعديل» ثم «إضافة ودجت» أو علامة +.'
-                  : 'اختر «الأدوات» أو «Widgets» من القائمة.',
-            ),
-            const _InstructionStep(
-              number: '٣',
-              text: 'ابحث عن «مشكاة»، ثم اختر المقاس الذي يعجبك.',
-            ),
-            const _InstructionStep(
-              number: '٤',
-              text: 'اضغط «إضافة» وضعها حيث تريد.',
-              isLast: true,
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => Navigator.pop(sheetContext),
-              child: const Text('فهمت'),
-            ),
-          ],
-        ),
+          );
+        },
       );
-    },
-  );
 
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsCubit>().state.settings;
     final homeState = context.watch<HomeCubit>().state;
+    final wird = WirdWidgetContent(context.watch<KhatmaCubit>().state.active);
+    final tasbih = TasbihWidgetContent(context.watch<TasbihCubit>().state);
+    final darkPreview =
+        _darkPreview ?? Theme.of(context).brightness == Brightness.dark;
+    Widget preview(Widget child) => Theme(
+      data: Theme.of(
+        context,
+      ).copyWith(brightness: darkPreview ? Brightness.dark : Brightness.light),
+      child: child,
+    );
     final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
     return Scaffold(
@@ -154,8 +174,13 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
           icon: const Icon(Icons.arrow_forward_rounded),
           tooltip: 'رجوع',
         ),
-        title: const Text('ودجت مشكاة'),
+        title: const Text('إضافات الشاشة الرئيسية'),
         actions: [
+          IconButton(
+            onPressed: () => _showManualInstructions(),
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'طريقة الإضافة',
+          ),
           IconButton(
             onPressed: _refreshStatus,
             icon: const Icon(Icons.refresh_rounded),
@@ -167,44 +192,129 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
         padding: MishkatSpacing.page,
         children: [
           _WidgetsIntro(isIOS: isIOS),
-          const SizedBox(height: MishkatSpacing.xl),
-          _WidgetOptionCard(
-            kind: _WidgetVisualKind.prayer,
-            title: 'مواقيت الصلاة',
-            description: 'الصلاة القادمة، وقتها، ولمحة سريعة عن بقية اليوم.',
-            sizeLabel: 'عريضة · ٤×٢',
-            installed: _installed[MishkatHomeWidget.prayerTimes] == true,
-            loading: _loading || _adding == MishkatHomeWidget.prayerTimes,
-            onAdd: () => _add(MishkatHomeWidget.prayerTimes),
-            preview: _PrayerWidgetPreview(state: homeState),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'اختر ما يرافق يومك',
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              IconButton(
+                tooltip: darkPreview
+                    ? 'معاينة المظهر الفاتح'
+                    : 'معاينة المظهر الداكن',
+                onPressed: () => setState(() => _darkPreview = !darkPreview),
+                icon: Icon(
+                  darkPreview
+                      ? Icons.light_mode_outlined
+                      : Icons.dark_mode_outlined,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: MishkatSpacing.lg),
-          _WidgetOptionCard(
-            kind: _WidgetVisualKind.qibla,
-            title: 'بوصلة القبلة',
-            description: 'اتجاه القبلة من الشمال، والضغط يفتح البوصلة الحية.',
-            sizeLabel: 'مربعة · ٢×٢',
-            installed: _installed[MishkatHomeWidget.qibla] == true,
-            loading: _loading || _adding == MishkatHomeWidget.qibla,
-            onAdd: () => _add(MishkatHomeWidget.qibla),
-            preview: _QiblaWidgetPreview(
-              latitude: settings.latitude,
-              longitude: settings.longitude,
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final filter in _GalleryFilter.values)
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 8),
+                    child: ChoiceChip(
+                      label: Text(filter.label),
+                      selected: _filter == filter,
+                      selectedColor: context.mishkat.primarySoft,
+                      backgroundColor: context.mishkat.surface,
+                      checkmarkColor: context.mishkat.primary,
+                      labelStyle: TextStyle(
+                        color: _filter == filter
+                            ? context.mishkat.primary
+                            : context.mishkat.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      onSelected: (_) => setState(() => _filter = filter),
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: MishkatSpacing.lg),
-          _WidgetOptionCard(
-            kind: _WidgetVisualKind.adhkar,
-            title: 'ذِكر اليوم',
-            description:
-                'يتبدّل تلقائيًا بين ذكر الصباح والنهار والمساء والنوم.',
-            sizeLabel: 'عريضة · ٤×٢',
-            installed: _installed[MishkatHomeWidget.adhkar] == true,
-            loading: _loading || _adding == MishkatHomeWidget.adhkar,
-            onAdd: () => _add(MishkatHomeWidget.adhkar),
-            preview: const _AdhkarWidgetPreview(),
-          ),
-          const SizedBox(height: MishkatSpacing.lg),
+          if (_filter == _GalleryFilter.all ||
+              _filter == _GalleryFilter.quran) ...[
+            _WidgetOptionCard(
+              kind: _WidgetVisualKind.wird,
+              title: 'الورد اليومي',
+              description: 'ورد ختمتك، موضع قراءتك، وتقدّمك في لمحة واحدة.',
+              sizeLabel: 'عريضة · ٤×٢',
+              installed: _installed[MishkatHomeWidget.wird] == true,
+              loading: _loading || _adding != null,
+              onAdd: () => _add(MishkatHomeWidget.wird),
+              preview: preview(_WirdWidgetPreview(content: wird)),
+            ),
+            const SizedBox(height: MishkatSpacing.lg),
+          ],
+          if (_filter == _GalleryFilter.all ||
+              _filter == _GalleryFilter.dhikr) ...[
+            _WidgetOptionCard(
+              kind: _WidgetVisualKind.tasbih,
+              title: 'المسبحة',
+              description: 'ذكرك وعدّادك وهدفك محفوظة؛ اضغط لفتح جلسة التسبيح.',
+              sizeLabel: 'مربعة · ٢×٢',
+              installed: _installed[MishkatHomeWidget.tasbih] == true,
+              loading: _loading || _adding != null,
+              onAdd: () => _add(MishkatHomeWidget.tasbih),
+              preview: preview(_TasbihWidgetPreview(content: tasbih)),
+            ),
+            const SizedBox(height: MishkatSpacing.lg),
+          ],
+          if (_filter == _GalleryFilter.all ||
+              _filter == _GalleryFilter.prayer) ...[
+            _WidgetOptionCard(
+              kind: _WidgetVisualKind.prayer,
+              title: 'مواقيت الصلاة',
+              description: 'الصلاة القادمة، وقتها، ولمحة سريعة عن بقية اليوم.',
+              sizeLabel: 'عريضة · ٤×٢',
+              installed: _installed[MishkatHomeWidget.prayerTimes] == true,
+              loading: _loading || _adding != null,
+              onAdd: () => _add(MishkatHomeWidget.prayerTimes),
+              preview: preview(_PrayerWidgetPreview(state: homeState)),
+            ),
+            const SizedBox(height: MishkatSpacing.lg),
+            _WidgetOptionCard(
+              kind: _WidgetVisualKind.qibla,
+              title: 'بوصلة القبلة',
+              description: 'اتجاه القبلة من الشمال، والضغط يفتح البوصلة الحية.',
+              sizeLabel: 'مربعة · ٢×٢',
+              installed: _installed[MishkatHomeWidget.qibla] == true,
+              loading: _loading || _adding != null,
+              onAdd: () => _add(MishkatHomeWidget.qibla),
+              preview: preview(
+                _QiblaWidgetPreview(
+                  latitude: settings.latitude,
+                  longitude: settings.longitude,
+                ),
+              ),
+            ),
+            const SizedBox(height: MishkatSpacing.lg),
+          ],
+          if (_filter == _GalleryFilter.all ||
+              _filter == _GalleryFilter.dhikr) ...[
+            _WidgetOptionCard(
+              kind: _WidgetVisualKind.adhkar,
+              title: 'ذِكر اليوم',
+              description:
+                  'يتبدّل تلقائيًا بين ذكر الصباح والنهار والمساء والنوم.',
+              sizeLabel: 'عريضة · ٤×٢',
+              installed: _installed[MishkatHomeWidget.adhkar] == true,
+              loading: _loading || _adding != null,
+              onAdd: () => _add(MishkatHomeWidget.adhkar),
+              preview: preview(const _AdhkarWidgetPreview()),
+            ),
+            const SizedBox(height: MishkatSpacing.lg),
+          ],
           _BehaviorNote(isIOS: isIOS),
           const SizedBox(height: MishkatSpacing.xxl),
         ],
@@ -250,7 +360,7 @@ class _WidgetsIntro extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'روح مشكاة، أقرب إليك',
+                'مشكاة على شاشتك',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
@@ -260,8 +370,8 @@ class _WidgetsIntro extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 isIOS
-                    ? 'معاينات حيّة تتبع مظهر iPhone وتفتح مشكاة بلمسة واحدة.'
-                    : 'أضف ما تحتاجه الآن؛ جميع البيانات محلية وتعمل دون إنترنت.',
+                    ? 'خمس إضافات للصلاة والقرآن والذكر. اختر ما يرافقك، وافتحه بلمسة.'
+                    : 'وردك وذكرك وصلاتك، أقرب إليك. خمس إضافات تعمل ببياناتك المحفوظة.',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.74),
                   height: 1.5,
@@ -276,16 +386,40 @@ class _WidgetsIntro extends StatelessWidget {
   );
 }
 
-enum _WidgetVisualKind { prayer, qibla, adhkar }
+enum _GalleryFilter {
+  all('الكل'),
+  quran('القرآن'),
+  dhikr('الذكر والتسبيح'),
+  prayer('الصلاة والقبلة');
+
+  const _GalleryFilter(this.label);
+  final String label;
+}
+
+String _widgetTitle(MishkatHomeWidget widget) => switch (widget) {
+  MishkatHomeWidget.prayerTimes => 'مواقيت الصلاة',
+  MishkatHomeWidget.qibla => 'بوصلة القبلة',
+  MishkatHomeWidget.adhkar => 'ذِكر اليوم',
+  MishkatHomeWidget.wird => 'الورد اليومي',
+  MishkatHomeWidget.tasbih => 'المسبحة',
+};
+
+enum _WidgetVisualKind { prayer, qibla, adhkar, wird, tasbih }
 
 extension on _WidgetVisualKind {
   IconData get icon => switch (this) {
     _WidgetVisualKind.prayer => Icons.mosque_rounded,
     _WidgetVisualKind.qibla => Icons.explore_rounded,
     _WidgetVisualKind.adhkar => Icons.auto_awesome_rounded,
+    _WidgetVisualKind.wird => Icons.menu_book_rounded,
+    _WidgetVisualKind.tasbih => Icons.blur_circular_rounded,
   };
 
   Color accent(bool isDark) => switch (this) {
+    _WidgetVisualKind.wird =>
+      isDark ? const Color(0xFFA9D9CC) : const Color(0xFF486B65),
+    _WidgetVisualKind.tasbih =>
+      isDark ? const Color(0xFFD7B8EE) : const Color(0xFF725387),
     _WidgetVisualKind.prayer =>
       isDark ? const Color(0xFF8ED9BD) : const Color(0xFF276C5D),
     _WidgetVisualKind.qibla =>
@@ -295,6 +429,10 @@ extension on _WidgetVisualKind {
   };
 
   Color soft(bool isDark) => switch (this) {
+    _WidgetVisualKind.wird =>
+      isDark ? const Color(0xFF213B33) : const Color(0xFFE3EEE7),
+    _WidgetVisualKind.tasbih =>
+      isDark ? const Color(0xFF37283F) : const Color(0xFFF0E6F7),
     _WidgetVisualKind.prayer =>
       isDark ? const Color(0xFF1C3830) : const Color(0xFFE3F0EB),
     _WidgetVisualKind.qibla =>
@@ -304,6 +442,14 @@ extension on _WidgetVisualKind {
   };
 
   List<Color> stageGradient(bool isDark) => switch (this) {
+    _WidgetVisualKind.wird =>
+      isDark
+          ? const [Color(0xFF14251F), Color(0xFF21352D)]
+          : const [Color(0xFFEDF3EE), Color(0xFFE2ECE5)],
+    _WidgetVisualKind.tasbih =>
+      isDark
+          ? const [Color(0xFF211A29), Color(0xFF30223B)]
+          : const [Color(0xFFF7F0FC), Color(0xFFEEE4F5)],
     _WidgetVisualKind.prayer =>
       isDark
           ? const [Color(0xFF101C18), Color(0xFF152A24)]
@@ -396,26 +542,16 @@ class _WidgetOptionCard extends StatelessWidget {
                           color: context.mishkat.textSecondary,
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      Text(
+                        sizeLabel,
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: kind.soft(isDark),
-                    borderRadius: MishkatRadius.brPill,
-                  ),
-                  child: Text(
-                    sizeLabel,
-                    style: TextStyle(
-                      color: accent,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
                   ),
                 ),
               ],
@@ -601,8 +737,8 @@ class _PrayerWidgetPreview extends StatelessWidget {
             .take(3)
             .toList() ??
         const [];
-    return AspectRatio(
-      aspectRatio: 2.08,
+    return SizedBox(
+      height: 180,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 390),
         decoration: BoxDecoration(
@@ -933,8 +1069,8 @@ class _AdhkarWidgetPreview extends StatelessWidget {
         : hour >= 5 && hour < 12
         ? 'أذكار الصباح'
         : 'ذِكر اليوم';
-    return AspectRatio(
-      aspectRatio: 2.08,
+    return SizedBox(
+      height: 180,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 390),
         decoration: BoxDecoration(
@@ -1040,6 +1176,147 @@ class _AdhkarWidgetPreview extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WirdWidgetPreview extends StatelessWidget {
+  const _WirdWidgetPreview({required this.content});
+  final WirdWidgetContent content;
+
+  @override
+  Widget build(BuildContext context) => _ProgressWidgetFrame(
+    kind: _WidgetVisualKind.wird,
+    title: 'مِشكاة • الورد اليومي',
+    action: content.action,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          content.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          content.pages,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(content.detail, style: const TextStyle(fontSize: 11)),
+        const SizedBox(height: 10),
+        Text(
+          content.progressLabel,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        ),
+      ],
+    ),
+  );
+}
+
+class _TasbihWidgetPreview extends StatelessWidget {
+  const _TasbihWidgetPreview({required this.content});
+  final TasbihWidgetContent content;
+
+  @override
+  Widget build(BuildContext context) => _ProgressWidgetFrame(
+    kind: _WidgetVisualKind.tasbih,
+    title: 'مِشكاة • المسبحة',
+    action: content.action,
+    square: true,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          content.dhikr,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            content.count,
+            style: const TextStyle(
+              fontSize: 36,
+              height: 1.25,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Text(content.target, style: const TextStyle(fontSize: 11)),
+        const SizedBox(height: 4),
+        Text(content.today, style: const TextStyle(fontSize: 10)),
+      ],
+    ),
+  );
+}
+
+class _ProgressWidgetFrame extends StatelessWidget {
+  const _ProgressWidgetFrame({
+    required this.kind,
+    required this.title,
+    required this.action,
+    required this.child,
+    this.square = false,
+  });
+  final _WidgetVisualKind kind;
+  final String title;
+  final String action;
+  final Widget child;
+  final bool square;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = kind.accent(isDark);
+    return Container(
+      width: square ? 190 : 390,
+      constraints: const BoxConstraints(minHeight: 190),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark
+            ? (square ? const Color(0xFF271E30) : const Color(0xFF152923))
+            : (square ? const Color(0xFFF8F3FC) : const Color(0xFFF2F7F3)),
+        borderRadius: MishkatRadius.brXl,
+        border: Border.all(color: accent.withValues(alpha: .2)),
+        boxShadow: MishkatShadows.elevated(context),
+      ),
+      child: DefaultTextStyle(
+        style: TextStyle(color: accent, fontFamily: 'Cairo'),
+        child: Column(
+          crossAxisAlignment: square
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: kind.soft(isDark),
+                borderRadius: MishkatRadius.brLg,
+              ),
+              child: child,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              action,
+              textAlign: square ? TextAlign.center : TextAlign.start,
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
             ),
           ],
         ),

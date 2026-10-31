@@ -17,6 +17,7 @@ import '../features/adhkar/data/repositories/adhkar_repository.dart';
 import '../features/adhkar/presentation/cubit/adhkar_cubit.dart';
 import '../features/home/presentation/cubit/home_cubit.dart';
 import '../features/khatma/presentation/cubit/khatma_cubit.dart';
+import '../features/khatma/presentation/cubit/khatma_state.dart';
 import '../features/library/data/repositories/library_repository.dart';
 import '../features/library/presentation/cubit/library_cubit.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
@@ -30,6 +31,7 @@ import '../features/settings/presentation/cubit/settings_state.dart';
 import '../features/shell/presentation/cubit/shell_cubit.dart';
 import '../features/shell/presentation/pages/app_shell.dart';
 import '../features/tasbih/presentation/cubit/tasbih_cubit.dart';
+import '../features/tasbih/presentation/cubit/tasbih_state.dart';
 
 import '../features/quran/presentation/services/speech_recognition_service.dart';
 
@@ -157,6 +159,14 @@ class MishkatApp extends StatelessWidget {
                     unawaited(widgetService.sync(settings));
                   },
                 ),
+                BlocListener<KhatmaCubit, KhatmaState>(
+                  listener: (_, state) =>
+                      unawaited(widgetService.syncWird(state.active)),
+                ),
+                BlocListener<TasbihCubit, TasbihState>(
+                  listener: (_, state) =>
+                      widgetService.scheduleTasbihSync(state),
+                ),
               ],
               child: AppExitConfirmation(
                 child: _AppEntry(
@@ -192,12 +202,25 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncProgressWidgets();
+    });
+  }
+
+  void _syncProgressWidgets() {
+    final service = context.read<HomeWidgetService>();
+    unawaited(service.syncWird(context.read<KhatmaCubit>().state.active));
+    unawaited(service.syncTasbih(context.read<TasbihCubit>().state));
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(context.read<SettingsCubit>().refreshNotificationSchedule());
+      _syncProgressWidgets();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _syncProgressWidgets();
     }
   }
 

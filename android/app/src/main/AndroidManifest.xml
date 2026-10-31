@@ -65,10 +65,16 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>
-        <service android:name=".AdhanPlaybackService"
-            android:foregroundServiceType="mediaPlayback" android:exported="false" />
-        <receiver android:name=".AdhanAlarmReceiver" android:exported="false" />
-        <receiver android:name=".AdhanRestoreReceiver" android:exported="false">
+        <service
+            android:name=".AdhanPlaybackService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
+        <receiver
+            android:name=".AdhanAlarmReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".AdhanRestoreReceiver"
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
@@ -130,6 +136,28 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
+        </receiver>
+        <receiver
+            android:name="com.dakomn.mishkatapp.WirdWidgetHomeWidgetReceiver"
+            android:label="@string/home_widget_wird_widget_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wird_widget_home_widget" />
+        </receiver>
+        <receiver
+            android:name="com.dakomn.mishkatapp.TasbihWidgetHomeWidgetReceiver"
+            android:label="@string/home_widget_tasbih_widget_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/tasbih_widget_home_widget" />
         </receiver>
     </application>
     <!-- Required to query activities that can process text, see:

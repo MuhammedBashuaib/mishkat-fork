@@ -1,3 +1,4 @@
+import AVFAudio
 import Flutter
 import Speech
 import UIKit
@@ -6,6 +7,8 @@ import UserNotifications
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var speechSettingsChannel: FlutterMethodChannel?
+  private var tasbihSoundChannel: FlutterMethodChannel?
+  private var tasbihSoundPlayer: AVAudioPlayer?
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -25,6 +28,43 @@ import UserNotifications
       name: "com.dakomn.mishkatapp/speech_settings",
       binaryMessenger: registrar.messenger()
     )
+    let soundChannel = FlutterMethodChannel(
+      name: "com.dakomn.mishkatapp/tasbih_sound",
+      binaryMessenger: registrar.messenger()
+    )
+    tasbihSoundChannel = soundChannel
+    soundChannel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else { return result(FlutterMethodNotImplemented) }
+      do {
+        switch call.method {
+        case "prepare":
+          try self.prepareTasbihSound()
+          result(nil)
+        case "play":
+          try self.prepareTasbihSound()
+          let session = AVAudioSession.sharedInstance()
+          // Keep an existing Quran playback session intact.
+          if session.category != .playback {
+            try session.setCategory(.playback, options: [.mixWithOthers])
+          }
+          try session.setActive(true)
+          self.tasbihSoundPlayer?.currentTime = 0
+          guard self.tasbihSoundPlayer?.play() == true else {
+            result(FlutterError(code: "tasbih_sound_error", message: "Cannot start chime", details: nil))
+            return
+          }
+          result(nil)
+        case "dispose":
+          self.tasbihSoundPlayer?.stop()
+          self.tasbihSoundPlayer = nil
+          result(nil)
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      } catch {
+        result(FlutterError(code: "tasbih_sound_error", message: error.localizedDescription, details: nil))
+      }
+    }
     speechSettingsChannel = channel
     channel.setMethodCallHandler { [weak self] call, result in
       switch call.method {
@@ -36,6 +76,19 @@ import UserNotifications
         result(FlutterMethodNotImplemented)
       }
     }
+  }
+
+  private func prepareTasbihSound() throws {
+    if tasbihSoundPlayer != nil { return }
+    let key = FlutterDartProject.lookupKey(forAsset: "assets/audio/tasbih_complete.wav")
+    guard let path = Bundle.main.path(forResource: key, ofType: nil) else {
+      throw NSError(domain: "TasbihSound", code: 1, userInfo: [
+        NSLocalizedDescriptionKey: "Completion sound asset is missing"
+      ])
+    }
+    let player = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path))
+    player.prepareToPlay()
+    tasbihSoundPlayer = player
   }
 
   private func arabicModelStatus() -> [String: Any] {

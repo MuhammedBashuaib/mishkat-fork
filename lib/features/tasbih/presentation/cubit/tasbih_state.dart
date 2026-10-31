@@ -48,8 +48,7 @@ class TasbihState extends Equatable {
     this.dhikrId = 'subhan_allah',
     this.hapticsEnabled = true,
     this.completionSoundEnabled = true,
-    this.customDhikrText = '',
-    this.customDhikrTarget = 33,
+    this.customDhikrs = const [],
     this.sessionDate = '',
   });
 
@@ -60,18 +59,12 @@ class TasbihState extends Equatable {
   final String dhikrId;
   final bool hapticsEnabled;
   final bool completionSoundEnabled;
-  final String customDhikrText;
-  final int customDhikrTarget;
+  final List<TasbihDhikr> customDhikrs;
   final String sessionDate;
 
   TasbihDhikr get dhikr {
-    if (dhikrId == tasbihCustomDhikrId && customDhikrText.isNotEmpty) {
-      return TasbihDhikr(
-        id: tasbihCustomDhikrId,
-        text: customDhikrText,
-        suggestedTarget: customDhikrTarget,
-      );
-    }
+    final custom = customDhikrs.where((item) => item.id == dhikrId).firstOrNull;
+    if (custom != null) return custom;
     return tasbihDhikrOptions.firstWhere(
       (item) => item.id == dhikrId,
       orElse: () => tasbihDhikrOptions.first,
@@ -91,8 +84,7 @@ class TasbihState extends Equatable {
     String? dhikrId,
     bool? hapticsEnabled,
     bool? completionSoundEnabled,
-    String? customDhikrText,
-    int? customDhikrTarget,
+    List<TasbihDhikr>? customDhikrs,
     String? sessionDate,
   }) => TasbihState(
     count: count ?? this.count,
@@ -103,8 +95,7 @@ class TasbihState extends Equatable {
     hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     completionSoundEnabled:
         completionSoundEnabled ?? this.completionSoundEnabled,
-    customDhikrText: customDhikrText ?? this.customDhikrText,
-    customDhikrTarget: customDhikrTarget ?? this.customDhikrTarget,
+    customDhikrs: customDhikrs ?? this.customDhikrs,
     sessionDate: sessionDate ?? this.sessionDate,
   );
 
@@ -117,8 +108,7 @@ class TasbihState extends Equatable {
     dhikrId,
     hapticsEnabled,
     completionSoundEnabled,
-    customDhikrText,
-    customDhikrTarget,
+    customDhikrs,
     sessionDate,
   ];
 }

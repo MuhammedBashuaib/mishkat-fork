@@ -11,12 +11,16 @@ import '../../../adhkar/presentation/pages/adhkar_page.dart';
 import '../../../adhkar/presentation/pages/adhkar_reader_page.dart';
 import '../../../home/presentation/pages/home_page.dart';
 import '../../../khatma/presentation/cubit/khatma_cubit.dart';
+import '../../../khatma/data/models/khatma_plan.dart';
 import '../../../library/presentation/pages/library_page.dart';
 import '../../../library/presentation/cubit/library_cubit.dart';
 import '../../../library/presentation/cubit/library_state.dart';
 import '../../../qibla/presentation/pages/qibla_page.dart';
 import '../../../quran/presentation/pages/quran_page.dart';
 import '../../../quran/presentation/pages/quran_memorization_page.dart';
+import '../../../quran/presentation/cubit/quran_cubit.dart';
+import '../../../quran/presentation/pages/quran_reader_page.dart';
+import '../../../tasbih/presentation/pages/tasbih_page.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
@@ -121,34 +125,63 @@ class _AppShellState extends State<AppShell> {
     if (!mounted || uri == null || _routingHomeWidget) return;
     _routingHomeWidget = true;
     homeWidgetLaunchUri.value = null;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final navigator = Navigator.of(context);
       navigator.popUntil((route) => route.isFirst);
-      switch (uri.host) {
-        case 'qibla':
-          context.read<ShellCubit>().select(2);
-          break;
-        case 'adhkar':
-          final hour = DateTime.now().hour;
-          context.read<ShellCubit>().select(3);
-          context.read<AdhkarCubit>().select(
-            hour >= 16 && hour < 22
-                ? 133
-                : hour >= 22 || hour < 5
-                ? 2
-                : 1,
-          );
-          navigator.push(
-            MaterialPageRoute<void>(builder: (_) => const AdhkarReaderPage()),
-          );
-          break;
-        case 'prayer':
-        default:
-          context.read<ShellCubit>().select(0);
-          break;
+      try {
+        switch (uri.host) {
+          case 'tasbih':
+            navigator.push(
+              MaterialPageRoute<void>(builder: (_) => const TasbihPage()),
+            );
+            break;
+          case 'wird':
+            context.read<ShellCubit>().select(4);
+            context.read<LibraryCubit>().setSection(LibrarySection.khatma);
+            final plan = context.read<KhatmaCubit>().state.active;
+            if (plan != null && plan.status == KhatmaStatus.active) {
+              final page = plan.resumePage.clamp(plan.nextPage, plan.todayEnd);
+              await context.read<QuranCubit>().openPage(page);
+              if (!mounted) return;
+              navigator.push(
+                MaterialPageRoute<void>(
+                  builder: (_) => QuranReaderPage(
+                    khatmaPlanId: plan.id,
+                    khatmaPlanName: plan.name,
+                    khatmaStartPage: page,
+                    khatmaTargetPage: plan.todayEnd,
+                  ),
+                ),
+              );
+            }
+            break;
+          case 'qibla':
+            context.read<ShellCubit>().select(2);
+            break;
+          case 'adhkar':
+            final hour = DateTime.now().hour;
+            context.read<ShellCubit>().select(3);
+            context.read<AdhkarCubit>().select(
+              hour >= 16 && hour < 22
+                  ? 133
+                  : hour >= 22 || hour < 5
+                  ? 2
+                  : 1,
+            );
+            navigator.push(
+              MaterialPageRoute<void>(builder: (_) => const AdhkarReaderPage()),
+            );
+            break;
+          case 'prayer':
+          default:
+            context.read<ShellCubit>().select(0);
+            break;
+        }
+      } finally {
+        _routingHomeWidget = false;
+        if (mounted && homeWidgetLaunchUri.value != null) _onHomeWidgetTap();
       }
-      _routingHomeWidget = false;
     });
   }
 

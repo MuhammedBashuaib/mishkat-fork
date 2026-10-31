@@ -8,12 +8,17 @@ import '../../features/adhkar/data/repositories/adhkar_repository.dart';
 import '../../features/prayer_times/data/services/prayer_calculator.dart';
 import '../../features/prayer_times/domain/models/prayer_models.dart';
 import '../../features/settings/data/models/app_settings.dart';
+import '../../features/khatma/data/models/khatma_plan.dart';
+import '../../features/tasbih/presentation/cubit/tasbih_state.dart';
 import '../../src/home_widget/adhkar_widget.home_widget.dart';
 import '../../src/home_widget/prayer_times_widget.home_widget.dart';
 import '../../src/home_widget/qibla_widget.home_widget.dart';
+import '../../src/home_widget/wird_widget.home_widget.dart';
+import '../../src/home_widget/tasbih_widget.home_widget.dart';
 import '../utils/app_formatters.dart';
+import 'home_widget_content.dart';
 
-enum MishkatHomeWidget { prayerTimes, qibla, adhkar }
+enum MishkatHomeWidget { prayerTimes, qibla, adhkar, wird, tasbih }
 
 /// The latest deep link delivered by a Home Screen widget.
 ///
@@ -34,6 +39,8 @@ class HomeWidgetService {
   final AdhkarRepository _adhkarRepository;
   final PrayerCalculator _calculator;
   StreamSubscription<Uri?>? _clickSubscription;
+  Timer? _tasbihDebounce;
+  Future<void> _tasbihWrites = Future.value();
 
   bool get isSupportedPlatform =>
       !kIsWeb &&
@@ -78,6 +85,8 @@ class HomeWidgetService {
           PrayerTimesWidgetHomeWidget.isInstalled(),
         MishkatHomeWidget.qibla => QiblaWidgetHomeWidget.isInstalled(),
         MishkatHomeWidget.adhkar => AdhkarWidgetHomeWidget.isInstalled(),
+        MishkatHomeWidget.wird => WirdWidgetHomeWidget.isInstalled(),
+        MishkatHomeWidget.tasbih => TasbihWidgetHomeWidget.isInstalled(),
       };
       return await result;
     } on Object {
@@ -103,7 +112,62 @@ class HomeWidgetService {
         await QiblaWidgetHomeWidget.requestPinWidget();
       case MishkatHomeWidget.adhkar:
         await AdhkarWidgetHomeWidget.requestPinWidget();
+      case MishkatHomeWidget.wird:
+        await WirdWidgetHomeWidget.requestPinWidget();
+      case MishkatHomeWidget.tasbih:
+        await TasbihWidgetHomeWidget.requestPinWidget();
     }
+  }
+
+  Future<void> syncWird(KhatmaPlan? plan) async {
+    if (!isSupportedPlatform) return;
+    await _guarded('while syncing daily wird', () async {
+      final content = WirdWidgetContent(plan);
+      await WirdWidgetHomeWidget.saveData(
+        wirdName: content.name,
+        wirdPages: content.pages,
+        wirdDetail: content.detail,
+        wirdProgress: content.progressLabel,
+        wirdAction: content.action,
+      );
+      await WirdWidgetHomeWidget.updateWidget();
+    });
+  }
+
+  /// Coalesce fast taps; the application remains the source of the counter.
+  void scheduleTasbihSync(TasbihState state) {
+    if (!isSupportedPlatform) return;
+    _tasbihDebounce?.cancel();
+    _tasbihDebounce = Timer(const Duration(milliseconds: 250), () {
+      unawaited(syncTasbih(state));
+    });
+  }
+
+  Future<void> syncTasbih(TasbihState state) {
+    _tasbihDebounce?.cancel();
+    if (!isSupportedPlatform) return Future.value();
+    _tasbihWrites = _tasbihWrites.then(
+      (_) => _guarded('while syncing tasbih widget', () async {
+        final now = DateTime.now();
+        final content = TasbihWidgetContent(state, now: now);
+        await TasbihWidgetHomeWidget.saveData(
+          tasbihDhikr: content.dhikr,
+          tasbihCount: content.count,
+          tasbihTarget: content.target,
+          tasbihAction: content.action,
+          timedData: {
+            now.subtract(const Duration(seconds: 1)): TasbihWidgetTimedData(
+              tasbihToday: content.today,
+            ),
+            DateTime(now.year, now.month, now.day + 1): TasbihWidgetTimedData(
+              tasbihToday: 'اليوم ٠ تسبيحة',
+            ),
+          },
+        );
+        await TasbihWidgetHomeWidget.updateWidget();
+      }),
+    );
+    return _tasbihWrites;
   }
 
   Future<void> _syncPrayer(AppSettings settings) async {

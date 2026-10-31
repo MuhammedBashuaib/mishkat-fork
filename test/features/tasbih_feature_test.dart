@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
+import 'package:mishkat_app/core/services/tasbih_completion_sound.dart';
 import 'package:mishkat_app/core/theme/app_theme.dart';
 import 'package:mishkat_app/features/tasbih/presentation/cubit/tasbih_cubit.dart';
 import 'package:mishkat_app/features/tasbih/presentation/pages/tasbih_page.dart';
@@ -104,6 +105,156 @@ void main() {
 
     await cubit.close();
     await restored.close();
+  });
+
+  test(
+    'custom entries have stable identities and independent saved targets',
+    () async {
+      final storage = _MemoryStorage();
+      final cubit = TasbihCubit(storage, now: () => DateTime(2026, 10, 31));
+      addTearDown(cubit.close);
+      await cubit.setCustomDhikr('أستغفر الله', target: 25);
+      final firstId = cubit.state.dhikrId;
+      await cubit.increment();
+      await cubit.setCustomDhikr('ربي اغفر لي', target: 50);
+      final secondId = cubit.state.dhikrId;
+      expect(secondId, isNot(firstId));
+      expect(cubit.state.customDhikrs, hasLength(2));
+      await cubit.increment();
+
+      // Editing another entry leaves the active counter intact.
+      await cubit.setCustomDhikr('أستغفر الله العظيم', target: 70, id: firstId);
+      expect(cubit.state.dhikrId, secondId);
+      expect(cubit.state.count, 1);
+      expect(cubit.state.target, 50);
+      await cubit.selectDhikr(firstId);
+      expect(cubit.state.dhikr.text, 'أستغفر الله العظيم');
+      expect(cubit.state.target, 70);
+      await cubit.setTarget(80);
+      await cubit.selectDhikr(secondId);
+      expect(cubit.state.target, 50);
+      await cubit.selectDhikr(firstId);
+      expect(cubit.state.target, 80);
+      await cubit.increment();
+
+      final restored = TasbihCubit(storage);
+      addTearDown(restored.close);
+      expect(restored.state.customDhikrs, cubit.state.customDhikrs);
+      expect(restored.state.dhikrId, firstId);
+      expect(restored.state.count, 1);
+      await cubit.deleteCustomDhikr(secondId);
+      expect(cubit.state.count, 1);
+      expect(cubit.state.dhikrId, firstId);
+      await cubit.deleteCustomDhikr(firstId);
+      expect(cubit.state.customDhikrs, isEmpty);
+      expect(cubit.state.dhikrId, 'subhan_allah');
+      expect(cubit.state.count, 0);
+      expect(cubit.state.total, 3);
+      final afterDelete = TasbihCubit(storage);
+      addTearDown(afterDelete.close);
+      expect(afterDelete.state.customDhikrs, isEmpty);
+    },
+  );
+
+  test(
+    'migrates the old custom entry even when another dhikr is active',
+    () async {
+      for (final active in ['custom', 'tahlil']) {
+        final storage = _MemoryStorage()
+          ..put('tasbihSessionV2', {
+            'dhikrId': active,
+            'count': 4,
+            'total': 12,
+            'target': 25,
+            'customDhikrText': 'أستغفر الله',
+            'customDhikrTarget': 25,
+          });
+        final cubit = TasbihCubit(storage);
+        expect(cubit.state.dhikrId, active);
+        expect(cubit.state.count, 4);
+        expect(cubit.state.customDhikrs.single.text, 'أستغفر الله');
+        await cubit.setCustomDhikr('ربي اغفر لي', target: 50);
+        expect(cubit.state.customDhikrs, hasLength(2));
+        final restored = TasbihCubit(storage);
+        expect(restored.state.customDhikrs, cubit.state.customDhikrs);
+        await cubit.close();
+        await restored.close();
+      }
+    },
+  );
+
+  test(
+    'validates custom edits and preserves the active entry identity',
+    () async {
+      final cubit = TasbihCubit(_MemoryStorage());
+      addTearDown(cubit.close);
+      await cubit.setCustomDhikr('أستغفر الله', target: 25);
+      final id = cubit.state.dhikrId;
+      await cubit.increment();
+      await cubit.setCustomDhikr('  ', target: 25, id: id);
+      await cubit.setCustomDhikr('غير صالح', target: 0, id: id);
+      await cubit.setCustomDhikr('غير صالح', target: 10000, id: id);
+      await cubit.setCustomDhikr('غير موجود', target: 25, id: 'missing');
+      expect(cubit.state.count, 1);
+      expect(cubit.state.customDhikrs, hasLength(1));
+      await cubit.setCustomDhikr('أستغفر الله العظيم', target: 30, id: id);
+      expect(cubit.state.dhikrId, id);
+      expect(cubit.state.count, 0);
+      expect(cubit.state.target, 30);
+      expect(cubit.state.total, 1);
+    },
+  );
+
+  testWidgets('native chime plays once on rapid taps and respects the switch', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      TasbihCompletionSound.channel,
+      (call) async {
+        calls.add(call.method);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        TasbihCompletionSound.channel,
+        null,
+      ),
+    );
+    final cubit = TasbihCubit(_MemoryStorage());
+    addTearDown(cubit.close);
+    await cubit.setTarget(2);
+    await tester.pumpWidget(_tasbihApp(cubit));
+    await tester.pump();
+    // Three taps without pumping a rebuild between them must still detect 2.
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text('اضغط للتسبيح'));
+    }
+    await tester.pumpAndSettle();
+    expect(cubit.state.count, 3);
+    expect(calls.where((method) => method == 'prepare'), hasLength(1));
+    expect(calls.where((method) => method == 'play'), hasLength(1));
+    await cubit.reset();
+    await cubit.toggleCompletionSound();
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.text('اضغط للتسبيح'));
+    }
+    await tester.pumpAndSettle();
+    expect(calls.where((method) => method == 'play'), hasLength(1));
+    await cubit.reset();
+    await cubit.toggleCompletionSound();
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.text('اضغط للتسبيح'));
+    }
+    await tester.pumpAndSettle();
+    expect(calls.where((method) => method == 'play'), hasLength(2));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(calls.last, 'dispose');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('tasbih page fits a small screen and increments from the dial', (
@@ -290,7 +441,97 @@ void main() {
     expect(cubit.state.target, 25);
     expect(find.text('أستغفر الله العظيم'), findsNWidgets(2));
   });
+  testWidgets(
+    'manages multiple custom entries from the small-screen selector',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final cubit = TasbihCubit(_MemoryStorage());
+      addTearDown(cubit.close);
+      await cubit.setCustomDhikr('أستغفر الله', target: 25);
+      final firstId = cubit.state.dhikrId;
+      await tester.pumpWidget(_tasbihApp(cubit, injectedSound: true));
+      await tester.tap(find.text('الذكر الحالي'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('إضافة ذكر مخصص'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'نص الذكر'))
+            .controller!
+            .text,
+        isEmpty,
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'نص الذكر'),
+        'ربي اغفر لي',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'أو اكتب هدفًا مخصصًا'),
+        '50',
+      );
+      await tester.ensureVisible(find.text('إضافة واستخدام الذكر'));
+      await tester.tap(find.text('إضافة واستخدام الذكر'));
+      await tester.pumpAndSettle();
+      expect(cubit.state.customDhikrs, hasLength(2));
+      final secondId = cubit.state.dhikrId;
+      await cubit.increment();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('الذكر الحالي'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('custom-actions-$firstId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('تعديل الذكر'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'نص الذكر'),
+        'أستغفر الله العظيم',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'أو اكتب هدفًا مخصصًا'),
+        '75',
+      );
+      await tester.ensureVisible(find.text('حفظ التعديلات'));
+      await tester.tap(find.text('حفظ التعديلات'));
+      await tester.pumpAndSettle();
+      expect(cubit.state.dhikrId, secondId);
+      expect(cubit.state.count, 1);
+      expect(cubit.state.customDhikrs.first.text, 'أستغفر الله العظيم');
+      expect(cubit.state.customDhikrs.first.suggestedTarget, 75);
+
+      // Canceling deletion keeps the item, confirming removes only that item.
+      for (final confirm in [false, true]) {
+        await tester.tap(find.text('الذكر الحالي'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey('custom-actions-$secondId')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('حذف الذكر'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(confirm ? 'حذف' : 'إلغاء'));
+        await tester.pumpAndSettle();
+        expect(cubit.state.customDhikrs, hasLength(confirm ? 1 : 2));
+      }
+      expect(cubit.state.dhikrId, 'subhan_allah');
+      expect(cubit.state.total, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
+
+Widget _tasbihApp(TasbihCubit cubit, {bool injectedSound = false}) =>
+    BlocProvider.value(
+      value: cubit,
+      child: MaterialApp(
+        locale: const Locale('ar'),
+        supportedLocales: const [Locale('ar')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        theme: AppTheme.light(),
+        home: TasbihPage(onCompletionSound: injectedSound ? _noOp : null),
+      ),
+    );
 
 void _noOp() {}
 
