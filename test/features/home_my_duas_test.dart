@@ -11,6 +11,7 @@ import 'package:mishkat_app/core/services/audio_service.dart';
 import 'package:mishkat_app/core/services/local_notification_service.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/core/services/location_service.dart';
+import 'package:mishkat_app/core/services/reminder_navigation.dart';
 import 'package:mishkat_app/core/theme/app_theme.dart';
 import 'package:mishkat_app/features/adhkar/data/models/adhkar_models.dart';
 import 'package:mishkat_app/features/adhkar/data/repositories/adhkar_repository.dart';
@@ -18,11 +19,13 @@ import 'package:mishkat_app/features/adhkar/presentation/cubit/adhkar_cubit.dart
 import 'package:mishkat_app/features/adhkar/presentation/pages/adhkar_reader_page.dart';
 import 'package:mishkat_app/features/home/presentation/cubit/home_cubit.dart';
 import 'package:mishkat_app/features/home/presentation/pages/home_page.dart';
+import 'package:mishkat_app/features/home/presentation/pages/charity_reminder_page.dart';
 import 'package:mishkat_app/features/home/presentation/models/home_dhikr_moment.dart';
 import 'package:mishkat_app/features/khatma/presentation/cubit/khatma_cubit.dart';
 import 'package:mishkat_app/features/qibla/presentation/cubit/qibla_cubit.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_repository.dart';
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_cubit.dart';
+import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.dart';
 import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:mishkat_app/features/shell/presentation/cubit/shell_cubit.dart';
@@ -539,4 +542,85 @@ void main() {
     expect(tasbihCubit.state.count, 1);
     expect(tasbihCubit.state.target, 50);
   });
+
+  testWidgets('dhikr notification opens the matching tasbih selection', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildApp());
+    await tasbihCubit.increment();
+    await ReminderNavigation.open(
+      tester.element(find.byType(HomePage)),
+      'tasbih:istighfar',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(TasbihPage), findsOneWidget);
+    expect(tasbihCubit.state.dhikr.text, 'أستغفر الله');
+    expect(tasbihCubit.state.count, 0);
+    expect(tasbihCubit.state.total, 1);
+  });
+
+  testWidgets('charity notification opens relevant ideas for giving', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildApp());
+    await ReminderNavigation.open(
+      tester.element(find.byType(HomePage)),
+      'charity',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(CharityReminderPage), findsOneWidget);
+    expect(find.text('هل تصدّقت اليوم؟'), findsOneWidget);
+    expect(find.text('إطعام وسقيا'), findsOneWidget);
+  });
+
+  testWidgets('daily wird opens the saved Quran position without a plan', (
+    tester,
+  ) async {
+    await quranCubit.openPage(47);
+    final global = quranCubit.state.lastRead?.global;
+    await tester.pumpWidget(buildApp());
+    await ReminderNavigation.open(
+      tester.element(find.byType(HomePage)),
+      'wird',
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final reader = tester.widget<QuranReaderPage>(find.byType(QuranReaderPage));
+    expect(reader.initialGlobalAyah, global);
+    expect(reader.khatmaPlanId, isNull);
+    expect(quranCubit.state.currentPage, 47);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'khatma notification selects its plan and resumes its saved target',
+    (tester) async {
+      await khatmaCubit.create(name: 'ختمتي', durationDays: 30, startPage: 42);
+      final plan = khatmaCubit.state.active!;
+      await khatmaCubit.recordReadingPosition(planId: plan.id, currentPage: 45);
+      await khatmaCubit.create(
+        name: 'ختمة أخرى',
+        durationDays: 30,
+        startPage: 100,
+      );
+      await tester.pumpWidget(buildApp());
+      await ReminderNavigation.open(
+        tester.element(find.byType(HomePage)),
+        'khatma:${plan.id}',
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      final reader = tester.widget<QuranReaderPage>(
+        find.byType(QuranReaderPage),
+      );
+      expect(reader.khatmaPlanId, plan.id);
+      expect(reader.khatmaStartPage, 45);
+      expect(reader.khatmaTargetPage, plan.todayEnd);
+      expect(khatmaCubit.state.activeId, plan.id);
+      expect(quranCubit.state.currentPage, 45);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
 }

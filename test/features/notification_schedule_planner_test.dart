@@ -5,6 +5,8 @@ import 'package:mishkat_app/features/khatma/data/models/khatma_plan.dart';
 import 'package:mishkat_app/features/quran/data/models/memorization_plan.dart';
 import 'package:mishkat_app/features/settings/data/models/adhan_preferences.dart';
 import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
+import 'package:mishkat_app/features/settings/data/models/reminder_preferences.dart';
+import 'package:mishkat_app/features/tasbih/presentation/cubit/tasbih_state.dart';
 import 'package:mishkat_app/features/settings/data/services/notification_schedule_planner.dart';
 
 void main() {
@@ -71,10 +73,7 @@ void main() {
       expect(result.any((item) => item.payload == 'adhkar:3'), isTrue);
       expect(result.any((item) => item.payload == 'adhkar:2'), isTrue);
       expect(
-        result.any(
-          (item) =>
-              item.payload == 'adhkar:129' || item.payload == 'adhkar:130',
-        ),
+        result.any((item) => item.payload?.startsWith('tasbih:') == true),
         isTrue,
       );
       expect(
@@ -84,13 +83,19 @@ void main() {
                   item.kind == AppNotificationKind.adhkar && item.repeatsDaily,
             )
             .length,
-        3,
+        4,
       );
       final eveningReminders = result
           .where((item) => item.payload == 'adhkar:133')
           .toList();
-      expect(eveningReminders.length, greaterThanOrEqualTo(2));
-      expect(eveningReminders.first.title, isNot(eveningReminders[1].title));
+      expect(eveningReminders, hasLength(1));
+      expect(eveningReminders.single.repeatsDaily, isTrue);
+      final tomorrow = NotificationSchedulePlanner.build(
+        storage: storage,
+        settings: settings,
+        now: DateTime(2026, 10, 20, 12),
+      ).singleWhere((item) => item.payload == 'adhkar:133');
+      expect(eveningReminders.single.title, isNot(tomorrow.title));
       expect(result.any((item) => item.payload == 'khatma:khatma-1'), isTrue);
       final hifz = result.singleWhere(
         (item) => item.id == NotificationSchedulePlanner.memorizationReminderId,
@@ -168,6 +173,12 @@ void main() {
         latitude: 21.4225,
         longitude: 39.8262,
         notificationsEnabled: true,
+        adhkarNotifications: false,
+        reminders: ReminderPreferences(
+          charityEnabled: false,
+          dhikrEnabled: false,
+          dailyWirdEnabled: false,
+        ),
         prayerNotifications: {
           'fajr': false,
           'dhuhr': false,
@@ -226,6 +237,244 @@ void main() {
 
     final restored = AppSettings.fromJson(settings.toJson());
     expect(restored, settings);
+  });
+
+  test(
+    'daily reminders work without location and continue with repeating alarms',
+    () {
+      final now = DateTime(2026, 10, 31);
+      final result = NotificationSchedulePlanner.build(
+        storage: _MemoryStorage({}),
+        settings: const AppSettings(notificationsEnabled: true, vibrate: false),
+        now: now,
+      ).where((item) => item.at.isAfter(now)).toList();
+      final charity = result
+          .where((item) => item.kind == AppNotificationKind.charity)
+          .toList();
+      expect(charity, hasLength(2));
+      expect(charity.map((item) => (item.at.hour, item.at.minute)), [
+        (9, 0),
+        (18, 30),
+      ]);
+      expect(charity.first.body, isNot(charity.last.body));
+      expect(
+        result.where((item) => item.kind == AppNotificationKind.dhikr),
+        hasLength(3),
+      );
+      expect(result.singleWhere((item) => item.payload == 'wird').at.hour, 20);
+      expect(
+        result.singleWhere((item) => item.payload == 'adhkar:1').at.hour,
+        7,
+      );
+      expect(
+        result.singleWhere((item) => item.payload == 'adhkar:133').at.hour,
+        18,
+      );
+      expect(
+        result.singleWhere((item) => item.payload == 'adhkar:2').at.hour,
+        22,
+      );
+      expect(
+        result.every(
+          (item) => item.repeatsDaily && !item.sound && !item.vibrate,
+        ),
+        true,
+      );
+      expect(result.map((item) => item.id).toSet(), hasLength(result.length));
+    },
+  );
+
+  test('master switch and individual categories remove their reminders', () {
+    final storage = _MemoryStorage({});
+    final now = DateTime(2026, 10, 31);
+    expect(
+      NotificationSchedulePlanner.build(
+        storage: storage,
+        settings: const AppSettings(),
+        now: now,
+      ),
+      isEmpty,
+    );
+    final result = NotificationSchedulePlanner.build(
+      storage: storage,
+      now: now,
+      settings: const AppSettings(
+        notificationsEnabled: true,
+        adhkarNotifications: false,
+        reminders: ReminderPreferences(
+          charityEnabled: false,
+          dhikrEnabled: false,
+          dailyWirdEnabled: false,
+        ),
+      ),
+    );
+    expect(result.where((item) => item.at.isAfter(now)), isEmpty);
+    expect(result.any((item) => item.id == 100000), true);
+  });
+
+  test('dhikr texts match the selected tasbih for every frequency and day', () {
+    for (final frequency in [1, 3, 5]) {
+      for (var day = 1; day <= 7; day++) {
+        final now = DateTime(2026, 11, day);
+        final result = NotificationSchedulePlanner.build(
+          storage: _MemoryStorage({}),
+          now: now,
+          settings: AppSettings(
+            notificationsEnabled: true,
+            reminders: ReminderPreferences(dhikrPerDay: frequency),
+          ),
+        );
+        final dhikrs = result
+            .where((item) => item.kind == AppNotificationKind.dhikr)
+            .toList();
+        expect(dhikrs, hasLength(frequency));
+        expect(
+          dhikrs.map((item) => item.payload).toSet(),
+          hasLength(frequency),
+        );
+        for (final item in dhikrs) {
+          final id = item.payload!.split(':').last;
+          final dhikr = tasbihDhikrOptions.singleWhere((item) => item.id == id);
+          expect(item.body, startsWith(dhikr.text));
+          expect(item.at.hour, inInclusiveRange(8, 21));
+        }
+      }
+    }
+  });
+
+  test('crowded reminders are spaced and stay inside daytime hours', () {
+    final now = DateTime(2026, 10, 31);
+    final result = NotificationSchedulePlanner.build(
+      storage: _MemoryStorage({}),
+      now: now,
+      settings: const AppSettings(
+        notificationsEnabled: true,
+        reminders: ReminderPreferences(
+          charityMorningMinute: 21 * 60 + 55,
+          charityEveningMinute: 21 * 60 + 55,
+          dailyWirdMinute: 21 * 60 + 55,
+          dhikrPerDay: 5,
+        ),
+      ),
+    ).where((item) => item.id >= 400000 && item.id < 500000).toList();
+    final minutes =
+        result.map((item) => item.at.hour * 60 + item.at.minute).toList()
+          ..sort();
+    expect(minutes.first, greaterThanOrEqualTo(8 * 60));
+    expect(minutes.last, lessThan(22 * 60));
+    for (var i = 1; i < minutes.length; i++) {
+      expect(minutes[i] - minutes[i - 1], greaterThanOrEqualTo(15));
+    }
+  });
+
+  test('late-night refresh schedules the next local calendar day', () {
+    final now = DateTime(2026, 10, 31, 23, 59);
+    final result = NotificationSchedulePlanner.build(
+      storage: _MemoryStorage({}),
+      now: now,
+      settings: const AppSettings(
+        notificationsEnabled: true,
+        reminders: ReminderPreferences(sleepMinute: 23 * 60),
+      ),
+    ).where((item) => item.at.isAfter(now));
+    expect(result, isNotEmpty);
+    expect(
+      result.every(
+        (item) =>
+            item.at.year == 2026 && item.at.month == 11 && item.at.day == 1,
+      ),
+      true,
+    );
+    expect(
+      result.singleWhere((item) => item.payload == 'adhkar:2').at.hour,
+      23,
+    );
+  });
+
+  test(
+    'uses the explicit khatma reminder once, with a no-location fallback',
+    () {
+      final now = DateTime(2026, 10, 31, 23);
+      final plan = KhatmaPlan(
+        id: 'active',
+        name: 'ختمتي',
+        durationDays: 30,
+        dailyPages: 20,
+        startDate: now,
+        startPage: 1,
+        progressPage: 40,
+        status: KhatmaStatus.active,
+        reminderPrayer: 'isha',
+        createdAt: now,
+      );
+      final storage = _MemoryStorage({
+        'khatma': {
+          'plans': [plan.toJson()],
+        },
+      });
+      final settings = const AppSettings(
+        notificationsEnabled: true,
+        latitude: 34.0522,
+        longitude: -118.2437,
+      );
+      final result = NotificationSchedulePlanner.build(
+        storage: storage,
+        settings: settings,
+        now: now,
+      );
+      final wird = result
+          .where((item) => item.kind == AppNotificationKind.khatma)
+          .toList();
+      expect(wird, hasLength(1));
+      expect(wird.single.payload, 'khatma:active');
+      expect(wird.single.repeatsDaily, true);
+      final withoutLocation = NotificationSchedulePlanner.build(
+        storage: storage,
+        settings: settings.copyWith(latitude: null, longitude: null),
+        now: now,
+      );
+      expect(
+        withoutLocation.where((item) => item.payload == 'wird'),
+        hasLength(1),
+      );
+      final disabled = NotificationSchedulePlanner.build(
+        storage: storage,
+        settings: settings.copyWith(
+          reminders: settings.reminders.copyWith(dailyWirdEnabled: false),
+        ),
+        now: now,
+      );
+      expect(
+        disabled.where((item) => item.kind == AppNotificationKind.khatma),
+        isEmpty,
+      );
+    },
+  );
+
+  test('migrates reminder choices and validates damaged saved values', () {
+    final old = AppSettings.fromJson({
+      'notificationsEnabled': true,
+      'adhkarNotifications': false,
+    });
+    expect(old.adhkarNotifications, false);
+    expect(old.reminders.charityEnabled, true);
+    final preferences = ReminderPreferences.fromJson({
+      'charityEnabled': false,
+      'dhikrEnabled': false,
+      'dailyWirdEnabled': false,
+      'dhikrPerDay': 999,
+      'dailyWirdMinute': -5,
+      'sleepMinute': 9999,
+      'charityMorningMinute': 3 * 60,
+    });
+    expect(preferences.dhikrPerDay, 3);
+    expect(preferences.dailyWirdMinute, 20 * 60 + 30);
+    expect(preferences.sleepMinute, 22 * 60);
+    expect(preferences.charityMorningMinute, 9 * 60);
+    final settings = old.copyWith(
+      reminders: preferences.copyWith(sound: true, dhikrPerDay: 5),
+    );
+    expect(AppSettings.fromJson(settings.toJson()), settings);
   });
 }
 

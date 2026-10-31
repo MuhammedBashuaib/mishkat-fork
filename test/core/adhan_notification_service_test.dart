@@ -108,14 +108,18 @@ void main() {
     'turning notifications off waits for an in-flight calendar replacement',
     () async {
       final gate = Completer<void>();
+      final started = Completer<void>();
       messenger.setMockMethodCallHandler(native, (call) async {
         calls.add(call);
-        if (call.method == 'replace') await gate.future;
+        if (call.method == 'replace') {
+          started.complete();
+          await gate.future;
+        }
         return null;
       });
       final service = LocalNotificationService();
       final scheduling = service.scheduleAll([prayer()]);
-      await Future<void>.delayed(Duration.zero);
+      await started.future;
       final cancelling = service.cancelAll();
       await Future<void>.delayed(Duration.zero);
       expect(calls.map((call) => call.method), ['replace']);
@@ -159,6 +163,98 @@ void main() {
     }
     expect(calls, isEmpty);
   });
+
+  test(
+    'calendar replacement clears disabled charity and keeps unrelated alarms',
+    () async {
+      messenger.setMockMethodCallHandler(plugin, (call) async {
+        pluginCalls.add(call);
+        if (call.method == 'canScheduleExactNotifications') return true;
+        if (call.method == 'pendingNotificationRequests') {
+          return [
+            for (final id in [200010, 300010, 400010, 800001, 800002])
+              {'id': id, 'title': '', 'body': '', 'payload': ''},
+          ];
+        }
+        return null;
+      });
+      await LocalNotificationService().scheduleAll([
+        ScheduledAppNotification(
+          id: 100000,
+          title: '',
+          body: '',
+          at: DateTime(1970),
+        ),
+      ]);
+      final cancelled = pluginCalls
+          .where((call) => call.method == 'cancel')
+          .map((call) => call.arguments['id'])
+          .toList();
+      expect(cancelled, containsAll([200010, 300010, 400010]));
+      expect(cancelled, isNot(contains(800001)));
+      expect(cancelled, isNot(contains(800002)));
+      expect(calls.single.arguments, isEmpty);
+    },
+  );
+
+  test(
+    'iOS reserves capacity for recurring reminders and retained requests',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      IOSFlutterLocalNotificationsPlugin.registerWith();
+      messenger.setMockMethodCallHandler(plugin, (call) async {
+        pluginCalls.add(call);
+        if (call.method == 'pendingNotificationRequests') {
+          return [
+            for (var i = 0; i < 12; i++)
+              {'id': 900000 + i, 'title': '', 'body': '', 'payload': ''},
+          ];
+        }
+        return null;
+      });
+      final now = DateTime.now();
+      await LocalNotificationService().scheduleAll([
+        for (var i = 0; i < 75; i++)
+          ScheduledAppNotification(
+            id: 100001 + i,
+            title: '',
+            body: '',
+            at: now.add(Duration(minutes: i + 1)),
+            payload: 'prayer:$i',
+          ),
+        ScheduledAppNotification(
+          id: 400001,
+          title: 'الصدقة',
+          body: '',
+          at: now.add(const Duration(hours: 20)),
+          repeatsDaily: true,
+          payload: 'charity',
+          kind: AppNotificationKind.charity,
+        ),
+        ScheduledAppNotification(
+          id: 290003,
+          title: 'النوم',
+          body: '',
+          at: now.add(const Duration(hours: 22)),
+          repeatsDaily: true,
+          payload: 'adhkar:2',
+          kind: AppNotificationKind.adhkar,
+        ),
+      ]);
+      final scheduled = pluginCalls
+          .where((call) => call.method == 'zonedSchedule')
+          .toList();
+      expect(scheduled, hasLength(51));
+      expect(
+        scheduled.map((call) => call.arguments['payload']),
+        containsAll(['charity', 'adhkar:2', 'prayer:0']),
+      );
+      expect(
+        scheduled.map((call) => call.arguments['payload']),
+        isNot(contains('prayer:74')),
+      );
+    },
+  );
 
   test(
     'all selectable native sounds are packaged and preserved in release',

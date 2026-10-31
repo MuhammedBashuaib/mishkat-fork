@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
 import 'adhan_preferences.dart';
+import 'reminder_preferences.dart';
 
 const _unset = Object();
 
@@ -45,7 +46,8 @@ class AppSettings extends Equatable {
       'maghrib': true,
       'isha': true,
     },
-    this.adhkarNotifications = false,
+    this.adhkarNotifications = true,
+    this.reminders = const ReminderPreferences(),
     this.theme = AppThemePreference.system,
     this.uiFontScale = 1,
     this.quranFont = 32,
@@ -75,6 +77,7 @@ class AppSettings extends Equatable {
   final Map<String, bool> prayerNotifications;
   final Map<String, bool> prayerAdhanEnabled;
   final bool adhkarNotifications;
+  final ReminderPreferences reminders;
   final AppThemePreference theme;
   final double uiFontScale;
   final double quranFont;
@@ -151,7 +154,12 @@ class AppSettings extends Equatable {
       preMinutes: (json['preMinutes'] as num?)?.toInt() ?? 0,
       prayerNotifications: prayerNotifications,
       prayerAdhanEnabled: boolMap('prayerAdhanEnabled', prayerNotifications),
-      adhkarNotifications: json['adhkarNotifications'] == true,
+      adhkarNotifications: json['adhkarNotifications'] != false,
+      reminders: ReminderPreferences.fromJson(
+        json['reminders'] is Map
+            ? Map<String, dynamic>.from(json['reminders'] as Map)
+            : const {},
+      ),
       theme: AppThemePreference.values.firstWhere(
         (item) => item.name == themeName,
         orElse: () => AppThemePreference.system,
@@ -187,6 +195,7 @@ class AppSettings extends Equatable {
     'prayerNotifications': prayerNotifications,
     'prayerAdhanEnabled': prayerAdhanEnabled,
     'adhkarNotifications': adhkarNotifications,
+    'reminders': reminders.toJson(),
     'theme': theme.name,
     'uiFontScale': uiFontScale,
     'quranFont': quranFont,
@@ -217,6 +226,7 @@ class AppSettings extends Equatable {
     Map<String, bool>? prayerNotifications,
     Map<String, bool>? prayerAdhanEnabled,
     bool? adhkarNotifications,
+    ReminderPreferences? reminders,
     AppThemePreference? theme,
     double? uiFontScale,
     double? quranFont,
@@ -247,6 +257,7 @@ class AppSettings extends Equatable {
     prayerNotifications: prayerNotifications ?? this.prayerNotifications,
     prayerAdhanEnabled: prayerAdhanEnabled ?? this.prayerAdhanEnabled,
     adhkarNotifications: adhkarNotifications ?? this.adhkarNotifications,
+    reminders: reminders ?? this.reminders,
     theme: theme ?? this.theme,
     uiFontScale: uiFontScale ?? this.uiFontScale,
     quranFont: quranFont ?? this.quranFont,
@@ -278,6 +289,7 @@ class AppSettings extends Equatable {
     prayerNotifications,
     prayerAdhanEnabled,
     adhkarNotifications,
+    reminders,
     theme,
     uiFontScale,
     quranFont,

@@ -13,6 +13,7 @@ import '../../../prayer_times/data/services/prayer_calculator.dart';
 import '../../../home_widgets/presentation/pages/home_widgets_page.dart';
 import '../../../quran/presentation/pages/offline_audio_downloads_page.dart';
 import '../cubit/settings_cubit.dart';
+import '../widgets/daily_reminder_settings.dart';
 import '../cubit/settings_state.dart';
 import '../../data/models/adhan_preferences.dart';
 import '../../data/models/app_settings.dart';
@@ -842,10 +843,10 @@ class _AdvancedNotificationSettings extends StatelessWidget {
     child: ExpansionTile(
       key: const PageStorageKey('settings-notifications'),
       title: const Text(
-        'التذكير والأذكار',
+        'تذكيرات الخير والأذكار',
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
-      subtitle: const Text('التذكير المبكر وأذكار متنوعة على مدار اليوم'),
+      subtitle: const Text('الصدقة والذكر والورد اليومي وأذكار اليوم والليلة'),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
         DropdownButtonFormField<int>(
@@ -865,13 +866,7 @@ class _AdvancedNotificationSettings extends StatelessWidget {
             }
           },
         ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('تذكيرات الأذكار اليومية'),
-          subtitle: const Text('الاستيقاظ والصباح والتسبيح والمساء والنوم'),
-          value: settings.adhkarNotifications,
-          onChanged: context.read<SettingsCubit>().setAdhkarNotifications,
-        ),
+        DailyReminderSettings(settings: settings),
       ],
     ),
   );

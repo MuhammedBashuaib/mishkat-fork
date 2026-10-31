@@ -16,6 +16,7 @@ import '../core/widgets/app_exit_confirmation.dart';
 import '../features/adhkar/data/repositories/adhkar_repository.dart';
 import '../features/adhkar/presentation/cubit/adhkar_cubit.dart';
 import '../features/home/presentation/cubit/home_cubit.dart';
+import '../features/home/presentation/cubit/home_state.dart';
 import '../features/khatma/presentation/cubit/khatma_cubit.dart';
 import '../features/khatma/presentation/cubit/khatma_state.dart';
 import '../features/library/data/repositories/library_repository.dart';
@@ -143,6 +144,13 @@ class MishkatApp extends StatelessWidget {
             ),
             home: MultiBlocListener(
               listeners: [
+                BlocListener<HomeCubit, HomeState>(
+                  listenWhen: (previous, current) =>
+                      !DateUtils.isSameDay(previous.now, current.now),
+                  listener: (context, _) => unawaited(
+                    context.read<SettingsCubit>().refreshNotificationSchedule(),
+                  ),
+                ),
                 BlocListener<SettingsCubit, SettingsState>(
                   listenWhen: (previous, current) =>
                       previous.settings != current.settings,

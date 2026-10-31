@@ -42,13 +42,7 @@ class LocalNotificationService {
   Future<void> initialize() async {
     if (kIsWeb) return;
     tz_data.initializeTimeZones();
-    try {
-      final deviceTimeZone = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(deviceTimeZone.identifier));
-    } on Object {
-      // One-shot alarms still use the correct instant. Only daily repetition
-      // falls back to UTC on an unusually configured device.
-    }
+    await _refreshTimeZone();
     const initialization = InitializationSettings(
       android: AndroidInitializationSettings('ic_stat_mishkat'),
       iOS: DarwinInitializationSettings(
@@ -81,6 +75,15 @@ class LocalNotificationService {
               >()
               ?.canScheduleExactNotifications() ??
           false;
+    }
+  }
+
+  Future<void> _refreshTimeZone() async {
+    try {
+      final deviceTimeZone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(deviceTimeZone.identifier));
+    } on Object {
+      // Preserve the last known zone when the platform cannot report one.
     }
   }
 
@@ -120,12 +123,12 @@ class LocalNotificationService {
     List<ScheduledAppNotification> notifications,
   ) async {
     if (kIsWeb) return;
+    await _refreshTimeZone();
     await canSchedulePrecisely();
     final groups = notifications.map((item) => _groupFor(item.id)).toSet();
-    // Prayer, Adhkar, and Khatma form a single recalculated calendar. Always
-    // clear all three so disabling one category removes its old alarms too.
-    if (groups.any((group) => group >= 1 && group <= 3)) {
-      groups.addAll(const [1, 2, 3]);
+    // The unified calendar also clears disabled good-deed reminders.
+    if (groups.any((group) => group >= 1 && group <= 4)) {
+      groups.addAll(const [1, 2, 3, 4]);
     }
     final pending = await _plugin.pendingNotificationRequests();
     for (final request in pending) {
@@ -143,12 +146,19 @@ class LocalNotificationService {
         for (final item in future.where(_usesNativeAdhan)) _nativeAdhan(item),
       ]);
     }
-    // iOS accepts at most 64 pending local notifications. Reserve room for
-    // repeating Hifz alarms and system/test entries, and keep the nearest ones.
+    // Keep recurring reminders before filling the remaining iOS slots with
+    // dated prayers. Otherwise a late bedtime/reading reminder can be dropped.
+    final retained = pending
+        .where((item) => !groups.contains(_groupFor(item.id)))
+        .length;
     final limit = defaultTargetPlatform == TargetPlatform.iOS
-        ? 58
-        : future.length;
-    for (final item in future.take(limit)) {
+        ? (63 - retained).clamp(0, 58)
+        : (450 - retained).clamp(0, 450);
+    final selected = [
+      ...future.where((item) => item.repeatsDaily),
+      ...future.where((item) => !item.repeatsDaily),
+    ].take(limit);
+    for (final item in selected) {
       if (!item.at.isAfter(DateTime.now())) continue;
       if (android && _usesNativeAdhan(item)) continue;
       await _plugin.zonedSchedule(
@@ -187,7 +197,7 @@ class LocalNotificationService {
 
   int _groupFor(int id) {
     if (id == 800001 || id == 800002) return id;
-    if (id >= 100000 && id < 400000) return id ~/ 100000;
+    if (id >= 100000 && id < 500000) return id ~/ 100000;
     return id;
   }
 
@@ -301,7 +311,9 @@ class ScheduledAppNotification {
 enum AppNotificationKind {
   adhan('مواقيت الصلاة', 'تنبيهات الأذان عند دخول وقت الصلاة'),
   prayerReminder('تذكير الصلاة', 'تنبيهات الاستعداد قبل دخول وقت الصلاة'),
-  adhkar('الأذكار اليومية', 'تذكير أذكار الصباح والمساء'),
+  adhkar('الأذكار اليومية', 'تذكير أذكار الصباح والمساء والنوم'),
+  charity('التذكير بالصدقة', 'تذكير لطيف بالعطاء صباحًا ومساءً'),
+  dhikr('ذكر الله', 'تسبيح واستغفار وصلاة على النبي خلال اليوم'),
   khatma('ورد الختمة', 'تذكير الورد اليومي لختمة القرآن'),
   memorization('الحفظ والمراجعة', 'تذكير خطة الحفظ والمراجعة اليومية'),
   general('تنبيهات مشكاة', 'تنبيهات تطبيق مشكاة');

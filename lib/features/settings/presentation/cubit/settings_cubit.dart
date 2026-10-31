@@ -8,6 +8,7 @@ import '../../../../core/services/local_storage_service.dart';
 import '../../../../core/services/location_service.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/adhan_preferences.dart';
+import '../../data/models/reminder_preferences.dart';
 import '../../data/services/notification_schedule_planner.dart';
 import 'settings_state.dart';
 
@@ -99,6 +100,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     state.settings.copyWith(adhkarNotifications: value),
     reschedule: true,
   );
+  Future<void> setReminders(ReminderPreferences value) =>
+      _save(state.settings.copyWith(reminders: value), reschedule: true);
   Future<void> setAdhanSound(bool value) =>
       _save(state.settings.copyWith(adhanSound: value), reschedule: true);
   Future<void> setAdhanFile(String value) =>
@@ -273,7 +276,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         emit(
           state.copyWith(
             status: SettingsStatus.failure,
-            message: 'تعذّر تحديث تنبيهات الصلاة. أعد تفعيل التنبيهات وتحقق من أذونات الجهاز.',
+            message: 'تعذّر تحديث التذكيرات. أعد تفعيل التنبيهات وتحقق من أذونات الجهاز.',
           ),
         );
       }

@@ -1,9 +1,10 @@
 import '../../../../core/services/local_notification_service.dart';
 import '../../../khatma/data/models/khatma_plan.dart';
 import '../../../prayer_times/data/services/prayer_calculator.dart';
-import '../../../prayer_times/domain/models/prayer_models.dart';
 import '../../../quran/data/models/memorization_plan.dart';
 import '../../../quran/data/repositories/quran_memorization_repository.dart';
+import '../../../tasbih/presentation/cubit/tasbih_state.dart';
+import '../models/reminder_preferences.dart';
 import '../models/app_settings.dart';
 import '../models/adhan_preferences.dart';
 import '../../../../core/services/local_storage_service.dart';
@@ -16,9 +17,9 @@ class NotificationSchedulePlanner {
   const NotificationSchedulePlanner._();
 
   static const int _prayerBase = 100000;
-  static const int _adhkarBase = 200000;
   static const int _dailyAdhkarBase = 290000;
   static const int _khatmaBase = 300000;
+  static const int _goodDeedBase = 400000;
   static const int memorizationReminderId = 800001;
 
   static List<ScheduledAppNotification> build({
@@ -28,6 +29,7 @@ class NotificationSchedulePlanner {
     int days = 14,
   }) {
     final current = now ?? DateTime.now();
+    if (!settings.notificationsEnabled) return const [];
     final items = <ScheduledAppNotification>[
       // Clear the old prayer calendar even when every prayer is disabled or
       // the location has been removed. This marker is never scheduled.
@@ -50,6 +52,9 @@ class NotificationSchedulePlanner {
       );
     }
 
+    _addTimedAdhkar(items, settings, current);
+    _addGoodDeedReminders(items, storage, settings, current);
+
     _addMemorizationReminder(
       items: items,
       storage: storage,
@@ -69,14 +74,12 @@ class NotificationSchedulePlanner {
     required int days,
   }) {
     const calculator = PrayerCalculator();
-    final khatmaPlans = _activeKhatmaPlans(storage);
+    final khatmaPlans = settings.reminders.dailyWirdEnabled
+        ? _activeKhatmaPlans(storage)
+        : const <KhatmaPlan>[];
 
     for (var day = 0; day < days; day++) {
-      final date = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).add(Duration(days: day));
+      final date = DateTime(now.year, now.month, now.day + day);
       final times = calculator.calculate(
         date: date,
         latitude: settings.latitude!,
@@ -142,64 +145,25 @@ class NotificationSchedulePlanner {
         prayerIndex++;
       }
 
-      if (settings.adhkarNotifications) {
-        final morning = times['sunrise']?.add(const Duration(minutes: 30));
-        final evening = times['asr']?.add(const Duration(minutes: 30));
-        if (morning != null && morning.isAfter(now)) {
-          items.add(
-            ScheduledAppNotification(
-              id: _adhkarBase + day * 10,
-              title: _pick(_morningTitles, date),
-              body: _pick(_morningBodies, date),
-              at: morning,
-              payload: 'adhkar:1',
-              sound: true,
-              vibrate: settings.vibrate,
-              kind: AppNotificationKind.adhkar,
-            ),
-          );
-        }
-        if (evening != null && evening.isAfter(now)) {
-          items.add(
-            ScheduledAppNotification(
-              id: _adhkarBase + day * 10 + 1,
-              title: _pick(_eveningTitles, date),
-              body: _pick(_eveningBodies, date),
-              at: evening,
-              payload: 'adhkar:133',
-              sound: true,
-              vibrate: settings.vibrate,
-              kind: AppNotificationKind.adhkar,
-            ),
-          );
-        }
-        if (day == 0) {
-          _addRecurringDailyAdhkar(
-            items: items,
-            times: times,
-            now: now,
-            vibrate: settings.vibrate,
-          );
-        }
-      }
-
+      if (day != 0) continue;
       for (var planIndex = 0; planIndex < khatmaPlans.length; planIndex++) {
         final plan = khatmaPlans[planIndex];
         final prayer = plan.reminderPrayer;
         final prayerTime = prayer == null ? null : times[prayer];
         if (prayerTime == null) continue;
-        final at = prayerTime.add(const Duration(minutes: 15));
-        if (!at.isAfter(now)) continue;
+        final at = _nextDailyOccurrence(
+          prayerTime.add(const Duration(minutes: 15)),
+          now,
+        );
         items.add(
           ScheduledAppNotification(
             id: _khatmaBase + day * 100 + planIndex,
             title: 'ورد ${plan.name}',
-            body:
-                'ورد اليوم ${plan.dailyPages} صفحة — من صفحة '
-                '${plan.nextPage} إلى ${plan.todayEnd}.',
+            body: 'حان وقت وردك من القرآن. افتح خطتك لتكمل من موضعك المحفوظ.',
+            repeatsDaily: true,
             at: at,
             payload: 'khatma:${plan.id}',
-            sound: true,
+            sound: settings.reminders.sound,
             vibrate: settings.vibrate,
             kind: AppNotificationKind.khatma,
           ),
@@ -208,59 +172,195 @@ class NotificationSchedulePlanner {
     }
   }
 
-  static void _addRecurringDailyAdhkar({
-    required List<ScheduledAppNotification> items,
-    required PrayerTimes times,
-    required DateTime now,
-    required bool vibrate,
-  }) {
-    final wakeSource = times['fajr']?.add(const Duration(minutes: 20));
-    final daytimeSource = times['dhuhr']?.add(const Duration(minutes: 75));
-    final sleepSource = times['isha']?.add(const Duration(minutes: 90));
-    final seedDate = DateTime(now.year, now.month, now.day);
+  static void _addTimedAdhkar(
+    List<ScheduledAppNotification> items,
+    AppSettings settings,
+    DateTime now,
+  ) {
+    if (!settings.adhkarNotifications) return;
+    final times = settings.hasLocation
+        ? const PrayerCalculator().calculate(
+            date: DateTime(now.year, now.month, now.day),
+            latitude: settings.latitude!,
+            longitude: settings.longitude!,
+            methodKey: settings.method,
+            methodAuto: !settings.methodSet,
+            asr: settings.asr,
+            highLatitudes: settings.highLatitudes,
+            tune: settings.tune,
+          )
+        : null;
+    final sleepMinute = ReminderPreferences.fromJson(
+      settings.reminders.toJson(),
+    ).sleepMinute;
+    final moments = [
+      (
+        times?['fajr']?.add(const Duration(minutes: 20)) ??
+            DateTime(now.year, now.month, now.day, 6, 30),
+        'adhkar:3',
+        _wakeTitles,
+        _wakeBodies,
+      ),
+      (
+        times?['sunrise']?.add(const Duration(minutes: 30)) ??
+            DateTime(now.year, now.month, now.day, 7),
+        'adhkar:1',
+        _morningTitles,
+        _morningBodies,
+      ),
+      (
+        times?['asr']?.add(const Duration(minutes: 30)) ??
+            DateTime(now.year, now.month, now.day, 18),
+        'adhkar:133',
+        _eveningTitles,
+        _eveningBodies,
+      ),
+      (
+        DateTime(
+          now.year,
+          now.month,
+          now.day,
+          sleepMinute ~/ 60,
+          sleepMinute % 60,
+        ),
+        'adhkar:2',
+        _sleepTitles,
+        _sleepBodies,
+      ),
+    ];
+    for (var index = 0; index < moments.length; index++) {
+      final (source, payload, titles, bodies) = moments[index];
+      items.add(
+        ScheduledAppNotification(
+          id: _dailyAdhkarBase + index,
+          title: _pick(titles, now),
+          body: _pick(bodies, now),
+          at: _nextDailyOccurrence(source, now),
+          payload: payload,
+          sound: settings.reminders.sound,
+          vibrate: settings.vibrate,
+          repeatsDaily: true,
+          kind: AppNotificationKind.adhkar,
+        ),
+      );
+    }
+  }
 
-    if (wakeSource != null) {
+  static void _addGoodDeedReminders(
+    List<ScheduledAppNotification> items,
+    LocalStorageService storage,
+    AppSettings settings,
+    DateTime now,
+  ) {
+    final preferences = ReminderPreferences.fromJson(
+      settings.reminders.toJson(),
+    );
+    void add(
+      int slot,
+      int minute,
+      String title,
+      String body,
+      String payload,
+      AppNotificationKind kind,
+    ) {
+      // Keep gentle reminders apart from each other and prayer alarms.
+      // Only these reminders use the 08:00–22:00 daytime window.
+      int? availableMinute;
+      for (var attempt = 0; attempt < 112; attempt++) {
+        final offset = ((attempt + 1) ~/ 2) * 15 * (attempt.isOdd ? 1 : -1);
+        final candidate = minute + offset;
+        if (candidate < 8 * 60 || candidate >= 22 * 60) continue;
+        final busy = items.any(
+          (item) =>
+              item.at.isAfter(now) &&
+              ((item.at.hour * 60 + item.at.minute) - candidate).abs() < 15,
+        );
+        if (!busy) {
+          availableMinute = candidate;
+          break;
+        }
+      }
+      if (availableMinute == null) return;
+      final candidate = availableMinute;
       items.add(
         ScheduledAppNotification(
-          id: _dailyAdhkarBase,
-          title: _pick(_wakeTitles, seedDate),
-          body: _pick(_wakeBodies, seedDate),
-          at: _nextDailyOccurrence(wakeSource, now),
-          payload: 'adhkar:3',
-          vibrate: vibrate,
+          id: _goodDeedBase + slot,
+          title: title,
+          body: body,
+          at: _nextDailyOccurrence(
+            DateTime(
+              now.year,
+              now.month,
+              now.day,
+              candidate ~/ 60,
+              candidate % 60,
+            ),
+            now,
+          ),
+          payload: payload,
+          sound: preferences.sound,
+          vibrate: settings.vibrate,
           repeatsDaily: true,
-          kind: AppNotificationKind.adhkar,
+          kind: kind,
         ),
       );
     }
-    if (daytimeSource != null) {
-      final useIstighfar = _daySeed(seedDate).isOdd;
-      items.add(
-        ScheduledAppNotification(
-          id: _dailyAdhkarBase + 1,
-          title: _pick(_daytimeTitles, seedDate),
-          body: _pick(_daytimeBodies, seedDate),
-          at: _nextDailyOccurrence(daytimeSource, now),
-          payload: useIstighfar ? 'adhkar:129' : 'adhkar:130',
-          vibrate: vibrate,
-          repeatsDaily: true,
-          kind: AppNotificationKind.adhkar,
-        ),
+
+    if (preferences.charityEnabled) {
+      add(
+        0,
+        preferences.charityMorningMinute,
+        'ابدأ يومك بصدقة',
+        _pick(_charityMorningBodies, now),
+        'charity',
+        AppNotificationKind.charity,
+      );
+      add(
+        1,
+        preferences.charityEveningMinute,
+        'هل تصدّقت اليوم؟',
+        _pick(_charityEveningBodies, now),
+        'charity',
+        AppNotificationKind.charity,
       );
     }
-    if (sleepSource != null) {
-      items.add(
-        ScheduledAppNotification(
-          id: _dailyAdhkarBase + 2,
-          title: _pick(_sleepTitles, seedDate),
-          body: _pick(_sleepBodies, seedDate),
-          at: _nextDailyOccurrence(sleepSource, now),
-          payload: 'adhkar:2',
-          vibrate: vibrate,
-          repeatsDaily: true,
-          kind: AppNotificationKind.adhkar,
-        ),
+    if (preferences.dailyWirdEnabled &&
+        (!settings.hasLocation || _activeKhatmaPlans(storage).isEmpty)) {
+      add(
+        2,
+        preferences.dailyWirdMinute,
+        'موعدك مع القرآن',
+        _pick(_wirdBodies, now),
+        'wird',
+        AppNotificationKind.khatma,
       );
+    }
+    if (preferences.dhikrEnabled) {
+      final minutes = switch (preferences.dhikrPerDay) {
+        1 => [13 * 60 + 15],
+        5 => [
+          10 * 60 + 15,
+          12 * 60 + 45,
+          15 * 60 + 15,
+          17 * 60 + 45,
+          20 * 60 + 15,
+        ],
+        _ => [10 * 60 + 45, 14 * 60 + 15, 19 * 60 + 45],
+      };
+      final seed = _daySeed(now);
+      for (var index = 0; index < minutes.length; index++) {
+        final (id, title, invitation) =
+            _dhikrMessages[(seed + index) % _dhikrMessages.length];
+        final dhikr = tasbihDhikrOptions.singleWhere((item) => item.id == id);
+        add(
+          10 + index,
+          minutes[index],
+          title,
+          '${dhikr.text} — $invitation',
+          'tasbih:$id',
+          AppNotificationKind.dhikr,
+        );
+      }
     }
   }
 
@@ -272,18 +372,26 @@ class NotificationSchedulePlanner {
       source.hour,
       source.minute,
     );
-    if (!result.isAfter(now)) result = result.add(const Duration(days: 1));
+    if (!result.isAfter(now)) {
+      result = DateTime(
+        now.year,
+        now.month,
+        now.day + 1,
+        source.hour,
+        source.minute,
+      );
+    }
     return result;
   }
 
   static String _pick(List<String> values, DateTime date) =>
       values[_daySeed(date) % values.length];
 
-  static int _daySeed(DateTime date) => DateTime(
+  static int _daySeed(DateTime date) => DateTime.utc(
     date.year,
     date.month,
     date.day,
-  ).difference(DateTime(2020)).inDays.abs();
+  ).difference(DateTime.utc(2020)).inDays.abs();
 
   static const _wakeTitles = [
     'استيقظ على ذكر الله',
@@ -305,17 +413,29 @@ class NotificationSchedulePlanner {
     'أصبحنا وأصبح الملك لله — لا تنسَ أذكار الصباح.',
     'خذ نفسًا هادئًا، وابدأ ورد أذكار الصباح.',
   ];
-  static const _daytimeTitles = [
-    'سبّح الله',
-    'دقيقة ذكر',
-    'لا تنسَ الاستغفار',
-    'أحبّ الكلام إلى الله',
+  static const _charityMorningBodies = [
+    'اجعل لك اليوم نصيبًا من الخير، ولو بصدقة يسيرة لمن يحتاجها.',
+    'باب خير ينتظرك: طعام لمحتاج، أو سقيا ماء، أو عون لمن حولك.',
+    'انوِ الخير وابدأ بخطوة صغيرة. صدقتك اليوم قد تسعد قلبًا.',
   ];
-  static const _daytimeBodies = [
-    'سبحان الله وبحمده، سبحان الله العظيم.',
-    'سبحان الله، والحمد لله، ولا إله إلا الله، والله أكبر.',
-    'أستغفر الله وأتوب إليه — ذكر خفيف وأجر عظيم.',
-    'اجعل بين أشغالك لحظةً يطمئن فيها قلبك بذكر الله.',
+  static const _charityEveningBodies = [
+    'ما زالت أمامك فرصة للخير. لا تنسَ صدقتك ولو بالقليل.',
+    'قبل أن ينتهي يومك، تفقّد محتاجًا أو أسعد أحدًا بعطاء.',
+    'هل كان لك اليوم نصيب من العطاء؟ اجعل في ختام يومك صدقة.',
+  ];
+  static const _wirdBodies = [
+    'دقائق مع القرآن تضيء يومك. أكمل من آخر موضع قرأته.',
+    'ورد قليل تداوم عليه؛ افتح مصحفك وخذ لحظة للتلاوة.',
+    'اجعل لقلبك موعدًا مع القرآن. وردك اليومي ينتظرك.',
+  ];
+  static const _dhikrMessages = [
+    ('subhan_allah', 'سبّح الله', 'خذ لحظة هادئة للتسبيح.'),
+    ('salawat', 'صلِّ على النبي ﷺ', 'عطّر وقتك بالصلاة والسلام عليه.'),
+    ('istighfar', 'لا تنسَ الاستغفار', 'اجعل بين أشغالك لحظة استغفار.'),
+    ('alhamdulillah', 'لحظة حمد', 'تذكّر نعمة واحمد الله عليها.'),
+    ('tahlil', 'جدّد ذكرك لله', 'اذكر الله بقلب حاضر.'),
+    ('hawqalah', 'استعن بالله', 'استعن بالله في يومك وأشغالك.'),
+    ('subhan_bihamdih', 'دقيقة ذكر', 'افتح المسبحة وابدأ بما تيسّر.'),
   ];
   static const _eveningTitles = [
     'عطّر مساءك بذكر الله',
@@ -346,7 +466,14 @@ class NotificationSchedulePlanner {
       if (value is! Map) continue;
       try {
         final plan = KhatmaPlan.fromJson(Map<String, dynamic>.from(value));
-        if (plan.status == KhatmaStatus.active && plan.reminderPrayer != null) {
+        if (plan.status == KhatmaStatus.active &&
+            const [
+              'fajr',
+              'dhuhr',
+              'asr',
+              'maghrib',
+              'isha',
+            ].contains(plan.reminderPrayer)) {
           plans.add(plan);
         }
       } on Object {
@@ -403,7 +530,9 @@ class NotificationSchedulePlanner {
     }
 
     var at = DateTime(now.year, now.month, now.day, hour, minute);
-    if (!at.isAfter(now)) at = at.add(const Duration(days: 1));
+    if (!at.isAfter(now)) {
+      at = DateTime(now.year, now.month, now.day + 1, hour, minute);
+    }
     items.add(
       ScheduledAppNotification(
         id: memorizationReminderId,

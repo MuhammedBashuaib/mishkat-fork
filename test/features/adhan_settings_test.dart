@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/core/services/local_notification_service.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/core/services/location_service.dart';
+import 'package:mishkat_app/features/settings/data/models/reminder_preferences.dart';
 import 'package:mishkat_app/features/settings/data/models/adhan_preferences.dart';
 import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
@@ -107,4 +108,34 @@ void main() {
       expect(notifications.cancelled, false);
     },
   );
+
+  test('reminder choices persist and immediately replace the notification calendar', () async {
+    await cubit.setReminders(
+      const ReminderPreferences(
+        charityEnabled: false,
+        dhikrPerDay: 5,
+        sound: true,
+        dailyWirdMinute: 19 * 60,
+        sleepMinute: 23 * 60,
+      ),
+    );
+    expect(
+      notifications.latest.where((item) => item.payload == 'charity'),
+      isEmpty,
+    );
+    expect(
+      notifications.latest.where(
+        (item) => item.payload?.startsWith('tasbih:') == true,
+      ),
+      hasLength(5),
+    );
+    expect(
+      notifications.latest
+          .singleWhere((item) => item.payload == 'adhkar:2')
+          .at
+          .hour,
+      23,
+    );
+    expect(AppSettings.fromJson(storage.settings), cubit.state.settings);
+  });
 }

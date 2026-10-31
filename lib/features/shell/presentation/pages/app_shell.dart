@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/services/local_notification_service.dart';
 import '../../../../core/services/home_widget_service.dart';
+import '../../../../core/services/reminder_navigation.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../adhkar/presentation/cubit/adhkar_cubit.dart';
 import '../../../adhkar/presentation/pages/adhkar_page.dart';
@@ -82,42 +83,47 @@ class _AppShellState extends State<AppShell> {
     }
     _routingNotification = true;
     notificationTapPayload.value = null;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final navigator = Navigator.of(context);
       navigator.popUntil((route) => route.isFirst);
       final parts = payload.split(':');
       final destination = parts.first;
-
-      switch (destination) {
-        case 'adhkar':
-          final route = parts.length > 1 ? parts[1] : '1';
-          final categoryId =
-              int.tryParse(route) ?? (route == 'evening' ? 133 : 1);
-          context.read<ShellCubit>().select(3);
-          context.read<AdhkarCubit>().select(categoryId);
-          navigator.push(
-            MaterialPageRoute<void>(builder: (_) => const AdhkarReaderPage()),
-          );
-          break;
-        case 'khatma':
-          context.read<ShellCubit>().select(4);
-          context.read<LibraryCubit>().setSection(LibrarySection.khatma);
-          if (parts.length > 1) {
-            context.read<KhatmaCubit>().setActive(parts[1]);
-          }
-          break;
-        case 'memorization':
-          context.read<ShellCubit>().select(1);
-          navigator.push(QuranMemorizationPage.route());
-          break;
-        case 'prayer':
-        default:
-          context.read<ShellCubit>().select(0);
-          break;
+      try {
+        switch (destination) {
+          case 'tasbih':
+          case 'charity':
+          case 'wird':
+          case 'khatma':
+            await ReminderNavigation.open(context, payload);
+            break;
+          case 'adhkar':
+            final route = parts.length > 1 ? parts[1] : '1';
+            final categoryId =
+                int.tryParse(route) ?? (route == 'evening' ? 133 : 1);
+            context.read<ShellCubit>().select(3);
+            context.read<AdhkarCubit>().select(categoryId);
+            navigator.push(
+              MaterialPageRoute<void>(builder: (_) => const AdhkarReaderPage()),
+            );
+            break;
+          case 'memorization':
+            context.read<ShellCubit>().select(1);
+            navigator.push(QuranMemorizationPage.route());
+            break;
+          case 'prayer':
+          default:
+            context.read<ShellCubit>().select(0);
+            break;
+        }
+      } finally {
+        _routingNotification = false;
+        if (mounted && notificationTapPayload.value != null) {
+          _onNotificationTap();
+        }
       }
-      _routingNotification = false;
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _onHomeWidgetTap() {
