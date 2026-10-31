@@ -78,11 +78,21 @@ class AppFormatters {
     return value
         .replaceAll(RegExp('[\u064B-\u065F\u0670\u06D6-\u06ED]'), '')
         .replaceAll('ـ', '')
+        .replaceAll(
+          RegExp('[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]'),
+          '',
+        )
         .replaceAll(RegExp('[أإآٱ]'), 'ا')
         .replaceAll('ؤ', 'و')
         .replaceAll('ئ', 'ي')
         .replaceAll('ى', 'ي')
+        .replaceAll('ی', 'ي')
+        .replaceAll('ک', 'ك')
         .replaceAll('ة', 'ه')
+        .replaceAllMapped(RegExp('[٠-٩۰-۹]'), (match) {
+          final code = match[0]!.codeUnitAt(0);
+          return '${code >= 0x06F0 ? code - 0x06F0 : code - 0x0660}';
+        })
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim()
         .toLowerCase();

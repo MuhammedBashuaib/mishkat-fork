@@ -267,7 +267,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
     };
 
     final badgeLabel = switch (state.lifecycle) {
-      OralRecitationLifecycle.listening => 'جاري الاستماع...',
+      OralRecitationLifecycle.listening => 'جارٍ الاستماع...',
       OralRecitationLifecycle.paused => 'متوقف مؤقتاً',
       OralRecitationLifecycle.requestingPermission => 'جارٍ طلب الإذن...',
       OralRecitationLifecycle.permissionGranted => 'تم منح الإذن',
@@ -1347,7 +1347,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'تم تسجيل النتيجة بنجاح في سجل ومراجعة الحفظ!',
+                      'تم تسجيل النتيجة بنجاح في سجل الحفظ والمراجعة!',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.bold,
@@ -1360,7 +1360,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
           else
             MishkatPrimaryAction(
               label: state.isCommittingToMemorization
-                  ? 'جاري التسجيل...'
+                  ? 'جارٍ التسجيل...'
                   : 'اعتماد النتيجة في سجل الحفظ والمراجعة',
               icon: const Icon(Icons.bookmark_add_outlined),
               onPressed: state.isCommittingToMemorization

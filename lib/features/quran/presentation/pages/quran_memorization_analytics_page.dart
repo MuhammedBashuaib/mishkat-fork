@@ -11,6 +11,7 @@ import '../../data/repositories/mushaf_layout_repository.dart';
 import '../cubit/quran_cubit.dart';
 import '../cubit/quran_memorization_cubit.dart';
 import '../cubit/quran_memorization_state.dart';
+import '../services/quran_surah_search.dart';
 import '../widgets/tafsir_knowledge_sheet.dart';
 import 'memorization_session_page.dart';
 import 'quran_reader_page.dart';
@@ -880,7 +881,17 @@ class _QuranMemorizationAnalyticsPageState
 
     final filtered = _surahSearchQuery.isEmpty
         ? surahs
-        : surahs.where((s) => s.name.contains(_surahSearchQuery)).toList();
+        : surahs
+              .where(
+                (s) =>
+                    QuranSurahSearch.score(
+                      query: _surahSearchQuery,
+                      name: s.name,
+                      number: s.surahNumber,
+                    ) !=
+                    null,
+              )
+              .toList();
 
     return Column(
       children: [

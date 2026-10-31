@@ -715,7 +715,7 @@ void main() {
         await tester.tap(find.text('بدء التسميع'));
         await tester.pumpAndSettle();
 
-        expect(find.text('جاري الاستماع...'), findsOneWidget);
+        expect(find.text('جارٍ الاستماع...'), findsOneWidget);
         expect(find.text('إيقاف مؤقت'), findsOneWidget);
 
         // Emit recognized words

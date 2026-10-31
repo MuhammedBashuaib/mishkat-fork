@@ -215,7 +215,7 @@ class _HaramainLivePageState extends State<HaramainLivePage>
                               CircularProgressIndicator(color: accent),
                               const SizedBox(height: 16),
                               const Text(
-                                'جاري الاتصال بالبث المباشر…',
+                                'جارٍ الاتصال بالبث المباشر…',
                                 style: TextStyle(color: Colors.white70),
                               ),
                             ],

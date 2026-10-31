@@ -9,6 +9,7 @@ import '../../data/repositories/mushaf_layout_repository.dart';
 import '../cubit/quran_cubit.dart';
 import '../cubit/quran_state.dart';
 import '../services/quran_search_normalizer.dart';
+import '../services/quran_surah_search.dart';
 import '../widgets/tafsir_knowledge_sheet.dart';
 import 'quran_reader_page.dart';
 import 'quran_search_page.dart';
@@ -329,34 +330,11 @@ class _QuranIndexPageState extends State<QuranIndexPage>
   }
 
   Widget _buildSurahsList(BuildContext context, QuranData data) {
-    final filteredChapters = _filter.isEmpty
-        ? data.chapters
-        : data.chapters
-              .where((c) {
-                final rawQuery = _filter.trim();
-                final normQuery = QuranSearchNormalizer.normalize(
-                  QuranSearchNormalizer.convertArabicDigits(rawQuery),
-                );
-                final numQuery = int.tryParse(normQuery);
-                if (numQuery != null && c.number == numQuery) return true;
-
-                final normName = QuranSearchNormalizer.normalize(c.name);
-                if (normName.contains(normQuery)) return true;
-
-                if (c.englishName.toLowerCase().contains(
-                  rawQuery.toLowerCase(),
-                )) {
-                  return true;
-                }
-
-                final normRev = QuranSearchNormalizer.normalize(
-                  c.revelationType,
-                );
-                if (normRev.contains(normQuery)) return true;
-
-                return false;
-              })
-              .toList(growable: false);
+    final filteredChapters = QuranSurahSearch.findChapters(
+      data.chapters,
+      _filter,
+      includeRevelationType: true,
+    );
 
     if (filteredChapters.isEmpty) {
       return Center(
@@ -426,13 +404,18 @@ class _QuranIndexPageState extends State<QuranIndexPage>
                   QuranSearchNormalizer.convertArabicDigits(rawQuery),
                 );
                 final numQuery = int.tryParse(normQuery);
-                if (numQuery != null && j.number == numQuery) return true;
+                if (numQuery != null) return j.number == numQuery;
 
                 final chapter = data.chapter(j.surah);
-                final normChapter = QuranSearchNormalizer.normalize(
-                  chapter.name,
-                );
-                if (normChapter.contains(normQuery)) return true;
+                if (QuranSurahSearch.score(
+                      query: rawQuery,
+                      name: chapter.name,
+                      englishName: chapter.englishName,
+                      number: chapter.number,
+                    ) !=
+                    null) {
+                  return true;
+                }
 
                 return false;
               })
@@ -645,8 +628,15 @@ class _IndexBookmarksListState extends State<_IndexBookmarksList> {
                 final normQuery = QuranSearchNormalizer.normalize(
                   QuranSearchNormalizer.convertArabicDigits(query),
                 );
-                final normName = QuranSearchNormalizer.normalize(chapter.name);
-                if (normName.contains(normQuery)) return true;
+                if (QuranSurahSearch.score(
+                      query: query,
+                      name: chapter.name,
+                      englishName: chapter.englishName,
+                      number: chapter.number,
+                    ) !=
+                    null) {
+                  return true;
+                }
                 if (b.label != null &&
                     QuranSearchNormalizer.normalize(b.label!)
                         .contains(normQuery)) {

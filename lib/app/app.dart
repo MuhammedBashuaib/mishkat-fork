@@ -12,6 +12,7 @@ import '../core/services/local_storage_service.dart';
 import '../core/services/offline_audio_download_controller.dart';
 import '../core/services/quran_audio_cache_service.dart';
 import '../core/theme/app_theme.dart';
+import '../core/widgets/app_exit_confirmation.dart';
 import '../features/adhkar/data/repositories/adhkar_repository.dart';
 import '../features/adhkar/presentation/cubit/adhkar_cubit.dart';
 import '../features/home/presentation/cubit/home_cubit.dart';
@@ -157,9 +158,11 @@ class MishkatApp extends StatelessWidget {
                   },
                 ),
               ],
-              child: _AppEntry(
-                storage: storage,
-                initiallyShowOnboarding: initiallyShowOnboarding,
+              child: AppExitConfirmation(
+                child: _AppEntry(
+                  storage: storage,
+                  initiallyShowOnboarding: initiallyShowOnboarding,
+                ),
               ),
             ),
           ),

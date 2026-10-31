@@ -3,6 +3,7 @@ import '../models/quran_models.dart';
 import '../models/quran_search_models.dart';
 import '../../presentation/services/quran_reference_parser.dart';
 import '../../presentation/services/quran_search_normalizer.dart';
+import '../../presentation/services/quran_surah_search.dart';
 
 class _SearchableAyah {
   const _SearchableAyah({
@@ -96,6 +97,7 @@ class QuranSearchRepository {
     final normalizedQuery = QuranSearchNormalizer.normalize(
       QuranSearchNormalizer.convertArabicDigits(rawTrimmed),
     );
+    if (normalizedQuery.isEmpty) return QuranSearchResults.empty;
 
     // 1. Direct Reference Parser Check
     final directRef = QuranReferenceParser.parse(rawTrimmed, data);
@@ -103,21 +105,9 @@ class QuranSearchRepository {
     // 2. Surah Matching (if filter permits)
     final matchedSurahs = <QuranChapter>[];
     if (filter == QuranSearchFilter.all || filter == QuranSearchFilter.surahs) {
-      final queryNum = int.tryParse(
-        QuranSearchNormalizer.convertArabicDigits(rawTrimmed),
+      matchedSurahs.addAll(
+        QuranSurahSearch.findChapters(data.chapters, rawTrimmed),
       );
-      for (final ch in data.chapters) {
-        final normName = QuranSearchNormalizer.normalize(ch.name);
-        final normEnName = QuranSearchNormalizer.normalize(ch.englishName);
-
-        if (ch.number == queryNum ||
-            normName.contains(normalizedQuery) ||
-            normEnName.contains(normalizedQuery) ||
-            normName == 'ال$normalizedQuery' ||
-            'ال$normName' == normalizedQuery) {
-          matchedSurahs.add(ch);
-        }
-      }
     }
 
     // 3. Ayah Text Matching (if filter permits)

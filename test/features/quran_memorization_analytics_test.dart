@@ -613,7 +613,7 @@ void main() {
         expect(weakAyahs, hasLength(2));
         // Ayah 2 should have higher score than Ayah 1
         expect(weakAyahs.first.globalAyah, 2);
-        expect(weakAyahs.first.surahName, contains('فَاتِحَة'));
+        expect(weakAyahs.first.surahName, contains('فاتحة'));
         expect(weakAyahs.first.ayahNumber, 2);
         expect(weakAyahs.first.mistakeCount, 5);
         expect(weakAyahs.first.lastOutcome, ReviewOutcome.failed);
@@ -643,7 +643,7 @@ void main() {
 
         final fatiha = surahs.first;
         expect(fatiha.surahNumber, 1);
-        expect(fatiha.name, contains('فَاتِحَة'));
+        expect(fatiha.name, contains('فاتحة'));
         expect(fatiha.totalAyahs, 7);
         expect(fatiha.memorizedCount, 7);
         expect(fatiha.completionPercentage, 1.0);
@@ -651,14 +651,14 @@ void main() {
 
         final baqarah = surahs[1];
         expect(baqarah.surahNumber, 2);
-        expect(baqarah.name, contains('بَقَرَة'));
+        expect(baqarah.name, contains('بقرة'));
         expect(baqarah.totalAyahs, 286);
         expect(baqarah.memorizedCount, 0);
         expect(baqarah.isCompleted, false);
 
         final nas = surahs.last;
         expect(nas.surahNumber, 114);
-        expect(nas.name, 'النَّاسِ');
+        expect(nas.name, 'الناس');
         expect(nas.totalAyahs, 6);
       },
     );

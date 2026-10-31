@@ -366,7 +366,7 @@ void main() {
         expect(find.widgetWithText(Tab, 'العلامات'), findsOneWidget);
 
         // Tap on a Surah (Al-Fatihah)
-        final fatihahTile = find.textContaining('فَاتِحَة');
+        final fatihahTile = find.text('سورة الفاتحة');
         expect(fatihahTile, findsWidgets);
         await tester.tap(fatihahTile.first);
         await pumpScreen(tester);
@@ -893,8 +893,8 @@ void main() {
 
       // Verify on QuranIndexPage
       expect(find.byType(QuranIndexPage), findsOneWidget);
-      expect(find.textContaining('فَاتِحَة'), findsOneWidget);
-      expect(find.textContaining('بَقَرَة'), findsOneWidget);
+      expect(find.text('سورة الفاتحة'), findsOneWidget);
+      expect(find.text('سورة البقرة'), findsOneWidget);
 
       quranCubit.close();
     });
@@ -1086,11 +1086,11 @@ void main() {
         await pumpScreen(tester);
 
         // Verify Kahf is shown, and Fatihah is filtered out
-        expect(find.textContaining('الكَهۡفِ'), findsOneWidget);
-        expect(find.textContaining('فَاتِحَة'), findsNothing);
+        expect(find.text('سورة الكهف'), findsOneWidget);
+        expect(find.text('سورة الفاتحة'), findsNothing);
 
         // Tap Al-Kahf
-        await tester.tap(find.textContaining('الكَهۡفِ'));
+        await tester.tap(find.text('سورة الكهف'));
         await pumpScreen(tester);
 
         // Verify reader opened at Surah 18 (page 293)

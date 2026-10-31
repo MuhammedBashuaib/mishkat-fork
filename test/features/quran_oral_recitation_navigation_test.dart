@@ -236,7 +236,7 @@ void main() {
       // Verify Oral Recitation page is rendered without any ProviderNotFoundException
       expect(find.byType(QuranOralRecitationPage), findsOneWidget);
       expect(find.text('التسميع الشفهي الذكي'), findsOneWidget);
-      expect(find.text('ٱلْفَاتِحَةِ · الآيات 1 - 5'), findsOneWidget);
+      expect(find.text('الفاتحة · الآيات 1 - 5'), findsOneWidget);
       expect(find.text('جاهز للتسميع'), findsOneWidget);
       expect(find.text('بدء التسميع'), findsOneWidget);
 

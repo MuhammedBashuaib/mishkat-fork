@@ -300,7 +300,7 @@ class _MemorizationPlanPageState extends State<MemorizationPlanPage> {
                 children: [
                   // Kept for accessibility and existing test contracts.
                   const Text(
-                    'الورد اليومي للآيات الجديد',
+                    'الورد اليومي للآيات الجديدة',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 10),

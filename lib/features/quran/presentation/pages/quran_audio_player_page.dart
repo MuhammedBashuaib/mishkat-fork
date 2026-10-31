@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../../core/utils/app_formatters.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
 import '../../data/models/quran_audio_station.dart';
@@ -137,7 +138,10 @@ class _QuranAudioPlayerPageState extends State<QuranAudioPlayerPage>
     final filteredReciters = _reciterFilter.isEmpty
         ? AppConstants.reciters
         : AppConstants.reciters
-              .where((r) => r.name.contains(_reciterFilter))
+              .where(
+                (r) => AppFormatters.normalizeArabic(r.name)
+                    .contains(AppFormatters.normalizeArabic(_reciterFilter)),
+              )
               .toList(growable: false);
 
     return ListView(

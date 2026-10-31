@@ -49,7 +49,7 @@ void main() {
     expect(await repository.loadBook(nawawi), hasLength(42));
     final tafsirEntries = await repository.loadBook(tafsir);
     expect(tafsirEntries, hasLength(6236));
-    expect(tafsirEntries.first.chapter, contains('فَاتِحَة'));
+    expect(tafsirEntries.first.chapter, contains('فاتحة'));
   });
 
   test('reading position and bookmarks survive a cubit reload', () async {

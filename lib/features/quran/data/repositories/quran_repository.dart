@@ -2,11 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
-import '../../../../core/utils/app_formatters.dart';
+import 'quran_search_repository.dart';
 import '../models/quran_models.dart';
 
 class QuranRepository {
   QuranData? _cache;
+  final QuranSearchRepository _searchRepository = QuranSearchRepository();
 
   Future<QuranData> load() async {
     if (_cache case final QuranData data) return data;
@@ -44,31 +45,20 @@ class QuranRepository {
     String query, {
     int limit = 80,
   }) {
-    final normalized = AppFormatters.normalizeArabic(query);
-    if (normalized.isEmpty) return const [];
-    final number = int.tryParse(query.trim());
-    final results = <QuranSearchResult>[];
-    for (final chapter in data.chapters) {
-      if (chapter.number == number ||
-          AppFormatters.normalizeArabic(chapter.name).contains(normalized) ||
-          AppFormatters.normalizeArabic(chapter.englishName)
-              .contains(normalized)) {
-        results.add(QuranSearchResult(chapter: chapter));
-      }
-      for (
-        var index = 0;
-        index < chapter.ayahs.length && results.length < limit;
-        index++
-      ) {
-        final text = chapter.ayahs[index];
-        if (AppFormatters.normalizeArabic(text).contains(normalized)) {
-          results.add(
-            QuranSearchResult(chapter: chapter, ayah: index + 1, text: text),
-          );
-        }
-      }
-      if (results.length >= limit) break;
-    }
-    return results;
+    final matches = _searchRepository.search(
+      data: data,
+      query: query,
+      limit: limit,
+    );
+    return [
+      for (final chapter in matches.matchedSurahs)
+        QuranSearchResult(chapter: chapter),
+      for (final ayah in matches.matchedAyahs)
+        QuranSearchResult(
+          chapter: data.chapter(ayah.surah),
+          ayah: ayah.ayah,
+          text: ayah.originalText,
+        ),
+    ].take(limit).toList(growable: false);
   }
 }
