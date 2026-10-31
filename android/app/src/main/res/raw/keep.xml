@@ -5,4 +5,4 @@
   remove them from the APK.
 -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@drawable/ic_stat_mishkat,@raw/adhan1,@raw/adhan2,@raw/adhan3,@raw/adhan4,@raw/adhan5,@raw/adhan6" />
+    tools:keep="@drawable/ic_stat_mishkat,@raw/adhan1,@raw/adhan2,@raw/adhan3,@raw/adhan4,@raw/adhan5,@raw/adhan6,@raw/adhan1_short,@raw/adhan2_short,@raw/adhan4_short" />

@@ -75,10 +75,13 @@ class _DelayedAudio extends QuranAudioService {
 /// Models native calls that can complete after the user has left or paused.
 class _DelayedSpeech extends MockSpeechRecognitionService {
   Completer<void>? startBarrier;
+  Completer<void>? stopBarrier;
+  Completer<void>? cancelBarrier;
   Completer<bool>? permissionBarrier;
   SpeechRecognitionFailure? startFailure;
   int startRequests = 0;
   int cancelCount = 0;
+  int? immediatelyCompleteStart;
 
   @override
   Future<bool> hasPermission() =>
@@ -101,16 +104,28 @@ class _DelayedSpeech extends MockSpeechRecognitionService {
       await Future<void>.delayed(Duration.zero);
       return false;
     }
-    return super.startListening(
+    final started = await super.startListening(
       localeId: localeId,
       contextualPhrases: contextualPhrases,
     );
+    if (startRequests == immediatelyCompleteStart) {
+      emitStatus('done');
+      await Future<void>.delayed(Duration.zero);
+    }
+    return started;
   }
 
   @override
   Future<void> cancelListening() async {
     cancelCount++;
+    await cancelBarrier?.future;
     await super.cancelListening();
+  }
+
+  @override
+  Future<void> stopListening() async {
+    await stopBarrier?.future;
+    await super.stopListening();
   }
 }
 
@@ -346,5 +361,90 @@ void main() {
     expect(cubit.state.errorMessage, isNotEmpty);
     expect(speech.startRequests, lessThanOrEqualTo(4));
     expect(speech.isListening, isFalse);
+  });
+
+  test('resume waits for microphone teardown from pause', () async {
+    await cubit.startRecitation();
+    speech.stopBarrier = Completer<void>();
+    final pausing = cubit.pauseRecitation();
+    await pumpEventQueue();
+    final resuming = cubit.resumeRecitation();
+    await pumpEventQueue();
+    expect(speech.startRequests, 1);
+
+    speech.stopBarrier!.complete();
+    await Future.wait([pausing, resuming]);
+    expect(speech.startRequests, 2);
+    expect(speech.isListening, isTrue);
+    expect(cubit.state.lifecycle, OralRecitationLifecycle.listening);
+  });
+
+  test(
+    'a new cycle completing before startup resolves still re-arms capture',
+    () async {
+      await cubit.startRecitation();
+      speech.immediatelyCompleteStart = 2;
+      speech.emitStatus('done');
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+      expect(speech.startRequests, 3);
+      expect(cubit.state.lifecycle, OralRecitationLifecycle.listening);
+      expect(speech.isListening, isTrue);
+    },
+  );
+
+  test('resume waits for fatal error cancellation', () async {
+    await cubit.startRecitation();
+    speech.cancelBarrier = Completer<void>();
+    speech.emitError(
+      'الميكروفون غير جاهز',
+      type: SpeechRecognitionFailureType.audio,
+    );
+    await pumpEventQueue();
+    expect(cubit.state.lifecycle, OralRecitationLifecycle.paused);
+    final resuming = cubit.resumeRecitation();
+    await pumpEventQueue();
+    expect(speech.startRequests, 1);
+
+    speech.cancelBarrier!.complete();
+    await resuming;
+    expect(speech.isListening, isTrue);
+    expect(cubit.state.lifecycle, OralRecitationLifecycle.listening);
+  });
+
+  test('network recovery backs off despite terminal status callbacks and stays bounded', () async {
+    await cubit.startRecitation();
+    speech.startFailure = const SpeechRecognitionFailure(
+      type: SpeechRecognitionFailureType.network,
+      message: 'تعذر الاتصال بالخدمة.',
+    );
+    speech.emitError(
+      'تعذر الاتصال بالخدمة.',
+      type: SpeechRecognitionFailureType.network,
+    );
+    speech.emitStatus('notListening');
+    speech.emitStatus('done');
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(speech.startRequests, 1);
+    expect(cubit.state.lifecycle, OralRecitationLifecycle.listening);
+
+    await Future<void>.delayed(const Duration(milliseconds: 2400));
+    expect(speech.startRequests, 3);
+    expect(cubit.state.lifecycle, OralRecitationLifecycle.paused);
+    expect(cubit.state.errorMessage, 'تعذر الاتصال بالخدمة.');
+    expect(speech.isListening, isFalse);
+  });
+
+  test('recognized speech resets the consecutive busy retry budget', () async {
+    await cubit.startRecitation();
+    for (var attempt = 0; attempt < 4; attempt++) {
+      speech.emitError('مشغول', type: SpeechRecognitionFailureType.busy);
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+      expect(cubit.state.lifecycle, OralRecitationLifecycle.listening);
+      speech.emitTranscript('بسم الله');
+      await pumpEventQueue();
+    }
+    expect(speech.startRequests, 5);
+    expect(cubit.state.errorMessage, isNull);
   });
 }

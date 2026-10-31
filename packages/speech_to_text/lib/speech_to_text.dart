@@ -503,7 +503,7 @@ class SpeechToText {
         _setupListenAndPause(usedOptions.pauseFor, usedOptions.listenFor);
       }
     } on PlatformException catch (e) {
-      throw ListenFailedException(e.message, e.details, e.stacktrace);
+      throw ListenFailedException(e.message, e.details, e.stacktrace, e.code);
     }
   }
 
@@ -779,8 +779,9 @@ class ListenFailedException implements Exception {
   final String? message;
   final String? details;
   final String? stackTrace;
+  final String? code;
 
-  ListenFailedException(this.message, [this.details, this.stackTrace]);
+  ListenFailedException(this.message, [this.details, this.stackTrace, this.code]);
 }
 
 class ListenNotStartedException implements Exception {}

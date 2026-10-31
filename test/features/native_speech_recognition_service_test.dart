@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mishkat_app/features/quran/presentation/services/arabic_speech_model_service.dart';
 import 'package:mishkat_app/features/quran/presentation/services/speech_recognition_service.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
@@ -14,9 +15,12 @@ class _NativeSpeechHarness {
   final calls = <MethodCall>[];
   Future<bool>? initialization;
   Future<bool>? listenResponse;
+  Future<bool>? cancelResponse;
+  Future<bool>? stopResponse;
   Future<List<String>>? localeResponse;
   bool acknowledgeListen = true;
   bool acceptListen = true;
+  PlatformException? listenFailure;
 
   int count(String method) =>
       calls.where((call) => call.method == method).length;
@@ -29,11 +33,13 @@ class _NativeSpeechHarness {
       case 'locales':
         return localeResponse ?? ['ar_SA:Arabic', 'en_US:English'];
       case 'listen':
+        if (listenFailure != null) throw listenFailure!;
         if (acknowledgeListen) await emit('notifyStatus', 'listening');
         return listenResponse ?? acceptListen;
       case 'cancel':
+        return cancelResponse ?? true;
       case 'stop':
-        return true;
+        return stopResponse ?? true;
       default:
         throw StateError('Unexpected native speech call: ${call.method}');
     }
@@ -58,21 +64,34 @@ void main() {
   late _NativeSpeechHarness native;
   late SpeechToText engine;
   late NativeSpeechRecognitionService service;
+  late ArabicSpeechModelService modelService;
+  var modelStatus = <String, Object?>{'status': 'unknown'};
+  const modelChannel = MethodChannel('test/arabic_speech_models');
 
   setUp(() {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     native = _NativeSpeechHarness();
+    modelStatus = {'status': 'unknown'};
+    modelService = ArabicSpeechModelService(channel: modelChannel);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(modelChannel, (_) async => modelStatus);
     engine = SpeechToText.withMethodChannel();
-    service = NativeSpeechRecognitionService(speechToText: engine);
+    service = NativeSpeechRecognitionService(
+      speechToText: engine,
+      arabicModelService: modelService,
+    );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_NativeSpeechHarness.channel, native.handle);
   });
 
   tearDown(() async {
     await service.dispose();
+    modelService.dispose();
     debugDefaultTargetPlatformOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_NativeSpeechHarness.channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(modelChannel, null);
   });
 
   void speechTest(String name, Future<void> Function() body) {
@@ -240,7 +259,10 @@ void main() {
     () async {
       expect(await service.startListening(), isTrue);
       await service.dispose();
-      service = NativeSpeechRecognitionService(speechToText: engine);
+      service = NativeSpeechRecognitionService(
+        speechToText: engine,
+        arabicModelService: modelService,
+      );
       final statuses = <String>[];
       final failures = <SpeechRecognitionFailure>[];
       final statusSubscription = service.statusStream.listen(statuses.add);
@@ -255,6 +277,24 @@ void main() {
       await statusSubscription.cancel();
       await errorSubscription.cancel();
       await service.dispose();
+    },
+  );
+
+  speechTest(
+    'late disposal of an old page cannot cancel the replacement capture',
+    () async {
+      expect(await service.startListening(), isTrue);
+      final oldService = service;
+      service = NativeSpeechRecognitionService(
+        speechToText: engine,
+        arabicModelService: modelService,
+      );
+      expect(await service.startListening(), isTrue);
+      final cancellationCount = native.count('cancel');
+      await oldService.dispose();
+
+      expect(native.count('cancel'), cancellationCount);
+      expect(service.isListening, isTrue);
     },
   );
 
@@ -337,4 +377,180 @@ void main() {
       await service.dispose();
     },
   );
+
+  speechTest(
+    'resume waits until previous cancellation releases the engine',
+    () async {
+      expect(await service.startListening(), isTrue);
+      final cancellation = Completer<bool>();
+      native.cancelResponse = cancellation.future;
+      final cancel = service.cancelListening();
+      final resume = service.startListening();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(native.count('listen'), 1);
+      cancellation.complete(true);
+      await cancel;
+      expect(await resume, isTrue);
+      expect(native.count('listen'), 2);
+      expect(service.isListening, isTrue);
+    },
+  );
+
+  speechTest(
+    'terminal failure ignores late status and duplicate error callbacks',
+    () async {
+      final statuses = <String>[];
+      final failures = <SpeechRecognitionFailure>[];
+      final statusSubscription = service.statusStream.listen(statuses.add);
+      final errorSubscription = service.errorStream.listen(failures.add);
+      expect(await service.startListening(), isTrue);
+      await native.emitError('error_network');
+      await native.emit('notifyStatus', 'notListening');
+      await native.emit('notifyStatus', 'doneNoResult');
+      await native.emitError('error_client');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(statuses, ['listening']);
+      expect(failures.single.type, SpeechRecognitionFailureType.network);
+      expect(native.count('cancel'), 1);
+      expect(service.isListening, isFalse);
+      await statusSubscription.cancel();
+      await errorSubscription.cancel();
+    },
+  );
+
+  speechTest(
+    'installed Arabic model uses its exact locale and local recognizer',
+    () async {
+      modelStatus = {'status': 'installed', 'localeId': 'ar-EG'};
+      expect(await service.startListening(), isTrue);
+      final options =
+          native.calls.singleWhere((c) => c.method == 'listen').arguments
+              as Map;
+      expect(options['onDevice'], isTrue);
+      expect(options['localeId'], 'ar-EG');
+    },
+  );
+
+  speechTest(
+    'offline-only without verified Arabic never starts online capture',
+    () async {
+      modelService.offlineOnly = true;
+      modelStatus = {'status': 'downloadable', 'localeId': 'ar-SA'};
+      final failures = <SpeechRecognitionFailure>[];
+      final subscription = service.errorStream.listen(failures.add);
+
+      expect(await service.startListening(), isFalse);
+      await Future<void>.delayed(Duration.zero);
+      expect(native.count('listen'), 0);
+      expect(
+        failures.single.type,
+        SpeechRecognitionFailureType.languageUnavailable,
+      );
+      await subscription.cancel();
+    },
+  );
+
+  speechTest(
+    'downloaded model is used on resume without reopening the page',
+    () async {
+      expect(await service.startListening(), isTrue);
+      await service.stopListening();
+      modelStatus = {'status': 'installed', 'localeId': 'ar-SA'};
+      await modelService.refresh();
+      modelService.offlineOnly = true;
+
+      expect(await service.startListening(), isTrue);
+      final options =
+          native.calls.lastWhere((c) => c.method == 'listen').arguments as Map;
+      expect(options['onDevice'], isTrue);
+    },
+  );
+
+  for (final entry in {
+    'error_speech_recognizer_already_active': SpeechRecognitionFailureType.busy,
+    'error_speech_recognizer_connection_invalidated':
+        SpeechRecognitionFailureType.network,
+    'error_speech_recognizer_connection_interrupted':
+        SpeechRecognitionFailureType.network,
+    'error_assets_not_installed':
+        SpeechRecognitionFailureType.languageUnavailable,
+    'error_speech_recognizer_request_not_authorized':
+        SpeechRecognitionFailureType.permissionDenied,
+  }.entries) {
+    speechTest(
+      'iOS ${entry.key} preserves its actionable failure type',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        final failures = <SpeechRecognitionFailure>[];
+        final subscription = service.errorStream.listen(failures.add);
+        expect(await service.startListening(), isTrue);
+        await native.emitError(entry.key);
+        await Future<void>.delayed(Duration.zero);
+        expect(failures.single.type, entry.value);
+        expect(service.isListening, isFalse);
+        await subscription.cancel();
+      },
+    );
+  }
+
+  speechTest(
+    'a removed local model reports language failure without online fallback',
+    () async {
+      modelStatus = {'status': 'installed', 'localeId': 'ar-SA'};
+      modelService.offlineOnly = true;
+      native.listenFailure = PlatformException(code: 'onDeviceError');
+      final failures = <SpeechRecognitionFailure>[];
+      final subscription = service.errorStream.listen(failures.add);
+
+      expect(await service.startListening(), isFalse);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        failures.single.type,
+        SpeechRecognitionFailureType.languageUnavailable,
+      );
+      expect(modelService.status.isInstalled, isFalse);
+      expect(modelService.status.reason, 'modelUnavailable');
+      expect(modelService.offlineOnly, isTrue);
+      final calls = native.calls
+          .where((call) => call.method == 'listen')
+          .toList();
+      expect(calls, hasLength(1));
+      expect((calls.single.arguments as Map)['onDevice'], isTrue);
+      await subscription.cancel();
+    },
+  );
+
+  for (final offlineOnly in [false, true]) {
+    speechTest(
+      'missing iOS assets invalidate readiness across reopening (offlineOnly=$offlineOnly)',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        modelStatus = {'status': 'installed', 'localeId': 'ar-SA'};
+        modelService.offlineOnly = offlineOnly;
+        expect(await service.startListening(), isTrue);
+        await native.emitError('error_assets_not_installed');
+        await Future<void>.delayed(Duration.zero);
+        expect(modelService.status.isInstalled, isFalse);
+        expect(modelService.status.reason, 'modelUnavailable');
+        expect(modelService.offlineOnly, offlineOnly);
+
+        await service.dispose();
+        service = NativeSpeechRecognitionService(
+          speechToText: engine,
+          arabicModelService: modelService,
+        );
+        expect(await service.startListening(), !offlineOnly);
+        expect(modelService.status.isInstalled, isFalse);
+        final calls = native.calls
+            .where((call) => call.method == 'listen')
+            .toList();
+        expect(calls, hasLength(offlineOnly ? 1 : 2));
+        if (!offlineOnly) {
+          expect((calls.last.arguments as Map)['onDevice'], isFalse);
+        }
+      },
+    );
+  }
 }

@@ -9,11 +9,35 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
+    private var adhanChannel: MethodChannel? = null
     private var speechModels: ArabicSpeechModelManager? = null
     private var speechSettingsChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        adhanChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.dakomn.mishkatapp/adhan").also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "replace" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            AdhanScheduler.replace(this, call.arguments as List<Map<*, *>>)
+                            result.success(null)
+                        }
+                        "cancelAll" -> { AdhanScheduler.cancel(this); result.success(null) }
+                        "stop" -> { stopService(Intent(this, AdhanPlaybackService::class.java)); result.success(null) }
+                        "play" -> {
+                            AdhanScheduler.play(this, org.json.JSONObject(call.arguments as Map<*, *>))
+                            result.success(null)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (error: Exception) {
+                    result.error("adhan_error", error.message, null)
+                }
+            }
+        }
 
         speechModels?.dispose()
         val channel = MethodChannel(
@@ -34,6 +58,8 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        adhanChannel?.setMethodCallHandler(null)
+        adhanChannel = null
         speechSettingsChannel?.setMethodCallHandler(null)
         speechSettingsChannel = null
         speechModels?.dispose()

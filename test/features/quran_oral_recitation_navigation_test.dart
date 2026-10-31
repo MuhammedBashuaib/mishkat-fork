@@ -89,6 +89,12 @@ class TestAudioService implements QuranAudioService {
 
 class TestNotifications implements LocalNotificationService {
   @override
+  Future<bool> canSchedulePrecisely() async => true;
+
+  @override
+  Future<void> stopTest() async {}
+
+  @override
   Future<void> initialize() async {}
   @override
   Future<bool> requestPermission() async => true;

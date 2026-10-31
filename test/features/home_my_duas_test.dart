@@ -93,6 +93,12 @@ class FakeLocationService implements LocationService {
 
 class FakeNotificationService implements LocalNotificationService {
   @override
+  Future<bool> canSchedulePrecisely() async => true;
+
+  @override
+  Future<void> stopTest() async {}
+
+  @override
   Future<void> initialize() async {}
 
   @override

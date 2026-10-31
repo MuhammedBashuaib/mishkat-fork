@@ -54,6 +54,7 @@ import UserNotifications
         if let recognizer = SFSpeechRecognizer(locale: locale), recognizer.supportsOnDeviceRecognition {
           return [
             "status": "installed",
+            "reason": "iosOnDeviceAvailable",
             "localeId": locale.identifier.replacingOccurrences(of: "_", with: "-")
           ]
         }

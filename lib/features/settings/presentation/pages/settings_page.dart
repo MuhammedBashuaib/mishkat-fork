@@ -256,7 +256,7 @@ class _NotificationSettings extends StatelessWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.check_circle_outline_rounded),
-            title: const Text('جاهز للعمل في الخلفية'),
+            title: const Text('تنبيهات محلية دون إنترنت'),
             subtitle: const Text(
               'تُجدول المواقيت محليًا وتعمل التنبيهات دون إنترنت.',
             ),
@@ -283,6 +283,9 @@ class _AdhanSettings extends StatelessWidget {
     final notificationsReady = settings.notificationsEnabled;
     final selectedVoice = AdhanVoice.byId(settings.adhanFile);
     final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final preciseAlarmsAllowed = context.select(
+      (SettingsCubit cubit) => cubit.state.preciseAlarmsAllowed,
+    );
 
     return MishkatCard(
       child: Column(
@@ -318,6 +321,18 @@ class _AdhanSettings extends StatelessWidget {
           ),
           if (settings.adhanSound && notificationsReady) ...[
             const Divider(height: 28),
+            if (!preciseAlarmsAllowed) ...[
+              const Text(
+                'لرفع الأذان كاملًا في موعده، اسمح لمشكاة بالمنبّهات والتذكيرات. دون هذا الإذن قد يتأخر التنبيه ويُستخدم الصوت المختصر.',
+              ),
+              TextButton.icon(
+                onPressed: () =>
+                    context.read<SettingsCubit>().setNotificationsEnabled(true),
+                icon: const Icon(Icons.alarm_add_rounded),
+                label: const Text('السماح بالمنبّهات الدقيقة'),
+              ),
+              const SizedBox(height: 12),
+            ],
             const Text(
               'مدة التشغيل',
               style: TextStyle(fontWeight: FontWeight.w800),
@@ -335,7 +350,7 @@ class _AdhanSettings extends StatelessWidget {
                 const ButtonSegment(
                   value: AdhanPlaybackMode.short,
                   icon: Icon(Icons.timelapse_rounded),
-                  label: Text('مختصر · 29 ثانية'),
+                  label: Text('مختصر · التكبيرات'),
                 ),
               ],
               selected: {
@@ -423,6 +438,12 @@ class _AdhanSettings extends StatelessWidget {
               icon: const Icon(Icons.play_circle_outline_rounded),
               label: Text('تجربة صوت ${selectedVoice.muezzin}'),
             ),
+            if (!isIos && !kIsWeb)
+              TextButton.icon(
+                onPressed: context.read<SettingsCubit>().stopAdhanTest,
+                icon: const Icon(Icons.stop_circle_outlined),
+                label: const Text('إيقاف الصوت'),
+              ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -442,8 +463,8 @@ class _AdhanSettings extends StatelessWidget {
                   Expanded(
                     child: Text(
                       isIos
-                          ? 'في iPhone يسمح النظام لصوت الإشعار بحد أقصى 30 ثانية عند إغلاق التطبيق؛ لذلك يُستخدم المقطع المختصر تلقائيًا.'
-                          : 'يعمل الصوت المختار من ملفات التطبيق دون إنترنت، حتى عند إغلاق التطبيق. قد يؤثر وضع الصامت أو عدم الإزعاج بحسب إعدادات جهازك.',
+                          ? 'في iPhone يسمح النظام لصوت الإشعار بحد أقصى 30 ثانية عند إغلاق التطبيق؛ لذلك يُستخدم المقطع المختصر تلقائيًا. تأكد من تفعيل أصوات مشكاة في إعدادات إشعارات iPhone وإلغاء الصامت.'
+                          : 'يعمل الصوت المختار من ملفات التطبيق دون إنترنت، حتى عند إغلاق التطبيق. ارفع مستوى صوت الوسائط لسماع الأذان. يُحترم وضع الصامت وعدم الإزعاج.',
                       style: TextStyle(
                         height: 1.5,
                         fontSize: 12,

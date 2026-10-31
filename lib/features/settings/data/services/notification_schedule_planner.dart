@@ -28,7 +28,17 @@ class NotificationSchedulePlanner {
     int days = 14,
   }) {
     final current = now ?? DateTime.now();
-    final items = <ScheduledAppNotification>[];
+    final items = <ScheduledAppNotification>[
+      // Clear the old prayer calendar even when every prayer is disabled or
+      // the location has been removed. This marker is never scheduled.
+      ScheduledAppNotification(
+        id: _prayerBase,
+        title: '',
+        body: '',
+        at: DateTime(1970),
+        sound: false,
+      ),
+    ];
 
     if (settings.hasLocation) {
       _addPrayerBasedNotifications(

@@ -195,20 +195,22 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
   Future<bool> _initializeEngine() async {
     try {
-      final available = await _stt.initialize(
-        onError: _onError,
-        onStatus: _onStatus,
-        debugLogging: kDebugMode,
-        options: [
-          // Tasmee uses the phone microphone, not a Bluetooth audio route.
-          // Disabling Bluetooth here avoids an unrelated runtime permission
-          // preventing recognition on Android 12+ devices.
-          SpeechToText.androidNoBluetooth,
-          // Use the system's configured recognizer. androidIntentLookup
-          // selects the first installed service, which can select a different
-          // (or unsupported) engine on phones with several voice services.
-        ],
-      ).timeout(_initializationTimeout);
+      final available = await _stt
+          .initialize(
+            onError: _onError,
+            onStatus: _onStatus,
+            debugLogging: kDebugMode,
+            options: [
+              // Tasmee uses the phone microphone, not a Bluetooth audio route.
+              // Disabling Bluetooth here avoids an unrelated runtime permission
+              // preventing recognition on Android 12+ devices.
+              SpeechToText.androidNoBluetooth,
+              // Use the system's configured recognizer. androidIntentLookup
+              // selects the first installed service, which can select a different
+              // (or unsupported) engine on phones with several voice services.
+            ],
+          )
+          .timeout(_initializationTimeout);
       if (_isDisposed) return false;
       // SpeechToText() is a singleton and its initialize() ignores callbacks
       // after its first successful call. A reopened recitation page must own
@@ -387,7 +389,7 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
     // with stop/cancel before another listen call. `isListening` is already
     // false by the time the platform emits `done`, so checking it alone leaves
     // the native recognizer busy on the next cycle.
-    if (_hasStartedListening) {
+    if (_hasStartedListening || _stt.isListening) {
       _acceptRecognitionEvents = false;
       try {
         await _stt.cancel().timeout(_releaseTimeout);
@@ -398,7 +400,12 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
     if (!_hasCheckedArabicModel) {
       try {
-        await _arabicModelService.refresh();
+        // A recognition request is stronger evidence than a capability probe
+        // (notably on iOS). Preserve its missing-assets finding across page
+        // reopenings until the user explicitly checks the model again.
+        if (_arabicModelService.status.reason != 'modelUnavailable') {
+          await _arabicModelService.refresh();
+        }
       } catch (_) {
         // Online recognition can still work when the OS cannot inspect its
         // local language models. Explicit offline mode is checked below.
@@ -412,8 +419,7 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
       _errorController.add(
         const SpeechRecognitionFailure(
           type: SpeechRecognitionFailureType.languageUnavailable,
-          message:
-              'التسميع دون إنترنت يحتاج حزمة عربية جاهزة على الجهاز. نزّل الحزمة وأعد فحصها، أو أوقف خيار دون إنترنت فقط.',
+          message: 'التسميع دون إنترنت يحتاج حزمة عربية جاهزة على الجهاز. نزّل الحزمة وأعد فحصها، أو أوقف خيار دون إنترنت فقط.',
         ),
       );
       return false;
@@ -494,12 +500,28 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
       return started && _isCurrentSession(generation);
     } catch (e) {
       if (_isCurrentSession(generation)) {
+        final platformCode = switch (e) {
+          PlatformException() => e.code,
+          ListenFailedException() => e.code,
+          _ => null,
+        };
+        final localModelUnavailable =
+            platformCode == 'onDeviceError' ||
+            platformCode == 'error_language_unavailable' ||
+            platformCode == 'error_assets_not_installed';
+        if (localModelUnavailable && _arabicModelService.status.isInstalled) {
+          _arabicModelService.reportUnavailable();
+        }
         _errorController.add(
           SpeechRecognitionFailure(
-            type: SpeechRecognitionFailureType.unknown,
-            message: e is TimeoutException
+            type: localModelUnavailable
+                ? SpeechRecognitionFailureType.languageUnavailable
+                : SpeechRecognitionFailureType.unknown,
+            message: localModelUnavailable
+                ? 'حزمة العربية للتسميع دون إنترنت لم تعد متاحة. أعد فحص الحزمة أو تنزيلها قبل المتابعة.'
+                : e is TimeoutException
                 ? 'لم تبدأ خدمة التعرف على الكلام. تحقق من تفعيل الميكروفون وخدمة الإدخال الصوتي ثم أعد المحاولة.'
-                : 'تعذّر بدء الاستماع. تأكد من تفعيل خدمة التعرف على الكلام في الجهاز ثم حاول مجددًا: $e',
+                : 'تعذّر بدء الاستماع. تأكد من تفعيل خدمة التعرف على الكلام في الجهاز ثم حاول مجددًا.',
           ),
         );
         await cancelListening();
@@ -548,7 +570,9 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
     if (!stop) _hasStartedListening = false;
     final operation = () async {
       await previous;
-      if (!shouldRelease) return;
+      // SpeechToText is shared across pages. An old page's asynchronous
+      // disposal must not tear down a replacement page that now owns it.
+      if (!shouldRelease || _stt.statusListener != _onStatus) return;
       try {
         await (stop ? _stt.stop() : _stt.cancel()).timeout(_releaseTimeout);
       } catch (_) {
@@ -594,10 +618,9 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
   void _onError(SpeechRecognitionError error) {
     if (!_acceptRecognitionEvents) return;
-    _acknowledgeStart(false);
     // Ignore terminal callbacks from this failed cycle. In particular `done`
     // must not replace a network/busy recovery delay with an immediate retry.
-    unawaited(cancelListening());
+    _acceptRecognitionEvents = false;
     if (!_errorController.isClosed) {
       final failure = switch (error.errorMsg) {
         'error_no_match' => const SpeechRecognitionFailure(
@@ -608,7 +631,9 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           type: SpeechRecognitionFailureType.timeout,
           message: 'لم يُسمع صوت لفترة. اضغط متابعة عندما تكون مستعدًا.',
         ),
-        'error_audio' || 'error_audio_error' => const SpeechRecognitionFailure(
+        'error_audio' ||
+        'error_audio_error' ||
+        'error_listen_failed' => const SpeechRecognitionFailure(
           type: SpeechRecognitionFailureType.audio,
           message:
               'تعذّر الوصول إلى الميكروفون. تحقق من عدم استخدامه في تطبيق آخر.',
@@ -616,6 +641,8 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
         'error_busy' ||
         'error_client' ||
         'error_retry' ||
+        'error_request_cancelled' ||
+        'error_speech_recognizer_already_active' ||
         'error_too_many_requests' => const SpeechRecognitionFailure(
           type: SpeechRecognitionFailureType.busy,
           message: 'محرك التعرف الصوتي مشغول مؤقتًا. سيُعاد تشغيل الاستماع تلقائيًا.',
@@ -623,17 +650,22 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
         'error_network' ||
         'error_server' ||
         'error_server_disconnected' ||
+        'error_speech_recognizer_connection_invalidated' ||
+        'error_speech_recognizer_connection_interrupted' ||
         'error_network_timeout' => const SpeechRecognitionFailure(
           type: SpeechRecognitionFailureType.network,
           message: 'تعذّر الوصول إلى خدمة التعرف على الكلام. تحقق من الاتصال أو نزّل حزمة العربية للتعرف دون اتصال.',
         ),
         'error_language_not_supported' ||
+        'error_assets_not_installed' ||
         'error_language_unavailable' => SpeechRecognitionFailure(
           type: SpeechRecognitionFailureType.languageUnavailable,
           message: 'العربية غير مفعّلة في خدمة التعرف الصوتي. افتح إعدادات الإدخال الصوتي وأضف العربية، ثم ارجع إلى مشكاة.',
           isPermanent: error.permanent,
         ),
         'error_permission' ||
+        'error_speech_recognizer_disabled' ||
+        'error_speech_recognizer_request_not_authorized' ||
         'error_permission_denied' => SpeechRecognitionFailure(
           type: SpeechRecognitionFailureType.permissionDenied,
           message: 'إذن الميكروفون أو التعرف على الكلام غير متاح. اسمح به من إعدادات التطبيق للمتابعة.',
@@ -645,8 +677,15 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
           isPermanent: error.permanent,
         ),
       };
+      if (failure.type == SpeechRecognitionFailureType.languageUnavailable &&
+          _arabicModelService.status.isInstalled) {
+        _arabicModelService.reportUnavailable();
+      }
       _errorController.add(failure);
     }
+    // Publish the specific error before completing a pending start with false,
+    // otherwise the caller may replace it with a generic startup failure.
+    unawaited(cancelListening());
   }
 
   @override

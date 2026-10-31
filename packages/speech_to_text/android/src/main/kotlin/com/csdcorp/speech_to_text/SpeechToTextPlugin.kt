@@ -293,10 +293,21 @@ public class SpeechToTextPlugin :
             result.success(false)
             return
         }
+        // The app promises that onDevice sessions never send audio online.
+        // Availability may have changed after the language-model check.
+        if (onDevice && (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                pluginContext == null ||
+                !SpeechRecognizer.isOnDeviceRecognitionAvailable(pluginContext!!))) {
+            destroyRecognizer()
+            sendError("error_language_unavailable")
+            result.success(false)
+            return
+        }
         var listenMode = enumValues<ListenMode>()[listenModeIndex]
 
         resultSent = false
         createRecognizer(onDevice)
+        lastFinalTime = 0
         minRms = 1000.0F
         maxRms = -100.0F
         debugLog("Start listening")
@@ -602,10 +613,8 @@ public class SpeechToTextPlugin :
         destroyRecognizer()
         val context = requireNotNull(pluginContext)
         val recognizer = when {
+            onDevice -> createOnDeviceSpeechRecognizer(context)
             intentLookup -> createSpeechRecognizer(context, context.findComponentName())
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && onDevice &&
-                SpeechRecognizer.isOnDeviceRecognitionAvailable(context) ->
-                createOnDeviceSpeechRecognizer(context)
             else -> createSpeechRecognizer(context)
         }
         speechRecognizer = recognizer
@@ -677,6 +686,7 @@ public class SpeechToTextPlugin :
         recognizerGeneration++
         timer?.cancel()
         timer = null
+        optionallyStopBluetooth()
         val oldRecognizer = speechRecognizer
         speechRecognizer = null
         try {

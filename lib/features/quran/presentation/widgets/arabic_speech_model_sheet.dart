@@ -24,11 +24,16 @@ class _ArabicSpeechModelSheetState extends State<ArabicSpeechModelSheet>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.service.setForeground(
+      WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+    );
     unawaited(widget.service.refresh());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    widget.service.setForeground(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed) {
       unawaited(widget.service.refresh());
     }
@@ -41,6 +46,17 @@ class _ArabicSpeechModelSheetState extends State<ArabicSpeechModelSheet>
   }
 
   String _description(ArabicSpeechModelStatus status) {
+    if (status.reason == 'modelUnavailable') {
+      return widget.service.offlineOnly
+          ? 'لم تتمكن خدمة الصوت من استخدام العربية محليًا. أعد فحص الحزمة، أو أوقف خيار «دون إنترنت فقط» لاستخدام التعرف عبر الإنترنت.'
+          : 'لم تتمكن خدمة الصوت من استخدام العربية محليًا. أعد فحص الحزمة أو تحقق من إعدادات الصوت. يمكنك متابعة التسميع عبر الإنترنت.';
+    }
+    if (status.reason == 'iosOnDeviceAvailable') {
+      return 'يؤكد iOS دعم التعرف على العربية دون إنترنت على جهازك. سيطلب التسميع استخدام التعرف المحلي تلقائيًا.';
+    }
+    if (status.reason == 'downloadTimeout') {
+      return 'لم تؤكد خدمة الصوت اكتمال تنزيل العربية بعد. أعد فحص الحزمة، أو تحقق من التنزيل والاتصال من إعدادات خدمة الصوت.';
+    }
     if (status.reason == 'iosManagedBySystem') {
       return 'خدمة الصوت الحالية في iOS لا تتيح تنزيل حزمة العربية من داخل التطبيق. التسميع دون إنترنت متاح فقط عندما يوفّر النظام التعرف المحلي بالعربية على جهازك.';
     }
@@ -51,16 +67,11 @@ class _ArabicSpeechModelSheetState extends State<ArabicSpeechModelSheet>
       return 'تعذّر تنزيل الحزمة. تحقق من الاتصال والمساحة المتاحة، ثم أعد الفحص أو افتح إعدادات خدمة الصوت.';
     }
     return switch (status.availability) {
-      ArabicSpeechModelAvailability.installed =>
-        'حزمة العربية جاهزة. سيستخدمها التسميع تلقائيًا للتعرف على تلاوتك دون إنترنت.',
-      ArabicSpeechModelAvailability.downloadable =>
-        'يمكن تنزيل حزمة العربية من هنا. تحتاج اتصالًا أثناء التنزيل فقط؛ بعد اكتماله سيستخدمها التسميع تلقائيًا دون إنترنت.',
-      ArabicSpeechModelAvailability.pending =>
-        'طلب تنزيل العربية قيد التنفيذ لدى خدمة الصوت. أبقِ الاتصال متاحًا؛ قد يؤجّل النظام التنزيل حتى يتوفر اتصال مناسب. ستظهر الجاهزية بعد التحقق من تثبيت الحزمة.',
-      ArabicSpeechModelAvailability.unsupported =>
-        'خدمة الصوت على هذا الجهاز لا تتيح حزمة عربية للتنزيل المباشر. تحقق من حزم اللغات أو اختر خدمة صوت تدعم العربية من إعدادات الجهاز.',
-      ArabicSpeechModelAvailability.unknown =>
-        'تعذّر التحقق من حزمة العربية حاليًا. اسمح بالميكروفون وفعّل خدمة التعرف على الكلام، ثم أعد الفحص. لن تظهر الحزمة كجاهزة قبل التحقق منها.',
+      ArabicSpeechModelAvailability.installed => 'حزمة العربية جاهزة. سيستخدمها التسميع تلقائيًا للتعرف على تلاوتك دون إنترنت.',
+      ArabicSpeechModelAvailability.downloadable => 'يمكن تنزيل حزمة العربية من هنا. تحتاج اتصالًا أثناء التنزيل فقط؛ بعد اكتماله سيستخدمها التسميع تلقائيًا دون إنترنت.',
+      ArabicSpeechModelAvailability.pending => 'طلب تنزيل العربية قيد التنفيذ لدى خدمة الصوت. أبقِ الاتصال متاحًا؛ قد يؤجّل النظام التنزيل حتى يتوفر اتصال مناسب. ستظهر الجاهزية بعد التحقق من تثبيت الحزمة.',
+      ArabicSpeechModelAvailability.unsupported => 'خدمة الصوت على هذا الجهاز لا تتيح حزمة عربية للتنزيل المباشر. تحقق من حزم اللغات أو اختر خدمة صوت تدعم العربية من إعدادات الجهاز.',
+      ArabicSpeechModelAvailability.unknown => 'تعذّر التحقق من حزمة العربية حاليًا. اسمح بالميكروفون وفعّل خدمة التعرف على الكلام، ثم أعد الفحص. لن تظهر الحزمة كجاهزة قبل التحقق منها.',
     };
   }
 
@@ -85,8 +96,13 @@ class _ArabicSpeechModelSheetState extends State<ArabicSpeechModelSheet>
                     const Icon(Icons.offline_pin_outlined),
                     const SizedBox(width: 12),
                     const Expanded(
-                      child: Text('حزمة العربية للتسميع',
-                        style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        'حزمة العربية للتسميع',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                     IconButton(
                       tooltip: 'إغلاق',
@@ -97,7 +113,9 @@ class _ArabicSpeechModelSheetState extends State<ArabicSpeechModelSheet>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  checking && status.availability == ArabicSpeechModelAvailability.unknown
+                  checking &&
+                          status.availability ==
+                              ArabicSpeechModelAvailability.unknown
                       ? 'جارٍ التحقق من حزمة العربية…'
                       : _description(status),
                   style: const TextStyle(height: 1.6),
@@ -113,26 +131,39 @@ class _ArabicSpeechModelSheetState extends State<ArabicSpeechModelSheet>
                   if (status.isPending && status.progress != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text('${status.progress}٪', textAlign: TextAlign.center),
+                      child: Text(
+                        '${status.progress}٪',
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                 ],
                 const SizedBox(height: 20),
                 if (status.canDownload)
                   FilledButton.icon(
-                    onPressed: requesting || checking ? null : () => service.download(),
+                    onPressed: requesting || checking
+                        ? null
+                        : () => service.download(),
                     icon: const Icon(Icons.download_rounded),
-                    label: Text(requesting ? 'جارٍ طلب التنزيل…' : 'تحميل حزمة اللغة العربية'),
+                    label: Text(
+                      requesting
+                          ? 'جارٍ طلب التنزيل…'
+                          : 'تحميل حزمة اللغة العربية',
+                    ),
                   ),
                 if (status.isInstalled || service.offlineOnly)
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('التسميع دون إنترنت فقط'),
-                    subtitle: const Text('إذا لم تتوفر الحزمة، يتوقف التسميع دون استخدام خدمة عبر الإنترنت.'),
+                    subtitle: const Text(
+                      'إذا لم تتوفر الحزمة، يتوقف التسميع دون استخدام خدمة عبر الإنترنت.',
+                    ),
                     value: service.offlineOnly,
                     onChanged: (value) => service.offlineOnly = value,
                   ),
                 OutlinedButton.icon(
-                  onPressed: checking || requesting ? null : () => service.refresh(),
+                  onPressed: checking || requesting
+                      ? null
+                      : () => service.refresh(retryUnavailable: true),
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('إعادة فحص الحزمة'),
                 ),

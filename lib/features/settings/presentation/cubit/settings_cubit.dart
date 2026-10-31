@@ -21,6 +21,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   final LocalStorageService _storage;
   final LocationService _locationService;
   final LocalNotificationService _notifications;
+  int _notificationToggleRevision = 0;
 
   Future<void> load() async {
     final settings = AppSettings.fromJson(_storage.readMap('settings'));
@@ -137,7 +138,13 @@ class SettingsCubit extends Cubit<SettingsState> {
     final values = Map<String, bool>.from(state.settings.prayerNotifications)
       ..[prayer] = enabled;
     return _save(
-      state.settings.copyWith(prayerNotifications: values),
+      state.settings.copyWith(
+        prayerNotifications: values,
+        prayerAdhanEnabled: {
+          ...state.settings.prayerAdhanEnabled,
+          if (!enabled) prayer: false,
+        },
+      ),
       reschedule: true,
     );
   }
@@ -162,7 +169,9 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<bool> setNotificationsEnabled(bool enabled) async {
+    final revision = ++_notificationToggleRevision;
     if (enabled && !await _notifications.requestPermission()) {
+      if (isClosed || revision != _notificationToggleRevision) return false;
       emit(
         state.copyWith(
           status: SettingsStatus.failure,
@@ -171,7 +180,9 @@ class SettingsCubit extends Cubit<SettingsState> {
       );
       return false;
     }
+    if (isClosed || revision != _notificationToggleRevision) return false;
     await _save(state.settings.copyWith(notificationsEnabled: enabled));
+    if (isClosed || revision != _notificationToggleRevision) return false;
     if (enabled) {
       await rescheduleNotifications(state.settings);
     } else {
@@ -180,14 +191,35 @@ class SettingsCubit extends Cubit<SettingsState> {
     return true;
   }
 
-  Future<void> testNotification() => _notifications.showTest(
-    sound: state.settings.adhanSound,
-    vibrate: state.settings.vibrate,
-    soundName: state.settings.adhanSound
-        ? AdhanVoice.byId(state.settings.adhanFile)
-              .soundName(state.settings.adhanPlaybackMode)
-        : null,
-  );
+  Future<void> testNotification() async {
+    try {
+      if (!await _notifications.requestPermission()) {
+        throw StateError('notifications denied');
+      }
+      await _notifications.showTest(
+        sound: state.settings.adhanSound,
+        vibrate: state.settings.vibrate,
+        soundName: state.settings.adhanSound
+            ? AdhanVoice.byId(state.settings.adhanFile)
+                  .soundName(state.settings.adhanPlaybackMode)
+            : null,
+      );
+    } on Object {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            status: SettingsStatus.failure,
+            message: 'تعذّر تشغيل التجربة. تحقق من إذن الإشعارات والصوت في إعدادات الجهاز.',
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> stopAdhanTest() => _notifications.stopTest();
+
+  Future<void> refreshNotificationSchedule() =>
+      rescheduleNotifications(state.settings);
 
   Future<void> clearAllData() async {
     await _notifications.cancelAll();
@@ -209,6 +241,9 @@ class SettingsCubit extends Cubit<SettingsState> {
       ),
     );
     await _storage.writeMap('settings', settings.toJson());
+    // A later toggle may have arrived while the write was pending. Do not
+    // restore or schedule that older snapshot over the user's latest choice.
+    if (isClosed || state.settings != settings) return;
     emit(
       state.copyWith(
         status: SettingsStatus.ready,
@@ -223,8 +258,25 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> rescheduleNotifications(AppSettings settings) async {
     if (!settings.notificationsEnabled) return;
-    await _notifications.scheduleAll(
-      NotificationSchedulePlanner.build(storage: _storage, settings: settings),
-    );
+    try {
+      final precise = await _notifications.canSchedulePrecisely();
+      if (isClosed || state.settings != settings) return;
+      emit(state.copyWith(preciseAlarmsAllowed: precise));
+      await _notifications.scheduleAll(
+        NotificationSchedulePlanner.build(
+          storage: _storage,
+          settings: settings,
+        ),
+      );
+    } on Object {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            status: SettingsStatus.failure,
+            message: 'تعذّر تحديث تنبيهات الصلاة. أعد تفعيل التنبيهات وتحقق من أذونات الجهاز.',
+          ),
+        );
+      }
+    }
   }
 }

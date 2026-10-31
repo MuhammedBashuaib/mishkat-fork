@@ -121,7 +121,7 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
         final cubit = QuranSearchCubit(
           quranData: quranData,
           searchRepository: QuranSearchRepository(
-            storage: LocalStorageService(),
+            storage: context.read<LocalStorageService>(),
           ),
         );
         if (widget.initialQuery != null &&

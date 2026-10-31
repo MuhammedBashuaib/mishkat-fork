@@ -111,7 +111,10 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_arabicModel.refresh());
+    _arabicModel.setForeground(
+      WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+    );
   }
 
   @override
@@ -122,6 +125,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _arabicModel.setForeground(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed && mounted) {
       context.read<QuranOralRecitationCubit>().checkAndRefreshPermission();
       unawaited(_arabicModel.refresh());
@@ -204,14 +208,19 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
       animation: _arabicModel,
       builder: (context, _) => TextButton.icon(
         onPressed: _showArabicModel,
-        icon: Icon(_arabicModel.status.isInstalled
-            ? Icons.offline_pin_outlined
-            : Icons.download_rounded, size: 19),
-        label: Text(_arabicModel.status.isInstalled
-            ? 'العربية جاهزة دون إنترنت'
-            : _arabicModel.status.isPending
-                ? 'حزمة العربية قيد التنزيل'
-                : 'تحميل حزمة العربية · التسميع دون إنترنت'),
+        icon: Icon(
+          _arabicModel.status.isInstalled
+              ? Icons.offline_pin_outlined
+              : Icons.download_rounded,
+          size: 19,
+        ),
+        label: Text(
+          _arabicModel.status.isInstalled
+              ? 'العربية جاهزة دون إنترنت'
+              : _arabicModel.status.isPending
+              ? 'حزمة العربية قيد التنزيل'
+              : 'تحميل حزمة العربية · التسميع دون إنترنت',
+        ),
       ),
     );
   }

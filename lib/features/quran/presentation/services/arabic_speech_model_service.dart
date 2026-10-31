@@ -46,7 +46,8 @@ class ArabicSpeechModelStatus {
   final String? reason;
   final int? progress;
 
-  bool get isInstalled => availability == ArabicSpeechModelAvailability.installed;
+  bool get isInstalled =>
+      availability == ArabicSpeechModelAvailability.installed;
   bool get isPending => availability == ArabicSpeechModelAvailability.pending;
   bool get canDownload =>
       availability == ArabicSpeechModelAvailability.downloadable;
@@ -57,20 +58,19 @@ class ArabicSpeechModelStatus {
 /// being accepted or a progress bar reaching 100%.
 class ArabicSpeechModelService extends ChangeNotifier {
   ArabicSpeechModelService({
-    MethodChannel channel = const MethodChannel(
-      'com.dakomn.mishkatapp/speech_settings',
-    ),
-  }) : _channel = channel {
-    _channel.setMethodCallHandler(_onNativeEvent);
+    this.channel = const MethodChannel('com.dakomn.mishkatapp/speech_settings'),
+  }) {
+    channel.setMethodCallHandler(_onNativeEvent);
   }
 
   static final instance = ArabicSpeechModelService();
-  final MethodChannel _channel;
+  final MethodChannel channel;
   ArabicSpeechModelStatus _status = const ArabicSpeechModelStatus();
   Future<ArabicSpeechModelStatus>? _refreshOperation;
   Future<ArabicSpeechModelStatus>? _downloadOperation;
   Timer? _pollTimer;
   bool _disposed = false;
+  bool _foreground = true;
   bool _offlineOnly = false;
   int _revision = 0;
 
@@ -79,6 +79,34 @@ class ArabicSpeechModelService extends ChangeNotifier {
   bool get isRequestingDownload => _downloadOperation != null;
   bool get offlineOnly => _offlineOnly;
 
+  /// A real recognition failure takes precedence over a capability query.
+  /// In particular, iOS may advertise local support before its assets work.
+  void reportUnavailable() {
+    _update(
+      ArabicSpeechModelStatus(
+        localeId: _status.localeId,
+        reason: 'modelUnavailable',
+      ),
+    );
+  }
+
+  void setForeground(bool value) {
+    _foreground = value;
+    _syncPolling();
+  }
+
+  @override
+  void addListener(VoidCallback listener) {
+    super.addListener(listener);
+    _syncPolling();
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    super.removeListener(listener);
+    _syncPolling();
+  }
+
   set offlineOnly(bool value) {
     if (_disposed || value == _offlineOnly) return;
     _offlineOnly = value;
@@ -86,7 +114,9 @@ class ArabicSpeechModelService extends ChangeNotifier {
   }
 
   Future<void> _onNativeEvent(MethodCall call) async {
-    if (_disposed || call.method != 'arabicModelStatus' || call.arguments is! Map) {
+    if (_disposed ||
+        call.method != 'arabicModelStatus' ||
+        call.arguments is! Map) {
       return;
     }
     _update(ArabicSpeechModelStatus.fromMap(call.arguments as Map));
@@ -105,7 +135,12 @@ class ArabicSpeechModelService extends ChangeNotifier {
       );
     }
     _status = value;
-    if (value.isPending) {
+    _syncPolling();
+    notifyListeners();
+  }
+
+  void _syncPolling() {
+    if (!_disposed && _foreground && hasListeners && _status.isPending) {
       _pollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
         unawaited(refresh());
       });
@@ -113,7 +148,6 @@ class ArabicSpeechModelService extends ChangeNotifier {
       _pollTimer?.cancel();
       _pollTimer = null;
     }
-    notifyListeners();
   }
 
   Future<ArabicSpeechModelStatus> _invoke(
@@ -122,7 +156,7 @@ class ArabicSpeechModelService extends ChangeNotifier {
   }) async {
     final revision = _revision;
     try {
-      final result = await _channel
+      final result = await channel
           .invokeMapMethod<Object?, Object?>(method, arguments)
           .timeout(const Duration(seconds: 10));
       if (!_disposed && revision == _revision) {
@@ -130,23 +164,37 @@ class ArabicSpeechModelService extends ChangeNotifier {
       }
     } on MissingPluginException {
       if (revision == _revision) {
-        _update(const ArabicSpeechModelStatus(
-          availability: ArabicSpeechModelAvailability.unsupported,
-          reason: 'platformUnsupported',
-        ));
+        _update(
+          const ArabicSpeechModelStatus(
+            availability: ArabicSpeechModelAvailability.unsupported,
+            reason: 'platformUnsupported',
+          ),
+        );
       }
     } catch (_) {
       if (revision == _revision) {
-        _update(ArabicSpeechModelStatus(
-          reason: method == 'downloadArabicModel' ? 'downloadFailed' : 'checkUnavailable',
-        ));
+        _update(
+          ArabicSpeechModelStatus(
+            reason: method == 'downloadArabicModel'
+                ? 'downloadFailed'
+                : 'checkUnavailable',
+          ),
+        );
       }
     }
     return _status;
   }
 
-  Future<ArabicSpeechModelStatus> refresh() async {
+  Future<ArabicSpeechModelStatus> refresh({
+    bool retryUnavailable = false,
+  }) async {
     if (_disposed) return _status;
+    if (_status.reason == 'modelUnavailable' && !retryUnavailable) {
+      return _status;
+    }
+    // A download result must not be discarded by an older support query.
+    final downloading = _downloadOperation;
+    if (downloading != null) return downloading;
     final pending = _refreshOperation;
     if (pending != null) return pending;
     final operation = _invoke('getArabicModelStatus');
@@ -161,13 +209,10 @@ class ArabicSpeechModelService extends ChangeNotifier {
   }
 
   Future<ArabicSpeechModelStatus> download() async {
-    if (_disposed || _status.isInstalled || _status.isPending) return _status;
+    if (_disposed) return _status;
     final pending = _downloadOperation;
     if (pending != null) return pending;
-    if (!_status.canDownload) return _status;
-    final operation = _invoke('downloadArabicModel', arguments: {
-      'localeId': _status.localeId,
-    });
+    final operation = _downloadAfterRefresh();
     _downloadOperation = operation;
     notifyListeners();
     try {
@@ -178,11 +223,20 @@ class ArabicSpeechModelService extends ChangeNotifier {
     }
   }
 
+  Future<ArabicSpeechModelStatus> _downloadAfterRefresh() async {
+    await _refreshOperation;
+    if (_disposed || !_status.canDownload) return _status;
+    return _invoke(
+      'downloadArabicModel',
+      arguments: {'localeId': _status.localeId},
+    );
+  }
+
   @override
   void dispose() {
     _disposed = true;
     _pollTimer?.cancel();
-    _channel.setMethodCallHandler(null);
+    channel.setMethodCallHandler(null);
     super.dispose();
   }
 }

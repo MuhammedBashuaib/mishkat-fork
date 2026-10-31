@@ -75,6 +75,7 @@ class MishkatApp extends StatelessWidget {
         HomeWidgetService(adhkarRepository: adhkarRepository);
     return MultiRepositoryProvider(
       providers: [
+        RepositoryProvider<LocalStorageService>.value(value: storage),
         RepositoryProvider<QuranRepository>.value(value: quranRepository),
         RepositoryProvider<AdhkarRepository>.value(value: adhkarRepository),
         RepositoryProvider<LibraryRepository>.value(value: libraryRepository),
@@ -181,8 +182,27 @@ class _AppEntry extends StatefulWidget {
   State<_AppEntry> createState() => _AppEntryState();
 }
 
-class _AppEntryState extends State<_AppEntry> {
+class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
   late bool _showOnboarding = widget.initiallyShowOnboarding;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(context.read<SettingsCubit>().refreshNotificationSchedule());
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   Future<void> _completeOnboarding() async {
     await widget.storage.writeInt('onboarding_version', 1);

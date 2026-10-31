@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -12,6 +13,31 @@ class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   bool _canUseExactAlarms = false;
+  static const _adhan = MethodChannel('com.dakomn.mishkatapp/adhan');
+  Future<void> _pendingUpdate = Future.value();
+
+  // Calendar replacement and cancellation must be atomic with respect to other
+  // callers (settings, Khatma and Hifz all update the same OS calendar).
+  Future<void> _serialize(Future<void> Function() action) {
+    final operation = _pendingUpdate.then((_) => action());
+    _pendingUpdate = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
+  }
+
+  Future<bool> canSchedulePrecisely() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
+    _canUseExactAlarms =
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >()
+            ?.canScheduleExactNotifications() ??
+        false;
+    return _canUseExactAlarms;
+  }
 
   Future<void> initialize() async {
     if (kIsWeb) return;
@@ -87,8 +113,14 @@ class LocalNotificationService {
     return false;
   }
 
-  Future<void> scheduleAll(List<ScheduledAppNotification> notifications) async {
+  Future<void> scheduleAll(List<ScheduledAppNotification> notifications) =>
+      _serialize(() => _scheduleAll(List.of(notifications)));
+
+  Future<void> _scheduleAll(
+    List<ScheduledAppNotification> notifications,
+  ) async {
     if (kIsWeb) return;
+    await canSchedulePrecisely();
     final groups = notifications.map((item) => _groupFor(item.id)).toSet();
     // Prayer, Adhkar, and Khatma form a single recalculated calendar. Always
     // clear all three so disabling one category removes its old alarms too.
@@ -105,6 +137,12 @@ class LocalNotificationService {
     final future =
         notifications.where((item) => item.at.isAfter(DateTime.now())).toList()
           ..sort((a, b) => a.at.compareTo(b.at));
+    final android = defaultTargetPlatform == TargetPlatform.android;
+    if (android && groups.contains(1)) {
+      await _adhan.invokeMethod<void>('replace', [
+        for (final item in future.where(_usesNativeAdhan)) _nativeAdhan(item),
+      ]);
+    }
     // iOS accepts at most 64 pending local notifications. Reserve room for
     // repeating Hifz alarms and system/test entries, and keep the nearest ones.
     final limit = defaultTargetPlatform == TargetPlatform.iOS
@@ -112,6 +150,7 @@ class LocalNotificationService {
         : future.length;
     for (final item in future.take(limit)) {
       if (!item.at.isAfter(DateTime.now())) continue;
+      if (android && _usesNativeAdhan(item)) continue;
       await _plugin.zonedSchedule(
         item.id,
         item.title,
@@ -131,6 +170,21 @@ class LocalNotificationService {
     }
   }
 
+  bool _usesNativeAdhan(ScheduledAppNotification item) =>
+      item.kind == AppNotificationKind.adhan &&
+      item.sound &&
+      item.soundName != null;
+
+  Map<String, Object?> _nativeAdhan(ScheduledAppNotification item) => {
+    'id': item.id,
+    'title': item.title,
+    'body': item.body,
+    'at': item.at.millisecondsSinceEpoch,
+    'soundName': item.soundName,
+    'vibrate': item.vibrate,
+    'payload': item.payload,
+  };
+
   int _groupFor(int id) {
     if (id == 800001 || id == 800002) return id;
     if (id >= 100000 && id < 400000) return id ~/ 100000;
@@ -141,7 +195,8 @@ class LocalNotificationService {
     required bool sound,
     required bool vibrate,
     String? soundName,
-  }) {
+  }) async {
+    if (kIsWeb) return;
     final item = ScheduledAppNotification(
       id: 999999,
       title: soundName == null ? 'تنبيه تجريبي' : 'تجربة صوت الأذان',
@@ -156,14 +211,27 @@ class LocalNotificationService {
           ? AppNotificationKind.general
           : AppNotificationKind.adhan,
     );
-    return _plugin.show(item.id, item.title, item.body, _detailsFor(item));
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        _usesNativeAdhan(item)) {
+      await _adhan.invokeMethod<void>('play', _nativeAdhan(item));
+    } else {
+      await _plugin.show(item.id, item.title, item.body, _detailsFor(item));
+    }
+  }
+
+  Future<void> stopTest() async {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      await _adhan.invokeMethod<void>('stop');
+    }
+    await _plugin.cancel(999999);
   }
 
   NotificationDetails _detailsFor(ScheduledAppNotification item) {
     final customSound = item.sound && item.soundName != null;
     final androidSoundName = item.soundName;
     // iOS notification sounds are limited to 30 seconds. The bundled CAF
-    // files use the base name and contain a 29-second excerpt.
+    // files use the base name and contain an opening-takbir excerpt under 30 seconds.
     final iosSoundName = item.soundName?.replaceFirst(RegExp(r'_short$'), '');
     final channelSuffix = !item.sound
         ? 'silent'
@@ -172,7 +240,7 @@ class LocalNotificationService {
         : 'default';
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        'mishkat_${item.kind.name}_$channelSuffix',
+        'mishkat_${item.kind.name}_${channelSuffix}_v2_${item.vibrate}',
         item.kind.channelName,
         channelDescription: item.kind.channelDescription,
         importance: item.kind == AppNotificationKind.adhan
@@ -196,7 +264,13 @@ class LocalNotificationService {
     );
   }
 
-  Future<void> cancelAll() => _plugin.cancelAll();
+  Future<void> cancelAll() => _serialize(() async {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      await _adhan.invokeMethod<void>('cancelAll');
+    }
+    await _plugin.cancelAll();
+  });
 }
 
 class ScheduledAppNotification {

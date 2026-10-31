@@ -83,6 +83,8 @@ public class SpeechToTextPlugin: NSObject, FlutterPlugin {
   private var recognizer: SFSpeechRecognizer?
   private var currentRequest: SFSpeechAudioBufferRecognitionRequest?
   private var currentTask: SFSpeechRecognitionTask?
+  private var sessionGeneration: UInt64 = 0
+  private weak var playbackAwaitingEnd: AVAudioPlayer?
   private var listeningSound: AVAudioPlayer?
   private var successSound: AVAudioPlayer?
   private var cancelSound: AVAudioPlayer?
@@ -382,16 +384,18 @@ public class SpeechToTextPlugin: NSObject, FlutterPlugin {
   }
 
   private func stopSpeech(_ result: @escaping FlutterResult) {
-    if !listening {
+    if !listening && currentTask == nil && currentRequest == nil {
       sendBoolResult(false, result)
       return
     }
     stopping = true
     stopAllPlayers()
+    let generation = sessionGeneration
     self.currentTask?.finish()
     if let sound = successSound {
+      playbackAwaitingEnd = sound
       onPlayEnd = { () -> Void in
-        self.stopCurrentListen()
+        if generation == self.sessionGeneration { self.stopCurrentListen() }
         self.sendBoolResult(true, result)
         return
       }
@@ -403,16 +407,21 @@ public class SpeechToTextPlugin: NSObject, FlutterPlugin {
   }
 
   private func cancelSpeech(_ result: @escaping FlutterResult) {
-    if !listening {
+    if !listening && currentTask == nil && currentRequest == nil {
       sendBoolResult(false, result)
       return
     }
     stopping = true
     stopAllPlayers()
-    self.currentTask?.cancel()
+    // Detach first: cancellation can deliver a task callback immediately.
+    let task = currentTask
+    currentTask = nil
+    task?.cancel()
+    let generation = sessionGeneration
     if let sound = cancelSound {
+      playbackAwaitingEnd = sound
       onPlayEnd = { () -> Void in
-        self.stopCurrentListen()
+        if generation == self.sessionGeneration { self.stopCurrentListen() }
         self.sendBoolResult(true, result)
         return
       }
@@ -424,13 +433,20 @@ public class SpeechToTextPlugin: NSObject, FlutterPlugin {
   }
 
   private func stopAllPlayers() {
+    playbackAwaitingEnd = nil
+    onPlayEnd = nil
     cancelSound?.stop()
     successSound?.stop()
     listeningSound?.stop()
   }
 
   private func stopCurrentListen() {
+    // Old task delegates must never stop the microphone of a resumed session.
+    sessionGeneration &+= 1
+    let task = currentTask
+    currentTask = nil
     self.currentRequest?.endAudio()
+    task?.cancel()
     stopAllPlayers()
     do {
       try catchExceptionAsError {
@@ -489,6 +505,8 @@ public class SpeechToTextPlugin: NSObject, FlutterPlugin {
       sendBoolResult(false, result)
       return
     }
+    sessionGeneration &+= 1
+    let generation = sessionGeneration
     do {
       //    let inErrorTest = true
       failedListen = false
@@ -505,12 +523,17 @@ public class SpeechToTextPlugin: NSObject, FlutterPlugin {
         return
       }
       if onDevice {
-        if #available(iOS 13.0, *), !localRecognizer.supportsOnDeviceRecognition {
+        var supportsLocalRecognition = false
+        if #available(iOS 13.0, *) {
+          supportsLocalRecognition = localRecognizer.supportsOnDeviceRecognition
+        }
+        if !supportsLocalRecognition {
           result(
             FlutterError(
               code: SpeechToTextErrors.onDeviceError.rawValue,
               message: "on device recognition is not supported on this device",
               details: nil))
+          return
         }
       }
 
@@ -531,8 +554,9 @@ public class SpeechToTextPlugin: NSObject, FlutterPlugin {
         }
       #endif
       if let sound = listeningSound {
+        playbackAwaitingEnd = sound
         self.onPlayEnd = { () -> Void in
-          if !self.failedListen {
+          if generation == self.sessionGeneration && !self.failedListen {
             self.listening = true
             self.invokeFlutter(
               SwiftSpeechToTextCallbackMethods.notifyStatus,
@@ -743,10 +767,12 @@ extension SpeechToTextPlugin: SFSpeechRecognizerDelegate {
 @available(iOS 10.0, macOS 10.15, *)
 extension SpeechToTextPlugin: SFSpeechRecognitionTaskDelegate {
   public func speechRecognitionDidDetectSpeech(_ task: SFSpeechRecognitionTask) {
+    guard currentTask === task else { return }
     // Do nothing for now
   }
 
   public func speechRecognitionTaskFinishedReadingAudio(_ task: SFSpeechRecognitionTask) {
+    guard currentTask === task else { return }
     reportError(source: "FinishedReadingAudio", error: task.error)
     os_log("Finished reading audio", log: pluginLog, type: .debug)
     invokeFlutter(
@@ -755,6 +781,7 @@ extension SpeechToTextPlugin: SFSpeechRecognitionTaskDelegate {
   }
 
   public func speechRecognitionTaskWasCancelled(_ task: SFSpeechRecognitionTask) {
+    guard currentTask === task else { return }
     reportError(source: "TaskWasCancelled", error: task.error)
     os_log("Canceled reading audio", log: pluginLog, type: .debug)
     invokeFlutter(
@@ -765,6 +792,7 @@ extension SpeechToTextPlugin: SFSpeechRecognitionTaskDelegate {
   public func speechRecognitionTask(
     _ task: SFSpeechRecognitionTask, didFinishSuccessfully successfully: Bool
   ) {
+    guard currentTask === task else { return }
     reportError(source: "FinishSuccessfully", error: task.error)
     os_log("FinishSuccessfully", log: pluginLog, type: .debug)
     if !successfully {
@@ -808,7 +836,9 @@ extension SpeechToTextPlugin: SFSpeechRecognitionTaskDelegate {
     }
     if !stopping {
       if let sound = successfully ? successSound : cancelSound {
+        playbackAwaitingEnd = sound
         onPlayEnd = { () -> Void in
+          guard self.currentTask === task else { return }
           self.stopCurrentListen()
         }
         sound.play()
@@ -821,6 +851,7 @@ extension SpeechToTextPlugin: SFSpeechRecognitionTaskDelegate {
   public func speechRecognitionTask(
     _ task: SFSpeechRecognitionTask, didHypothesizeTranscription transcription: SFTranscription
   ) {
+    guard currentTask === task else { return }
     os_log("HypothesizeTranscription", log: pluginLog, type: .debug)
     reportError(source: "HypothesizeTranscription", error: task.error)
       handleResult([transcription], isFinal: false, maybeFinal: false)
@@ -830,6 +861,7 @@ extension SpeechToTextPlugin: SFSpeechRecognitionTaskDelegate {
     _ task: SFSpeechRecognitionTask,
     didFinishRecognition recognitionResult: SFSpeechRecognitionResult
   ) {
+    guard currentTask === task else { return }
     reportError(source: "FinishRecognition", error: task.error)
     os_log(
       "FinishRecognition %{PUBLIC}@", log: pluginLog, type: .debug,
@@ -858,9 +890,11 @@ extension SpeechToTextPlugin: AVAudioPlayerDelegate {
     _ player: AVAudioPlayer,
     successfully flag: Bool
   ) {
-    if let playEnd = self.onPlayEnd {
-      playEnd()
-    }
+    guard player === playbackAwaitingEnd, !player.isPlaying else { return }
+    let playEnd = self.onPlayEnd
+    self.onPlayEnd = nil
+    playbackAwaitingEnd = nil
+    playEnd?()
   }
 }
 

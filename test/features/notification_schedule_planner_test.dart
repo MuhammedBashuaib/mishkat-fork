@@ -109,12 +109,15 @@ void main() {
       now: DateTime(2026, 10, 19),
     );
 
-    expect(result, hasLength(1));
+    final markers = result.where(
+      (item) => item.id == NotificationSchedulePlanner.memorizationReminderId,
+    );
+    expect(markers, hasLength(1));
     expect(
-      result.single.id,
+      markers.single.id,
       NotificationSchedulePlanner.memorizationReminderId,
     );
-    expect(result.single.at.isBefore(DateTime(2000)), isTrue);
+    expect(markers.single.at.isBefore(DateTime(2000)), isTrue);
   });
 
   test('applies the selected adhan length and per-prayer sound settings', () {
@@ -157,6 +160,57 @@ void main() {
     expect(earlyReminder.sound, isTrue);
     expect(earlyReminder.soundName, isNull);
   });
+
+  test('all prayers disabled clears old alarms without scheduling sunrise', () {
+    final result = NotificationSchedulePlanner.build(
+      storage: _MemoryStorage(const {}),
+      settings: const AppSettings(
+        latitude: 21.4225,
+        longitude: 39.8262,
+        notificationsEnabled: true,
+        prayerNotifications: {
+          'fajr': false,
+          'dhuhr': false,
+          'asr': false,
+          'maghrib': false,
+          'isha': false,
+        },
+      ),
+      now: DateTime(2026, 10, 19),
+      days: 2,
+    );
+    expect(
+      result.any((item) => item.id == 100000 && item.at.year == 1970),
+      true,
+    );
+    expect(result.where((item) => item.at.year > 2000), isEmpty);
+  });
+
+  test(
+    'global mute keeps prayer notifications but removes every adhan sound',
+    () {
+      final result = NotificationSchedulePlanner.build(
+        storage: _MemoryStorage(const {}),
+        settings: const AppSettings(
+          latitude: 21.4225,
+          longitude: 39.8262,
+          notificationsEnabled: true,
+          adhanSound: false,
+        ),
+        now: DateTime(2026, 10, 19),
+        days: 2,
+      );
+      final prayers = result.where(
+        (item) => item.kind == AppNotificationKind.adhan,
+      );
+      expect(prayers, isNotEmpty);
+      expect(
+        prayers.every((item) => !item.sound && item.soundName == null),
+        true,
+      );
+      expect(result.any((item) => item.payload == 'prayer:sunrise'), false);
+    },
+  );
 
   test('migrates legacy prayer choices into per-prayer adhan settings', () {
     final settings = AppSettings.fromJson({

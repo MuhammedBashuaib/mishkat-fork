@@ -23,6 +23,9 @@ import 'package:mishkat_app/features/quran/presentation/pages/quran_memorization
 import 'package:mishkat_app/features/quran/presentation/pages/quran_page.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/quran_search_page.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/quran_search_history_view.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/quran_search_reference_card.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/quran_search_result_tile.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
 
 class InMemoryLocalStorage implements LocalStorageService {
@@ -173,6 +176,12 @@ class FakeLocationService implements LocationService {
 
 class FakeNotificationService implements LocalNotificationService {
   @override
+  Future<bool> canSchedulePrecisely() async => true;
+
+  @override
+  Future<void> stopTest() async {}
+
+  @override
   Future<void> initialize() async {}
 
   @override
@@ -240,24 +249,27 @@ void main() {
           repository: QuranMemorizationRepository(storage: storage),
         );
 
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<SettingsCubit>.value(value: settingsCubit),
-        BlocProvider<QuranCubit>.value(value: quranCubit),
-        BlocProvider<QuranMemorizationCubit>.value(value: effectiveMemCubit),
-      ],
-      child: MaterialApp(
-        locale: const Locale('ar'),
-        supportedLocales: const [Locale('ar')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: AppTheme.light(1.0),
-        darkTheme: AppTheme.dark(1.0),
-        themeMode: themeMode,
-        home: Directionality(
-          textDirection: TextDirection.rtl,
-          child: MediaQuery(
-            data: MediaQueryData(size: size),
-            child: const Scaffold(body: QuranPage()),
+    return RepositoryProvider<LocalStorageService>.value(
+      value: storage,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<SettingsCubit>.value(value: settingsCubit),
+          BlocProvider<QuranCubit>.value(value: quranCubit),
+          BlocProvider<QuranMemorizationCubit>.value(value: effectiveMemCubit),
+        ],
+        child: MaterialApp(
+          locale: const Locale('ar'),
+          supportedLocales: const [Locale('ar')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          theme: AppTheme.light(1.0),
+          darkTheme: AppTheme.dark(1.0),
+          themeMode: themeMode,
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: MediaQuery(
+              data: MediaQueryData(size: size),
+              child: const Scaffold(body: QuranPage()),
+            ),
           ),
         ),
       ),
@@ -391,6 +403,86 @@ void main() {
 
       quranCubit.close();
     });
+
+    for (final scenario in [
+      (query: 'الكهف', surah: 18, ayah: 1, kind: 'surah'),
+      (query: 'قل هو الله احد', surah: 112, ayah: 1, kind: 'ayah'),
+      (query: '٢:٢٥٥', surah: 2, ayah: 255, kind: 'reference'),
+    ]) {
+      testWidgets('Search result opens the correct ${scenario.kind}', (
+        tester,
+      ) async {
+        setTestViewport(tester, size: const Size(800, 1200));
+        final quranCubit = QuranCubit(
+          repository: globalQuranRepo,
+          storage: storage,
+          audio: audioService,
+          reciter: 'ar.alafasy',
+          fontSize: 32,
+        );
+        await quranCubit.load();
+        addTearDown(quranCubit.close);
+
+        await tester.pumpWidget(buildTestApp(quranCubit: quranCubit));
+        await tester.tap(find.text('ابحث عن سورة أو آية'));
+        await pumpScreen(tester);
+        await tester.enterText(find.byType(TextField), scenario.query);
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump();
+
+        final data = quranCubit.state.data!;
+        final global = data.globalFor(scenario.surah, scenario.ayah);
+        final page = data.pageForGlobal(global);
+        final target = switch (scenario.kind) {
+          'surah' =>
+            find.text('سورة ${data.chapter(scenario.surah).name}').last,
+          'ayah' =>
+            find
+                .descendant(
+                  of: find.byType(QuranSearchResultTile).first,
+                  matching: find.byType(RichText),
+                )
+                .first,
+          _ => find.byType(QuranSearchReferenceCard),
+        };
+        await tester.ensureVisible(target);
+        await tester.tap(target);
+        await pumpScreen(tester);
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(QuranReaderPage), findsOneWidget);
+        expect(quranCubit.state.currentPage, page);
+        expect(quranCubit.state.lastRead?.global, global);
+        expect(
+          tester
+              .widget<QuranReaderPage>(find.byType(QuranReaderPage))
+              .initialGlobalAyah,
+          global,
+        );
+        expect(
+          tester.widget<PageView>(find.byType(PageView)).controller!.page,
+          (page - 1).toDouble(),
+        );
+        expect(storage.readList('quran_search_history'), [scenario.query]);
+
+        // History must survive closing and reopening the search page.
+        await tester.tap(find.byTooltip('العودة إلى الفهرس'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('ابحث عن سورة أو آية'));
+        await pumpScreen(tester);
+        expect(
+          tester
+              .widget<QuranSearchHistoryView>(
+                find.byType(QuranSearchHistoryView),
+              )
+              .recentSearches,
+          [scenario.query],
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
 
     testWidgets('4. First-use bookmark state stays concise and actionable', (
       tester,

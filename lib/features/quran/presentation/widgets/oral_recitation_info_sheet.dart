@@ -181,7 +181,7 @@ class OralRecitationInfoSheet extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'يعمل دون إنترنت بعد تنزيل حزمة التعرف على العربية من إعدادات الجهاز.',
+                      'من شاشة التسميع يمكنك فحص حزمة العربية وتنزيلها إذا كانت خدمة جهازك تدعم ذلك، ثم التسميع دون إنترنت بعد ظهور الحزمة كجاهزة.',
                       style: TextStyle(
                         color: colors.textSecondary,
                         fontSize: 11,

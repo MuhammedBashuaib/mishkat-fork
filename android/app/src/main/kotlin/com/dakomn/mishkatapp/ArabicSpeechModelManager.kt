@@ -124,10 +124,19 @@ internal class ArabicSpeechModelManager(
         try { recognizer?.destroy() } catch (_: Exception) { }
         val callbacks = checkCallbacks.toList()
         checkCallbacks.clear()
-        if (value["status"] == "installed" && downloadRecognizer != null) {
+        if (value["status"] == "installed" && downloadStatus != null) {
             releaseDownload()
         }
-        callbacks.forEach { it(value) }
+        // Providers can take time to move an accepted request from supported
+        // to pending, or temporarily fail a support query. Keep the bounded
+        // request alive; download failures clear it before emitting their error.
+        callbacks.forEach { callback ->
+            val reported = if (value["status"] == "downloadable" ||
+                value["status"] == "pending" || value["status"] == "unknown") {
+                downloadStatus ?: value
+            } else value
+            callback(reported)
+        }
     }
 
     fun download(callback: (Map<String, Any>) -> Unit) {
@@ -155,11 +164,11 @@ internal class ArabicSpeechModelManager(
                 // A silent provider must not leave the UI waiting forever.
                 val timeout = Runnable {
                     if (generation == downloadGeneration && !disposed) {
-                        finishDownload(status("unknown", locale, reason = "downloadFailed"))
+                        finishDownload(status("unknown", locale, reason = "downloadTimeout"))
                     }
                 }
                 downloadTimeout = timeout
-                handler.postDelayed(timeout, 180000)
+                handler.postDelayed(timeout, 600000)
                 if (Build.VERSION.SDK_INT >= 34) {
                     recognizer.triggerModelDownload(
                         recognitionIntent(locale),
@@ -173,7 +182,6 @@ internal class ArabicSpeechModelManager(
                             override fun onSuccess() {
                                 if (disposed || generation != downloadGeneration) return
                                 // Success notification is still verified against the installed list.
-                                releaseDownload()
                                 getStatus { verified ->
                                     if (!disposed) channel.invokeMethod("arabicModelStatus", verified)
                                 }
@@ -181,14 +189,27 @@ internal class ArabicSpeechModelManager(
 
                             override fun onScheduled() {
                                 if (disposed || generation != downloadGeneration) return
-                                finishDownload(status("pending", locale))
+                                // The listener ends here, but installation may happen
+                                // later. Continue support polling until installed/timeout.
+                                publish(status("pending", locale))
                             }
 
                             override fun onError(error: Int) {
                                 if (disposed || generation != downloadGeneration) return
-                                val reason = if (error == SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS)
-                                    "downloadEventsUnavailable" else "downloadFailed"
-                                finishDownload(status("unknown", locale, reason = reason, errorCode = error))
+                                if (error == SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS) {
+                                    // Some API 34 providers only implement the API 33
+                                    // download entry point. Request it and verify by polling.
+                                    try {
+                                        recognizer.triggerModelDownload(recognitionIntent(locale))
+                                        publish(status("pending", locale))
+                                    } catch (_: Exception) {
+                                        finishDownload(status("unknown", locale,
+                                            reason = "downloadEventsUnavailable", errorCode = error))
+                                    }
+                                } else {
+                                    finishDownload(status("unknown", locale,
+                                        reason = "downloadFailed", errorCode = error))
+                                }
                             }
                         },
                     )
@@ -226,7 +247,7 @@ internal class ArabicSpeechModelManager(
 
     fun dispose() {
         disposed = true
-        finishCheck(status("unknown", reason = "checkUnavailable"))
         releaseDownload()
+        finishCheck(status("unknown", reason = "checkUnavailable"))
     }
 }

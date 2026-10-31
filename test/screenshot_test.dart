@@ -173,6 +173,12 @@ class FakeLocationService implements LocationService {
 
 class FakeNotificationService implements LocalNotificationService {
   @override
+  Future<bool> canSchedulePrecisely() async => true;
+
+  @override
+  Future<void> stopTest() async {}
+
+  @override
   Future<void> initialize() async {}
 
   @override
@@ -342,8 +348,11 @@ void main() {
       Size size = const Size(390, 844),
     }) {
       final baseTheme = isDark ? AppTheme.dark(1.0) : AppTheme.light(1.0);
-      return RepositoryProvider<QuranRepository>.value(
-        value: globalQuranRepo,
+      return MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<LocalStorageService>.value(value: storage),
+          RepositoryProvider<QuranRepository>.value(value: globalQuranRepo),
+        ],
         child: MultiBlocProvider(
           providers: [
             BlocProvider.value(value: settingsCubit),

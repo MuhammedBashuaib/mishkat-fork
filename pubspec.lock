@@ -829,10 +829,9 @@ packages:
   speech_to_text:
     dependency: "direct main"
     description:
-      name: speech_to_text
-      sha256: f2fabd017b5cb07f4e06d496b2d4b957e39534bc848f92b1e6acac80a10f4967
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/speech_to_text"
+      relative: true
+    source: path
     version: "7.5.0"
   speech_to_text_platform_interface:
     dependency: transitive
