@@ -9,7 +9,7 @@ void main() {
   for (final dark in [false, true]) {
     for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
       testWidgets(
-        'Arabic navigation keeps > for opening and < for returning ($platform, dark: $dark)',
+        'Arabic navigation keeps < for opening and > for returning ($platform, dark: $dark)',
         (tester) async {
           final theme = (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
             platform: platform,
@@ -48,7 +48,7 @@ void main() {
             Directionality.of(tester.element(find.byType(MishkatShortcutTile))),
             TextDirection.rtl,
           );
-          expect(forward.icon, Icons.keyboard_arrow_right_rounded);
+          expect(forward.icon, Icons.keyboard_arrow_left_rounded);
           expect(forward.icon!.matchTextDirection, isFalse);
 
           await tester.tap(find.text('أدعيتي'));
@@ -59,7 +59,7 @@ void main() {
               matching: find.byType(Icon),
             ),
           );
-          expect(back.icon, Icons.keyboard_arrow_left_rounded);
+          expect(back.icon, Icons.keyboard_arrow_right_rounded);
           expect(back.icon!.matchTextDirection, isFalse);
           await tester.tap(find.byType(BackButton));
           await tester.pumpAndSettle();

@@ -21,10 +21,10 @@ val useTestSigningForRelease = providers.gradleProperty("useTestSigningForReleas
     .orNull
     .equals("true", ignoreCase = true)
 
-if (isReleaseBuild && !keystorePropertiesFile.exists()) {
-    logger.warn(
-        "android/key.properties was not found. Building Release with the Android debug key " +
-            "for direct installation only; do not upload this artifact to Google Play."
+if (isReleaseBuild && !keystorePropertiesFile.exists() && !useTestSigningForRelease) {
+    throw GradleException(
+        "Release signing requires android/key.properties and a private upload keystore. " +
+            "For local test builds only, explicitly set -PuseTestSigningForRelease=true."
     )
 }
 
@@ -66,10 +66,10 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (keystorePropertiesFile.exists() && !useTestSigningForRelease) {
-                signingConfigs.getByName("release")
-            } else {
+            signingConfig = if (useTestSigningForRelease) {
                 signingConfigs.getByName("debug")
+            } else {
+                signingConfigs.getByName("release")
             }
         }
     }

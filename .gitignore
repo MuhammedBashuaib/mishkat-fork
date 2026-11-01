@@ -47,3 +47,10 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Private Android upload signing material (never commit)
+**/*.jks
+**/*.keystore
+/android/key.properties
+**/signing-private/
+*.aab

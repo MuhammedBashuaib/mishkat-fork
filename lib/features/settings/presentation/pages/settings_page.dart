@@ -15,6 +15,7 @@ import '../../../home_widgets/presentation/pages/home_widgets_page.dart';
 import '../../../quran/presentation/pages/offline_audio_downloads_page.dart';
 import '../cubit/settings_cubit.dart';
 import '../widgets/daily_reminder_settings.dart';
+import '../widgets/about_mishkat_dialog.dart';
 import '../cubit/settings_state.dart';
 import '../../data/models/adhan_preferences.dart';
 import '../../data/models/app_settings.dart';
@@ -24,130 +25,359 @@ class SettingsPage extends StatelessWidget {
   final bool openPrayerSettings;
 
   @override
-  Widget build(BuildContext context) =>
-      BlocConsumer<SettingsCubit, SettingsState>(
-        listenWhen: (previous, current) =>
-            previous.message != current.message && current.message != null,
-        listener: (context, state) => context.showMessage(state.message!),
-        builder: (context, state) {
-          final settings = state.settings;
-          return Scaffold(
-            appBar: AppBar(
-              leading: IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(MishkatNavigationIcons.back),
-                tooltip: 'رجوع',
-              ),
-              title: const Text('الإعدادات'),
-            ),
-            body: ListView(
-              padding: MishkatSpacing.page,
-              children: [
-                _SettingsIntro(settings: settings),
-                const SectionHeading(title: 'الموقع'),
-                _LocationSettings(state: state),
-                const SectionHeading(title: 'الشاشة الرئيسية'),
-                const _HomeWidgetsSettings(),
-                const SectionHeading(title: 'التنبيهات'),
-                _NotificationSettings(settings: settings),
-                const SizedBox(height: 12),
-                _AdhanSettings(settings: settings),
-                const SectionHeading(title: 'المظهر والقراءة'),
-                _AppearanceSettings(settings: settings),
-                const SizedBox(height: 16),
-                _CalculationSettings(
-                  settings: settings,
-                  initiallyExpanded: openPrayerSettings,
-                ),
-                const SizedBox(height: 12),
-                _AdvancedNotificationSettings(settings: settings),
-                const SizedBox(height: 12),
-                _DataSettings(),
-                const SizedBox(height: 12),
-                const MishkatCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'عن مشكاة',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'المصحف برواية حفص عن عاصم، والأذكار من حصن المسلم. المحتوى والمواقيت يعملان دون إنترنت، بينما تحتاج التلاوة إلى اتصال.',
-                      ),
-                      SizedBox(height: 8),
-                      Text('الإصدار 1.3.0 (7)'),
-                    ],
+  Widget build(
+    BuildContext context,
+  ) => BlocConsumer<SettingsCubit, SettingsState>(
+    listenWhen: (previous, current) =>
+        previous.message != current.message && current.message != null,
+    listener: (context, state) => context.showMessage(state.message!),
+    builder: (context, state) {
+      final settings = state.settings;
+      if (openPrayerSettings) {
+        return _SettingsScaffold(
+          title: 'الموقع والمواقيت',
+          children: [
+            _LocationSettings(state: state),
+            const SizedBox(height: 16),
+            _CalculationSettings(settings: settings, initiallyExpanded: true),
+          ],
+        );
+      }
+      return _SettingsScaffold(
+        title: 'الإعدادات',
+        children: [
+          const _SettingsIntro(),
+          _SettingsSection(
+            title: 'المظهر والقراءة',
+            children: [
+              _AppearanceSettings(settings: settings),
+              const SizedBox(height: 12),
+              _SettingsGroup(
+                children: [
+                  _SettingsRow(
+                    icon: Icons.menu_book_outlined,
+                    title: 'القراءة والتلاوة',
+                    subtitle: 'الخط، قارئ التلاوة وراحة القراءة',
+                    onTap: () => _openSettingsDetails(
+                      context,
+                      title: 'القراءة والتلاوة',
+                      description: 'اختر الخط وقارئك المفضّل، واضبط ما يساعدك على القراءة براحة.',
+                      content: (_, state) => [
+                        _ReadingSettings(settings: state.settings),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                  _SettingsRow(
+                    icon: Icons.widgets_outlined,
+                    title: 'ودجت مشكاة',
+                    subtitle: 'الصلاة والقبلة والأذكار على شاشة هاتفك',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const HomeWidgetsPage(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: 'صلاتك ويومك',
+            children: [
+              _SettingsGroup(
+                children: [
+                  _SettingsRow(
+                    icon: Icons.location_on_outlined,
+                    title: 'الموقع والمواقيت',
+                    subtitle: settings.hasLocation
+                        ? '${settings.city.isEmpty ? 'موقعك الحالي' : settings.city} • ${PrayerCalculator.methods[settings.method]?.name ?? 'طريقة حساب المواقيت'}'
+                        : 'حدّد موقعك لضبط أوقات الصلاة والقبلة',
+                    onTap: () => _openSettingsDetails(
+                      context,
+                      title: 'الموقع والمواقيت',
+                      description: 'موقعك وطريقة الحساب يساعدان مشكاة على عرض المواقيت المناسبة لك.',
+                      content: (_, state) => [
+                        _LocationSettings(state: state),
+                        const SizedBox(height: 16),
+                        _CalculationSettings(
+                          settings: state.settings,
+                          initiallyExpanded: false,
+                        ),
+                      ],
+                    ),
+                  ),
+                  _SettingsRow(
+                    icon: Icons.notifications_active_outlined,
+                    title: 'الأذان والتنبيهات',
+                    subtitle: settings.notificationsEnabled
+                        ? settings.adhanSound
+                              ? 'التنبيهات مفعّلة • ${AdhanVoice.byId(settings.adhanFile).muezzin}'
+                              : 'تنبيهات الصلاة مفعّلة دون أذان'
+                        : 'اختر تنبيهات الصلاة وصوت الأذان',
+                    onTap: () => _openSettingsDetails(
+                      context,
+                      title: 'الأذان والتنبيهات',
+                      description: 'اضبط تنبيهات الصلاة وصوت الأذان والصلوات التي تريد التنبيه لها.',
+                      content: (_, state) => [
+                        _NotificationSettings(settings: state.settings),
+                        const SizedBox(height: 16),
+                        _AdhanSettings(settings: state.settings),
+                      ],
+                    ),
+                  ),
+                  _SettingsRow(
+                    icon: Icons.spa_outlined,
+                    title: 'تذكيرات الخير والأذكار',
+                    subtitle: 'الصدقة والأذكار والورد اليومي',
+                    onTap: () => _openSettingsDetails(
+                      context,
+                      title: 'تذكيرات الخير والأذكار',
+                      description: 'اختر ما يرافق يومك من تذكيرات، وفي الأوقات التي تناسبك.',
+                      content: (_, state) => [
+                        _AdvancedNotificationSettings(settings: state.settings),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: 'التطبيق',
+            children: [
+              _SettingsGroup(
+                children: [
+                  _SettingsRow(
+                    icon: Icons.download_for_offline_outlined,
+                    title: 'التنزيل والبيانات',
+                    subtitle: 'التلاوات المحفوظة والبيانات على جهازك',
+                    onTap: () => _openSettingsDetails(
+                      context,
+                      title: 'التنزيل والبيانات',
+                      description: 'المصحف والأذكار مرفقان بالتطبيق. أدِر التلاوات التي نزّلتها للاستماع دون إنترنت.',
+                      content: (_, _) => [_DataSettings()],
+                    ),
+                  ),
+                  _SettingsRow(
+                    key: const ValueKey('settings-about'),
+                    icon: Icons.auto_stories_outlined,
+                    title: 'عن مشكاة',
+                    subtitle: 'من نور الآية جاء الاسم',
+                    onTap: () => AboutMishkatDialog.show(context),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       );
+    },
+  );
 }
 
-class _HomeWidgetsSettings extends StatelessWidget {
-  const _HomeWidgetsSettings();
+Future<void> _openSettingsDetails(
+  BuildContext context, {
+  required String title,
+  required String description,
+  required List<Widget> Function(BuildContext, SettingsState) content,
+}) {
+  final cubit = context.read<SettingsCubit>();
+  return Navigator.push<void>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: BlocBuilder<SettingsCubit, SettingsState>(
+          builder: (context, state) => _SettingsScaffold(
+            title: title,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: context.mishkat.textSecondary,
+                    height: 1.7,
+                  ),
+                ),
+              ),
+              ...content(context, state),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _SettingsScaffold extends StatelessWidget {
+  const _SettingsScaffold({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => MishkatCard(
-    padding: EdgeInsets.zero,
-    child: ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: context.mishkat.primarySoft,
-          borderRadius: MishkatRadius.brMd,
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      leading: IconButton(
+        tooltip: 'رجوع',
+        onPressed: () => Navigator.pop(context),
+        icon: const Icon(MishkatNavigationIcons.back),
+      ),
+      title: Text(title),
+    ),
+    body: SafeArea(
+      top: false,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: ListView(
+            key: PageStorageKey('settings-$title'),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+            children: children,
+          ),
         ),
-        child: Icon(Icons.widgets_outlined, color: context.mishkat.primary),
-      ),
-      title: const Text(
-        'ودجت مشكاة',
-        style: TextStyle(fontWeight: FontWeight.w800),
-      ),
-      subtitle: const Text('الصلاة والقبلة والأذكار على شاشة هاتفك'),
-      trailing: const Icon(MishkatNavigationIcons.forward, size: 16),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute<void>(builder: (_) => const HomeWidgetsPage()),
       ),
     ),
   );
 }
 
 class _SettingsIntro extends StatelessWidget {
-  const _SettingsIntro({required this.settings});
-  final AppSettings settings;
+  const _SettingsIntro();
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      CircleAvatar(
-        radius: 28,
-        backgroundColor: context.mishkat.primarySoft,
-        child: const Icon(Icons.tune, size: 28),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'اضبط مشكاة كما يناسبك',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            Text(
-              settings.city.isEmpty ? 'ابدأ بتحديد موقعك' : settings.city,
-              style: TextStyle(color: context.mishkat.textSecondary),
-            ),
-          ],
+  Widget build(BuildContext context) => MishkatCard(
+    color: context.mishkat.primarySoft,
+    borderColor: context.mishkat.primary.withValues(alpha: 0.12),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: context.mishkat.surface,
+            borderRadius: MishkatRadius.brMd,
+          ),
+          child: Icon(
+            Icons.tune_rounded,
+            color: context.mishkat.primary,
+            size: 26,
+          ),
         ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'مشكاة كما تحب',
+                style: Theme.of(context).textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'خياراتك محفوظة، وتجربتك على راحتك.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 24),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 4, bottom: 12),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: context.mishkat.primary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        ...children,
+      ],
+    ),
+  );
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => MishkatCard(
+    padding: EdgeInsets.zero,
+    child: Column(
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 72, end: 16),
+              child: Divider(height: 1, color: context.mishkat.borderSubtle),
+            ),
+          children[i],
+        ],
+      ],
+    ),
+  );
+}
+
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    minLeadingWidth: 40,
+    horizontalTitleGap: 12,
+    leading: Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: context.mishkat.primarySoft,
+        borderRadius: MishkatRadius.brMd,
       ),
-    ],
+      child: Icon(icon, color: context.mishkat.primary, size: 21),
+    ),
+    title: Text(
+      title,
+      style: Theme.of(context).textTheme.titleMedium
+          ?.copyWith(fontWeight: FontWeight.w700),
+    ),
+    subtitle: Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+    ),
+    trailing: Icon(
+      MishkatNavigationIcons.forward,
+      size: 20,
+      color: context.mishkat.textMuted,
+    ),
+    onTap: onTap,
   );
 }
 
@@ -214,6 +444,7 @@ class _LocationSettings extends StatelessWidget {
                 LocationService.cities.any((city) => city.name == settings.city)
                 ? settings.city
                 : null,
+            isExpanded: true,
             decoration: const InputDecoration(labelText: 'أو اختر مدينة'),
             items: [
               for (final city in LocationService.cities)
@@ -566,83 +797,93 @@ class _AppearanceSettings extends StatelessWidget {
               ),
             ],
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: MishkatSpacing.base),
-            child: Divider(height: 1),
-          ),
-          Text(
-            'إعدادات القراءة',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              color: context.mishkat.textPrimary,
-            ),
-          ),
-          const SizedBox(height: MishkatSpacing.md),
-          DropdownButtonFormField<double>(
-            initialValue: settings.uiFontScale,
-            decoration: const InputDecoration(labelText: 'حجم خط الواجهة'),
-            items: const [
-              DropdownMenuItem(value: 1, child: Text('قياسي')),
-              DropdownMenuItem(value: 1.125, child: Text('كبير')),
-              DropdownMenuItem(value: 1.25, child: Text('كبير جدًا')),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                context.read<SettingsCubit>().setUiFontScale(value);
-              }
-            },
-          ),
-          const SizedBox(height: 14),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              'حجم المصحف · ${(settings.quranFont / 32 * 100).round()}%',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-          Slider(
-            min: 20,
-            max: 60,
-            value: settings.quranFont,
-            onChanged: context.read<SettingsCubit>().setQuranFont,
-          ),
-          DropdownButtonFormField<String>(
-            initialValue: settings.reciter,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'قارئ التلاوة'),
-            items: [
-              for (final reciter in AppConstants.reciters)
-                DropdownMenuItem(
-                  value: reciter.id,
-                  child: Text(
-                    reciter.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                context.read<SettingsCubit>().setReciter(value);
-              }
-            },
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('إبقاء الشاشة مضاءة أثناء القراءة'),
-            value: settings.keepAwake,
-            onChanged: context.read<SettingsCubit>().setKeepAwake,
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('الاهتزاز عند التفاعل'),
-            value: settings.vibrate,
-            onChanged: context.read<SettingsCubit>().setVibration,
-          ),
         ],
       ),
     );
   }
+}
+
+class _ReadingSettings extends StatelessWidget {
+  const _ReadingSettings({required this.settings});
+  final AppSettings settings;
+
+  @override
+  Widget build(BuildContext context) => MishkatCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'إعدادات القراءة',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: context.mishkat.textPrimary,
+          ),
+        ),
+        const SizedBox(height: MishkatSpacing.md),
+        DropdownButtonFormField<double>(
+          initialValue: settings.uiFontScale,
+          decoration: const InputDecoration(labelText: 'حجم خط الواجهة'),
+          items: const [
+            DropdownMenuItem(value: 1, child: Text('قياسي')),
+            DropdownMenuItem(value: 1.125, child: Text('كبير')),
+            DropdownMenuItem(value: 1.25, child: Text('كبير جدًا')),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              context.read<SettingsCubit>().setUiFontScale(value);
+            }
+          },
+        ),
+        const SizedBox(height: 14),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            'حجم المصحف · ${(settings.quranFont / 32 * 100).round()}%',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        Slider(
+          min: 20,
+          max: 60,
+          value: settings.quranFont,
+          onChanged: context.read<SettingsCubit>().setQuranFont,
+        ),
+        DropdownButtonFormField<String>(
+          initialValue: settings.reciter,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'قارئ التلاوة'),
+          items: [
+            for (final reciter in AppConstants.reciters)
+              DropdownMenuItem(
+                value: reciter.id,
+                child: Text(
+                  reciter.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              context.read<SettingsCubit>().setReciter(value);
+            }
+          },
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('إبقاء الشاشة مضاءة أثناء القراءة'),
+          value: settings.keepAwake,
+          onChanged: context.read<SettingsCubit>().setKeepAwake,
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('الاهتزاز عند التفاعل'),
+          value: settings.vibrate,
+          onChanged: context.read<SettingsCubit>().setVibration,
+        ),
+      ],
+    ),
+  );
 }
 
 class _ThemeChoice extends StatelessWidget {
@@ -723,6 +964,7 @@ class _CalculationSettings extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: ExpansionTile(
       key: const PageStorageKey('settings-calculation'),
+      leading: Icon(Icons.schedule_rounded, color: context.mishkat.primary),
       initiallyExpanded: initiallyExpanded,
       title: const Text(
         'الحساب والتقويم',
@@ -733,6 +975,7 @@ class _CalculationSettings extends StatelessWidget {
       children: [
         DropdownButtonFormField<String>(
           initialValue: settings.method,
+          isExpanded: true,
           decoration: const InputDecoration(labelText: 'طريقة حساب المواقيت'),
           items: [
             for (final method in PrayerCalculator.methods.values)
@@ -843,6 +1086,8 @@ class _AdvancedNotificationSettings extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: ExpansionTile(
       key: const PageStorageKey('settings-notifications'),
+      initiallyExpanded: true,
+      leading: Icon(Icons.spa_outlined, color: context.mishkat.primary),
       title: const Text(
         'تذكيرات الخير والأذكار',
         style: TextStyle(fontWeight: FontWeight.w800),
@@ -878,6 +1123,8 @@ class _DataSettings extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: ExpansionTile(
       key: const PageStorageKey('settings-data'),
+      initiallyExpanded: true,
+      leading: Icon(Icons.storage_rounded, color: context.mishkat.primary),
       title: const Text(
         'التنزيل والبيانات',
         style: TextStyle(fontWeight: FontWeight.w800),

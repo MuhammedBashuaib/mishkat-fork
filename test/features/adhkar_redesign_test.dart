@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -144,23 +145,24 @@ void main() {
           tester.widget<PageView>(find.byType(PageView)).controller!.page,
           0,
         );
-        await tester.tap(find.byKey(const ValueKey('dhikr-counter')));
-        await tester.pumpAndSettle();
-        expect(cubit.countFor(1, 0), 1);
-        await tester.tap(find.byKey(const ValueKey('dhikr-counter')));
-        expect(cubit.countFor(1, 0), 1);
-        await tester.drag(find.byType(PageView), const Offset(260, 0));
-        await tester.pumpAndSettle();
-        expect(
-          tester.widget<PageView>(find.byType(PageView)).controller!.page,
-          1,
+        await tester.tap(
+          find.byKey(const ValueKey('dhikr-counter')).hitTestable(),
         );
+        await _settleCompletion(tester);
+        expect(cubit.countFor(1, 0), 1);
+        expect(_currentPage(tester), 1);
+        expect(cubit.countFor(1, 1), 0);
         await tester.tap(find.byTooltip('الذكر السابق'));
         await tester.pumpAndSettle();
-        expect(
-          tester.widget<PageView>(find.byType(PageView)).controller!.page,
-          0,
-        );
+        expect(_currentPage(tester), 0);
+        await tester.tap(find.byKey(const ValueKey('dhikr-card-0')));
+        await _settleCompletion(tester);
+        expect(cubit.countFor(1, 0), 1);
+        expect(_currentPage(tester), 0);
+        await tester.drag(find.byType(PageView), const Offset(260, 0));
+        await tester.pumpAndSettle();
+        expect(_currentPage(tester), 1);
+        expect(cubit.countFor(1, 1), 0);
         await tester.tap(find.byTooltip('فهرس الورد'));
         await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
@@ -200,13 +202,246 @@ void main() {
         await tester.tap(find.widgetWithText(ChoiceChip, '100'));
         await tester.pumpAndSettle();
         expect(cubit.state.selected!.items[17].count, 100);
-        await tester.tap(find.byKey(const ValueKey('dhikr-counter')));
+        expect(cubit.countFor(1, 17), 0);
+        await tester.tap(
+          find.byKey(const ValueKey('dhikr-counter')).hitTestable(),
+        );
         await tester.pumpAndSettle();
         expect(cubit.countFor(1, 17), 1);
         expect(tester.takeException(), isNull);
       },
     );
   }
+
+  testWidgets(
+    'text, blank space and the counter each count once, then advance',
+    (tester) async {
+      final cubit = await _pumpReader(tester, const [
+        DhikrItem(text: 'سبحان الله', count: 3),
+        DhikrItem(text: 'الحمد لله', count: 2),
+      ]);
+
+      await tester.tap(find.text('سبحان الله'));
+      await tester.pumpAndSettle();
+      expect(cubit.countFor(50, 0), 1);
+      expect(_currentPage(tester), 0);
+
+      final card = tester.getRect(find.byKey(const ValueKey('dhikr-card-0')));
+      await tester.tapAt(card.topLeft + const Offset(10, 100));
+      await tester.pumpAndSettle();
+      expect(cubit.countFor(50, 0), 2);
+      expect(_currentPage(tester), 0);
+
+      await tester.tap(
+        find.byKey(const ValueKey('dhikr-counter')).hitTestable(),
+      );
+      await tester.pump();
+      expect(cubit.countFor(50, 0), 3);
+      // Repeated taps during the completion pause must not spill into the next card.
+      await tester.tap(find.text('سبحان الله'));
+      await tester.tap(find.text('سبحان الله'));
+      await _settleCompletion(tester);
+      expect(_currentPage(tester), 1);
+      expect(cubit.countFor(50, 0), 3);
+      expect(cubit.countFor(50, 1), 0);
+
+      await tester.tap(find.byTooltip('الذكر السابق'));
+      await tester.pumpAndSettle();
+      expect(_currentPage(tester), 0);
+      await tester.tap(find.text('سبحان الله'));
+      await _settleCompletion(tester);
+      expect(cubit.countFor(50, 0), 3);
+      expect(_currentPage(tester), 0);
+    },
+  );
+
+  testWidgets(
+    'RTL swipes preserve partial counts without counting the gesture',
+    (tester) async {
+      final cubit = await _pumpReader(tester, const [
+        DhikrItem(text: 'سبحان الله', count: 3),
+        DhikrItem(text: 'الحمد لله', count: 3),
+      ]);
+      await tester.tap(find.text('سبحان الله'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(PageView), const Offset(300, 0));
+      await tester.pumpAndSettle();
+      expect(_currentPage(tester), 1);
+      expect(cubit.countFor(50, 0), 1);
+      expect(cubit.countFor(50, 1), 0);
+
+      await tester.tap(find.text('الحمد لله'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(PageView), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+      expect(_currentPage(tester), 0);
+      expect(cubit.countFor(50, 0), 1);
+      expect(cubit.countFor(50, 1), 1);
+      await tester.tap(find.text('سبحان الله'));
+      await tester.pumpAndSettle();
+      expect(cubit.countFor(50, 0), 2);
+    },
+  );
+
+  testWidgets(
+    'long text scrolls vertically without incrementing or navigating',
+    (tester) async {
+      final cubit = await _pumpReader(tester, [
+        DhikrItem(
+          text: List.filled(60, 'سبحان الله وبحمده').join(' '),
+          count: 3,
+        ),
+        const DhikrItem(text: 'الحمد لله', count: 3),
+      ]);
+      final scrollable = find.descendant(
+        of: find.byKey(const ValueKey('dhikr-card-0')),
+        matching: find.byType(Scrollable),
+      );
+      await tester.drag(scrollable, const Offset(0, -250));
+      await tester.pumpAndSettle();
+      expect(
+        tester.state<ScrollableState>(scrollable).position.pixels,
+        greaterThan(0),
+      );
+      expect(cubit.countFor(50, 0), 0);
+      expect(_currentPage(tester), 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'copy, options and repetition choices do not count as recitation',
+    (tester) async {
+      final cubit = await _pumpReader(tester, const [
+        DhikrItem(text: 'سبحان الله', count: 3, countOptions: [3, 10]),
+      ]);
+      await tester.tap(find.byTooltip('نسخ الذكر').hitTestable());
+      await tester.pumpAndSettle();
+      expect(cubit.countFor(50, 0), 0);
+      await tester.tap(find.byTooltip('خيارات الذكر').hitTestable());
+      await tester.pumpAndSettle();
+      expect(cubit.countFor(50, 0), 0);
+      await tester.tap(find.text('إعادة عدّ هذا الذكر'));
+      await tester.pumpAndSettle();
+      expect(cubit.countFor(50, 0), 0);
+      await tester.ensureVisible(find.widgetWithText(ChoiceChip, '10'));
+      await tester.tap(find.widgetWithText(ChoiceChip, '10'));
+      await tester.pumpAndSettle();
+      expect(cubit.state.selected!.items.single.count, 10);
+      expect(cubit.countFor(50, 0), 0);
+    },
+  );
+
+  for (final swipe in [false, true]) {
+    testWidgets(
+      '${swipe ? 'swiping' : 'previous control'} cancels a pending automatic advance',
+      (tester) async {
+        final cubit = await _pumpReader(tester, const [
+          DhikrItem(text: 'سبحان الله', count: 3),
+          DhikrItem(text: 'الحمد لله', count: 1),
+          DhikrItem(text: 'الله أكبر', count: 3),
+        ]);
+        await tester.tap(find.byTooltip('الذكر التالي'));
+        await tester.pumpAndSettle();
+        expect(_currentPage(tester), 1);
+        await tester.tap(find.text('الحمد لله'));
+        await tester.pump();
+        expect(cubit.countFor(50, 1), 1);
+        if (swipe) {
+          await tester.drag(find.byType(PageView), const Offset(-300, 0));
+        } else {
+          await tester.tap(find.byTooltip('الذكر السابق'));
+        }
+        await _settleCompletion(tester);
+        expect(_currentPage(tester), 0);
+        expect(cubit.countFor(50, 0), 0);
+        expect(cubit.countFor(50, 2), 0);
+      },
+    );
+  }
+
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'the last card stays complete without wrapping (reduced motion: $reducedMotion)',
+      (tester) async {
+        final cubit = await _pumpReader(tester, const [
+          DhikrItem(text: 'سبحان الله', count: 1),
+          DhikrItem(text: 'الحمد لله', count: 1),
+        ], reducedMotion: reducedMotion);
+        await tester.tap(find.text('سبحان الله'));
+        await _settleCompletion(tester);
+        expect(_currentPage(tester), 1);
+        await tester.tap(find.text('الحمد لله'));
+        await _settleCompletion(tester);
+        expect(_currentPage(tester), 1);
+        expect(cubit.countFor(50, 1), 1);
+        expect(find.text('أتممت الورد، تقبّل الله منك'), findsOneWidget);
+        await tester.tap(find.text('الحمد لله'));
+        await _settleCompletion(tester);
+        expect(_currentPage(tester), 1);
+        expect(cubit.countFor(50, 1), 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'the accessible counter announces remaining repetitions and advances',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final cubit = await _pumpReader(tester, const [
+          DhikrItem(text: 'سبحان الله', count: 2),
+          DhikrItem(text: 'الحمد لله', count: 1),
+        ]);
+        final counterFinder = find.byKey(const ValueKey('dhikr-counter'));
+        var counter = tester.getSemantics(counterFinder);
+        expect(counter.getSemanticsData().label, 'عدّ الذكر');
+        expect(counter.getSemanticsData().value, 'المتبقي 2 من 2');
+        expect(
+          counter.getSemanticsData().hasAction(SemanticsAction.tap),
+          isTrue,
+        );
+        expect(find.bySemanticsLabel('سبحان الله'), findsOneWidget);
+        expect(
+          tester
+              .getSemantics(find.byTooltip('نسخ الذكر').hitTestable())
+              .getSemanticsData()
+              .hasAction(SemanticsAction.tap),
+          isTrue,
+        );
+        counter.owner!.performAction(counter.id, SemanticsAction.tap);
+        await tester.pumpAndSettle();
+        expect(cubit.countFor(50, 0), 1);
+        expect(_currentPage(tester), 0);
+        counter = tester.getSemantics(counterFinder);
+        expect(counter.getSemanticsData().value, 'المتبقي 1 من 2');
+        counter.owner!.performAction(counter.id, SemanticsAction.tap);
+        await _settleCompletion(tester);
+        expect(cubit.countFor(50, 0), 2);
+        expect(cubit.countFor(50, 1), 0);
+        expect(_currentPage(tester), 1);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets('disposing the reader cancels a pending automatic transition', (
+    tester,
+  ) async {
+    final cubit = await _pumpReader(tester, const [
+      DhikrItem(text: 'سبحان الله', count: 1),
+      DhikrItem(text: 'الحمد لله', count: 1),
+    ]);
+    await tester.tap(find.text('سبحان الله'));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _settleCompletion(tester);
+    expect(cubit.countFor(50, 0), 1);
+    expect(cubit.countFor(50, 1), 0);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('shows separate daily wirds and filters chapters by occasion', (
     tester,
@@ -269,6 +504,54 @@ void main() {
     expect(find.text('دعاء الاستفتاح'), findsOneWidget);
     expect(find.text('أذكار النوم'), findsNothing);
   });
+}
+
+double _currentPage(WidgetTester tester) =>
+    tester.widget<PageView>(find.byType(PageView)).controller!.page!;
+
+Future<void> _settleCompletion(WidgetTester tester) async {
+  // A completion pause uses a timer, which pumpAndSettle alone may not flush.
+  await tester.pump(const Duration(milliseconds: 350));
+  await tester.pumpAndSettle();
+}
+
+Future<AdhkarCubit> _pumpReader(
+  WidgetTester tester,
+  List<DhikrItem> items, {
+  bool reducedMotion = false,
+}) async {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  final cubit = AdhkarCubit(
+    _PreparedRepository([
+      AdhkarCategory(id: 50, name: 'ورد الاختبار', items: items),
+    ]),
+    _MemoryStorage(),
+  );
+  await cubit.load();
+  cubit.select(50);
+  addTearDown(cubit.close);
+  await tester.pumpWidget(
+    BlocProvider.value(
+      value: cubit,
+      child: MaterialApp(
+        locale: const Locale('ar'),
+        supportedLocales: const [Locale('ar')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        theme: AppTheme.light(),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(disableAnimations: reducedMotion),
+          child: child!,
+        ),
+        home: const AdhkarReaderPage(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return cubit;
 }
 
 class _PreparedRepository extends AdhkarRepository {
