@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
@@ -199,7 +200,7 @@ class _QiblaHeader extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_forward_rounded),
+                  icon: const Icon(MishkatNavigationIcons.back),
                   tooltip: 'رجوع',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
@@ -839,7 +840,11 @@ class _CalibrationTipCard extends StatelessWidget {
               ],
             ),
           ),
-          Icon(Icons.chevron_left_rounded, color: colors.textMuted, size: 20),
+          Icon(
+            MishkatNavigationIcons.forward,
+            color: colors.textMuted,
+            size: 20,
+          ),
         ],
       ),
     );

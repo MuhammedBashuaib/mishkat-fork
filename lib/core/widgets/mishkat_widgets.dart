@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/navigation_icons.dart';
 import '../theme/app_tokens.dart';
 import '../utils/app_formatters.dart';
 import '../../../features/prayer_times/domain/models/prayer_models.dart';
@@ -411,10 +412,10 @@ class MishkatShortcutTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: MishkatSpacing.sm),
-            // Correct RTL forward navigation chevron (mirrors in RTL to point left: <)
+            // Use the same forward direction as every navigation row.
             trailing ??
                 Icon(
-                  Icons.chevron_right_rounded,
+                  MishkatNavigationIcons.forward,
                   color: colors.textSecondary.withValues(alpha: 0.7),
                   size: 22,
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../data/models/adhkar_models.dart';
@@ -390,7 +391,7 @@ class _TasbihShortcut extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.chevron_left_rounded,
+                  MishkatNavigationIcons.forward,
                   color: colors.primary,
                   size: 20,
                 ),
@@ -674,7 +675,10 @@ class _CategoryTile extends StatelessWidget {
               ),
             )
           else
-            Icon(Icons.chevron_left_rounded, color: context.mishkat.textMuted),
+            Icon(
+              MishkatNavigationIcons.forward,
+              color: context.mishkat.textMuted,
+            ),
         ],
       ),
     );

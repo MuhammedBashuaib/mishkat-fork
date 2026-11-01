@@ -9,6 +9,7 @@ import '../../../../core/services/home_widget_content.dart';
 import '../../../khatma/presentation/cubit/khatma_cubit.dart';
 import '../../../tasbih/presentation/cubit/tasbih_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/utils/app_formatters.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
@@ -171,7 +172,7 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_forward_rounded),
+          icon: const Icon(MishkatNavigationIcons.back),
           tooltip: 'رجوع',
         ),
         title: const Text('إضافات الشاشة الرئيسية'),
@@ -1163,7 +1164,7 @@ class _AdhkarWidgetPreview extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.arrow_back_rounded,
+                        MishkatNavigationIcons.forward,
                         size: 13,
                         color: secondary,
                       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 
@@ -111,7 +112,7 @@ class QuranSearchHistoryView extends StatelessWidget {
                   ),
                   const SizedBox(width: MishkatSpacing.xs),
                   Icon(
-                    Icons.chevron_left_rounded,
+                    MishkatNavigationIcons.forward,
                     size: 18,
                     color: context.mishkat.textMuted,
                   ),

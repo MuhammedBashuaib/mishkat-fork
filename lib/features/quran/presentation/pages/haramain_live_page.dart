@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../data/models/quran_audio_station.dart';
 import '../../data/services/haramain_live_service.dart';
@@ -168,7 +169,7 @@ class _HaramainLivePageState extends State<HaramainLivePage>
           leading: IconButton(
             tooltip: 'العودة',
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_forward_rounded),
+            icon: const Icon(MishkatNavigationIcons.back),
           ),
           title: Column(
             mainAxisSize: MainAxisSize.min,

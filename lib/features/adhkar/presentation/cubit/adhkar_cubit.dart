@@ -23,6 +23,17 @@ class AdhkarCubit extends Cubit<AdhkarState> {
               DhikrItem.fromJson(Map<String, dynamic>.from(item)),
       ];
       final progress = <int, Map<int, int>>{};
+      final countTargets = <int, Map<int, int>>{};
+      if (saved['countTargets'] is Map) {
+        for (final category in (saved['countTargets'] as Map).entries) {
+          if (category.value is Map) {
+            countTargets[int.parse('${category.key}')] = {
+              for (final entry in (category.value as Map).entries)
+                int.parse('${entry.key}'): (entry.value as num).toInt(),
+            };
+          }
+        }
+      }
       if (saved['progress'] is Map) {
         for (final entry in (saved['progress'] as Map).entries) {
           if (entry.value is Map) {
@@ -41,15 +52,33 @@ class AdhkarCubit extends Cubit<AdhkarState> {
           ..remove(1)
           ..remove(133);
       }
+      final needsMigration = saved['schemaVersion'] != 2;
+      final old = progress[1];
+      if (needsMigration && old != null) {
+        // Morning card 18 was merged into card 17. Keep the larger count,
+        // never add the two narrations together, and shift subsequent cards.
+        final ten = old[17] ?? 0;
+        final hundred = old[18] ?? 0;
+        progress[1] = {
+          for (final entry in old.entries)
+            if (entry.key < 17)
+              entry.key: entry.value
+            else if (entry.key > 18)
+              entry.key - 1: entry.value,
+          17: ten > hundred ? ten : hundred,
+        };
+        if (hundred > 0) countTargets.putIfAbsent(1, () => {})[17] = 100;
+      }
       emit(
         state.copyWith(
           status: AdhkarStatus.ready,
           categories: categories,
           customItems: custom,
           progress: progress,
+          countTargets: countTargets,
         ),
       );
-      if (shouldResetDailyWirds) await _persist();
+      if (shouldResetDailyWirds || needsMigration) await _persist();
     } on Object catch (error) {
       emit(
         state.copyWith(
@@ -79,11 +108,28 @@ class AdhkarCubit extends Cubit<AdhkarState> {
   int countFor(int categoryId, int index) =>
       state.progress[categoryId]?[index] ?? 0;
 
+  Future<void> setCountTarget(int categoryId, int index, int target) async {
+    final item = state.allCategories
+        .firstWhere((category) => category.id == categoryId)
+        .items[index];
+    if (!item.countOptions.contains(target)) return;
+    final targets = {
+      for (final entry in state.countTargets.entries)
+        entry.key: Map<int, int>.from(entry.value),
+    };
+    targets.putIfAbsent(categoryId, () => {})[index] = target;
+    // Preserve repetitions when switching targets; only an explicit reset
+    // should discard recitations the user has already counted.
+    emit(state.copyWith(countTargets: targets));
+    await _persist();
+  }
+
   Future<void> increment(int categoryId, int index) async {
     final category = state.allCategories.firstWhere(
       (item) => item.id == categoryId,
     );
     final target = category.items[index].count;
+    if (countFor(categoryId, index) >= target) return;
     final progress = _copyProgress();
     final categoryProgress = progress.putIfAbsent(
       categoryId,
@@ -152,8 +198,16 @@ class AdhkarCubit extends Cubit<AdhkarState> {
   };
 
   Future<void> _persist() => _storage.writeMap('adhkar', {
+    'schemaVersion': 2,
     'custom': state.customItems.map((item) => item.toJson()).toList(),
     'dailyDate': _dayKey(DateTime.now()),
+    'countTargets': {
+      for (final category in state.countTargets.entries)
+        '${category.key}': {
+          for (final value in category.value.entries)
+            '${value.key}': value.value,
+        },
+    },
     'progress': {
       for (final category in state.progress.entries)
         '${category.key}': {

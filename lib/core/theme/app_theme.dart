@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 import 'app_tokens.dart';
+import 'navigation_icons.dart';
 
 class AppTheme {
   const AppTheme._();
@@ -68,6 +69,9 @@ class AppTheme {
     );
 
     return base.copyWith(
+      actionIconTheme: ActionIconThemeData(
+        backButtonIconBuilder: (_) => const Icon(MishkatNavigationIcons.back),
+      ),
       textTheme: base.textTheme
           .apply(
             fontFamily: 'Cairo',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../data/models/memorization_session.dart';
@@ -592,7 +593,7 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
                               .read<QuranMemorizationCubit>()
                               .previousSessionAyah();
                         },
-                        icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                        icon: const Icon(MishkatNavigationIcons.back, size: 16),
                         label: const Text('الآية السابقة'),
                       )
                     else
@@ -697,7 +698,7 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
                     ),
                   ),
                   Icon(
-                    Icons.arrow_back_rounded,
+                    MishkatNavigationIcons.forward,
                     size: 16,
                     color: colors.textMuted,
                   ),
@@ -1409,7 +1410,7 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
                   Navigator.of(context).pop();
                 },
                 label: 'العودة للحفظ',
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const Icon(MishkatNavigationIcons.back),
                 isFullWidth: true,
               ),
             ],
@@ -1528,7 +1529,7 @@ class _MemorizationSessionPageState extends State<MemorizationSessionPage> {
                   Navigator.of(context).pop();
                 },
                 label: 'العودة إلى لوحة الحفظ',
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const Icon(MishkatNavigationIcons.back),
                 isFullWidth: true,
               ),
             ],

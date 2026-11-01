@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../khatma/data/models/khatma_plan.dart';
 import '../../../khatma/presentation/cubit/khatma_cubit.dart';
@@ -320,7 +321,7 @@ class _QuranReaderPageState extends State<QuranReaderPage> {
                           surfaceTintColor: Colors.transparent,
                           scrolledUnderElevation: 0,
                           leading: IconButton(
-                            icon: const Icon(Icons.arrow_forward_rounded),
+                            icon: const Icon(MishkatNavigationIcons.back),
                             tooltip: 'العودة إلى الفهرس',
                             onPressed: () => Navigator.pop(context),
                           ),
@@ -1226,7 +1227,7 @@ class _ReaderBottomBar extends StatelessWidget {
                         onPressed: state.currentPage > 1
                             ? () => cubit.openPage(state.currentPage - 1)
                             : null,
-                        icon: Icons.chevron_right_rounded,
+                        icon: MishkatNavigationIcons.back,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -1297,7 +1298,7 @@ class _ReaderBottomBar extends StatelessWidget {
                         onPressed: state.currentPage < 604
                             ? () => cubit.openPage(state.currentPage + 1)
                             : null,
-                        icon: Icons.chevron_left_rounded,
+                        icon: MishkatNavigationIcons.forward,
                       ),
                       const SizedBox(width: 10),
                       SizedBox.square(
@@ -1493,7 +1494,7 @@ class _ReaderOptionsSheetState extends State<_ReaderOptionsSheet> {
                             Navigator.pop(context);
                           }
                         },
-                        icon: const Icon(Icons.arrow_back),
+                        icon: const Icon(MishkatNavigationIcons.forward),
                       ),
                     ),
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/services/local_storage_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/utils/app_formatters.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
@@ -347,7 +348,7 @@ class _QuranSearchPageState extends State<QuranSearchPage> {
                               ),
                             ),
                             Icon(
-                              Icons.chevron_left_rounded,
+                              MishkatNavigationIcons.forward,
                               color: context.mishkat.textMuted,
                             ),
                           ],

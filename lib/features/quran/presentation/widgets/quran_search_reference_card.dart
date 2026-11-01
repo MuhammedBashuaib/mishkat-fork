@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../data/models/quran_search_models.dart';
@@ -115,7 +116,7 @@ class QuranSearchReferenceCard extends StatelessWidget {
             ),
           ),
           Icon(
-            Icons.arrow_forward_ios_rounded,
+            MishkatNavigationIcons.forward,
             size: 16,
             color: context.mishkat.primary,
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../data/models/quran_models.dart';
@@ -267,7 +268,10 @@ class _LatestBookmarkEntry extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: MishkatSpacing.sm),
-                Icon(Icons.chevron_left_rounded, color: colors.textSecondary),
+                Icon(
+                  MishkatNavigationIcons.forward,
+                  color: colors.textSecondary,
+                ),
               ],
             ),
           ),
@@ -369,7 +373,11 @@ class _DestinationCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: MishkatSpacing.sm),
-            Icon(Icons.chevron_left_rounded, color: colors.primary, size: 24),
+            Icon(
+              MishkatNavigationIcons.forward,
+              color: colors.primary,
+              size: 24,
+            ),
           ],
         ),
       ),

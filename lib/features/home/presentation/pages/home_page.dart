@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/utils/app_formatters.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
@@ -372,7 +373,11 @@ class _FocusRow extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_left_rounded, size: 20, color: colors.textMuted),
+            Icon(
+              MishkatNavigationIcons.forward,
+              size: 20,
+              color: colors.textMuted,
+            ),
           ],
         ),
       ),
@@ -618,7 +623,7 @@ class _MyDuasSection extends StatelessWidget {
                 child: Center(
                   child: MishkatTextAction(
                     label: 'عرض جميع أدعيتي ($totalCount)',
-                    icon: Icons.chevron_left_rounded,
+                    icon: MishkatNavigationIcons.forward,
                     onPressed: () => _openAllDuas(context),
                   ),
                 ),

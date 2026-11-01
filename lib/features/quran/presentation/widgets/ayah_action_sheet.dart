@@ -12,6 +12,7 @@ import '../cubit/quran_cubit.dart';
 import '../cubit/quran_memorization_cubit.dart';
 import '../cubit/quran_state.dart';
 import '../cubit/quran_visual_recall_cubit.dart';
+import '../../../../core/theme/navigation_icons.dart';
 
 /// Modal bottom sheet presented upon long-pressing an Ayah.
 ///
@@ -534,7 +535,7 @@ class AyahActionSheet extends StatelessWidget {
                                       ),
                                       const SizedBox(width: 2),
                                       Icon(
-                                        Icons.arrow_forward_ios_rounded,
+                                        MishkatNavigationIcons.forward,
                                         size: 11,
                                         color: theme.colorScheme.primary,
                                       ),

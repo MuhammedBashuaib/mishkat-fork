@@ -5,6 +5,7 @@ import '../../data/models/mushaf_layout_models.dart';
 import '../../data/repositories/mushaf_layout_repository.dart';
 import '../pages/quran_reader_page.dart';
 import '../services/mushaf_coordinate_mapper.dart';
+import '../../../../core/theme/navigation_icons.dart';
 
 /// Geometry masking mode for Phase 0 prototype investigation.
 enum MaskBoundaryMode {
@@ -363,7 +364,10 @@ class MushafVisualRecallPrototypeState
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                            icon: const Icon(
+                              MishkatNavigationIcons.back,
+                              size: 16,
+                            ),
                             tooltip: 'الصفحة السابقة',
                             onPressed: _currentPage > 1
                                 ? () => setPage(_currentPage - 1)
@@ -378,7 +382,10 @@ class MushafVisualRecallPrototypeState
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.arrow_back_ios, size: 16),
+                            icon: const Icon(
+                              MishkatNavigationIcons.forward,
+                              size: 16,
+                            ),
                             tooltip: 'الصفحة التالية',
                             onPressed: _currentPage < 604
                                 ? () => setPage(_currentPage + 1)

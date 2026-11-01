@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
@@ -769,7 +770,7 @@ class _MethodTile extends StatelessWidget {
               ],
             ),
           ),
-          Icon(Icons.chevron_left_rounded, color: colors.textMuted),
+          Icon(MishkatNavigationIcons.forward, color: colors.textMuted),
         ],
       ),
     );
@@ -960,7 +961,7 @@ class _ProgressSummary extends StatelessWidget {
               ),
               MishkatTextAction(
                 label: 'التفاصيل',
-                icon: Icons.arrow_back_rounded,
+                icon: MishkatNavigationIcons.forward,
                 onPressed: onAnalytics,
               ),
             ],
@@ -1999,7 +2000,7 @@ class _SheetChoice extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_left_rounded, color: colors.textMuted),
+              Icon(MishkatNavigationIcons.forward, color: colors.textMuted),
             ],
           ),
         ),

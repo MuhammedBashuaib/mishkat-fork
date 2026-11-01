@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 
@@ -395,7 +396,7 @@ class _OnboardingFooter extends StatelessWidget {
                           Icon(
                             isLast
                                 ? Icons.check_rounded
-                                : Icons.arrow_back_rounded,
+                                : MishkatNavigationIcons.forward,
                             size: 19,
                           ),
                         ],
@@ -551,7 +552,7 @@ class _JourneyPreview extends StatelessWidget {
           icon: Icons.wb_sunny_outlined,
           title: 'أذكار الصباح',
           subtitle: 'ابدأ يومك بذكر هادئ',
-          trailingIcon: Icons.arrow_back_rounded,
+          trailingIcon: MishkatNavigationIcons.forward,
           emphasized: true,
         ),
         Divider(height: 1, indent: 48, color: colors.borderSubtle),
@@ -559,7 +560,7 @@ class _JourneyPreview extends StatelessWidget {
           icon: Icons.explore_outlined,
           title: 'اتجاه القبلة',
           subtitle: 'واضح حين تحتاجه',
-          trailingIcon: Icons.arrow_back_rounded,
+          trailingIcon: MishkatNavigationIcons.forward,
         ),
       ],
     );

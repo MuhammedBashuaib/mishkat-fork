@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../data/models/quran_models.dart';
@@ -75,7 +76,7 @@ class _QuranIndexPageState extends State<QuranIndexPage>
           return Scaffold(
             appBar: AppBar(
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const Icon(MishkatNavigationIcons.back),
                 onPressed: () => Navigator.pop(context),
               ),
               title: const Text('فهرس القرآن الكريم'),
@@ -89,7 +90,7 @@ class _QuranIndexPageState extends State<QuranIndexPage>
         return Scaffold(
           appBar: AppBar(
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
+              icon: const Icon(MishkatNavigationIcons.back),
               tooltip: 'رجوع',
               onPressed: () => Navigator.pop(context),
             ),
@@ -315,7 +316,7 @@ class _QuranIndexPageState extends State<QuranIndexPage>
                     ),
                     const SizedBox(width: 4),
                     Icon(
-                      Icons.arrow_back_rounded,
+                      MishkatNavigationIcons.forward,
                       size: 14,
                       color: colors.primary,
                     ),
@@ -549,7 +550,7 @@ class _IndexTile extends StatelessWidget {
             ),
           ),
           Icon(
-            Icons.chevron_left_rounded,
+            MishkatNavigationIcons.forward,
             color: context.mishkat.textMuted,
             size: 22,
           ),

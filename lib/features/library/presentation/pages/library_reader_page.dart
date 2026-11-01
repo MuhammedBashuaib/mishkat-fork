@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/utils/app_formatters.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../data/models/library_models.dart';
@@ -62,7 +63,7 @@ class _LibraryReaderPageState extends State<LibraryReaderPage> {
         appBar: AppBar(
           leading: IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_forward_rounded),
+            icon: const Icon(MishkatNavigationIcons.back),
             tooltip: 'رجوع',
           ),
           title: Column(
@@ -143,7 +144,7 @@ class _LibraryReaderPageState extends State<LibraryReaderPage> {
                         onPressed: safeIndex == 0
                             ? null
                             : () => _goTo(safeIndex - 1),
-                        icon: const Icon(Icons.chevron_right_rounded),
+                        icon: const Icon(MishkatNavigationIcons.back),
                         label: const Text('السابق'),
                       ),
                     ),
@@ -159,7 +160,7 @@ class _LibraryReaderPageState extends State<LibraryReaderPage> {
                         onPressed: safeIndex == entries.length - 1
                             ? null
                             : () => _goTo(safeIndex + 1),
-                        icon: const Icon(Icons.chevron_left_rounded),
+                        icon: const Icon(MishkatNavigationIcons.forward),
                         label: const Text('التالي'),
                       ),
                     ),

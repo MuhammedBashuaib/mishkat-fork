@@ -36,13 +36,20 @@ class AdhkarRepository {
 
     for (var index = 0; index < source.items.length; index++) {
       final item = source.items[index];
+      // The same tahlil is narrated with different counts. Present it once;
+      // retain the source's morning-only hundred-count option.
+      if (index == 18) continue;
       // Three narrations in the source are specific to the morning.
       if (index != 18 && index != 19 && index != 20) {
         evening.add(
           DhikrItem(
             text: _dailyWirdText(item.text, index, evening: true),
-            count: item.count,
+            count: index == 8 ? 7 : item.count,
             title: item.title,
+            countOptions: index == 17 ? const [1, 10] : const [],
+            note: index == 17
+                ? 'عشر مرات، أو مرة واحدة عند الكسل؛ كما ورد في حصن المسلم.'
+                : '',
           ),
         );
       }
@@ -51,8 +58,12 @@ class AdhkarRepository {
         morning.add(
           DhikrItem(
             text: _dailyWirdText(item.text, index, evening: false),
-            count: item.count,
+            count: index == 8 ? 7 : item.count,
             title: item.title,
+            countOptions: index == 17 ? const [1, 10, 100] : const [],
+            note: index == 17
+                ? 'ورد عشر مرات، أو مرة واحدة عند الكسل، وورد مائة مرة في الصباح. اختر العدد لوردك.'
+                : '',
           ),
         );
       }
@@ -70,6 +81,9 @@ class AdhkarRepository {
   }
 
   String _dailyWirdText(String text, int index, {required bool evening}) {
+    if (index == 17) {
+      return text.substring(2, text.indexOf('))'));
+    }
     if (!evening) {
       return text.replaceAll(RegExp(r'\s*\[\s*و?إذا أمسى[^\]]*\]'), '').trim();
     }
@@ -82,7 +96,8 @@ class AdhkarRepository {
         return withoutAlternatives
             .replaceAll('أَصْبَحْنَا', 'أَمْسَيْنَا')
             .replaceAll('وَأَصْبَحَ', 'وَأَمْسَى')
-            .replaceAll('هَذَا الْيَوْمِ', 'هَذِهِ اللَّيْلَةِ');
+            .replaceAll('هَذَا الْيَوْمِ', 'هَذِهِ اللَّيْلَةِ')
+            .replaceAll('مَا بَعْدَهُ', 'مَا بَعْدَهَا');
       case 3:
         return '((اللَّهُمَّ بِكَ أَمْسَيْنَا، وَبِكَ أَصْبَحْنَا، وَبِكَ نَحْيَا، '
             'وَبِكَ نَمُوتُ وَإِلَيْكَ الْمَصِيرُ)).';
@@ -91,10 +106,9 @@ class AdhkarRepository {
       case 6:
         return withoutAlternatives.replaceAll('أَصْبَحَ بِي', 'أَمْسَى بِي');
       case 14:
-        return withoutAlternatives
-            .replaceAll('أَصْبَحْنَا', 'أَمْسَيْنَا')
-            .replaceAll('وَأَصْبَحَ', 'وَأَمْسَى')
-            .replaceAll('هَذَا الْيَوْمِ', 'هَذِهِ اللَّيْلَةِ');
+        return text
+            .substring(text.indexOf('قال:') + 4, text.lastIndexOf(']'))
+            .trim();
       case 15:
         return withoutAlternatives.replaceAll('أَصْبَحْنا', 'أَمْسَيْنا');
       default:

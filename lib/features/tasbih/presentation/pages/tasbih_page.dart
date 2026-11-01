@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/services/tasbih_completion_sound.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../cubit/tasbih_cubit.dart';
@@ -50,7 +51,7 @@ class _TasbihPageState extends State<TasbihPage> {
     appBar: AppBar(
       leading: IconButton(
         onPressed: () => Navigator.maybePop(context),
-        icon: const Icon(Icons.arrow_forward_rounded),
+        icon: const Icon(MishkatNavigationIcons.back),
         tooltip: 'رجوع',
       ),
       title: const Text('المسبحة'),

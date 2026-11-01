@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../khatma/presentation/pages/khatma_page.dart';
@@ -254,7 +255,7 @@ class _ContinueReadingCard extends StatelessWidget {
             ],
           ),
         ),
-        Icon(Icons.chevron_left_rounded, color: context.mishkat.primary),
+        Icon(MishkatNavigationIcons.forward, color: context.mishkat.primary),
       ],
     ),
   );
@@ -359,7 +360,7 @@ class _BookCard extends StatelessWidget {
                     )
                   else
                     Icon(
-                      Icons.chevron_left_rounded,
+                      MishkatNavigationIcons.forward,
                       color: context.mishkat.textMuted,
                     ),
                 ],

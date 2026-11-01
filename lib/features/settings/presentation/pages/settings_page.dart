@@ -7,6 +7,7 @@ import '../../../../core/services/location_service.dart';
 import '../../../../core/services/offline_audio_download_controller.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/utils/app_formatters.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../prayer_times/data/services/prayer_calculator.dart';
@@ -34,7 +35,7 @@ class SettingsPage extends StatelessWidget {
             appBar: AppBar(
               leading: IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_forward_rounded),
+                icon: const Icon(MishkatNavigationIcons.back),
                 tooltip: 'رجوع',
               ),
               title: const Text('الإعدادات'),
@@ -109,7 +110,7 @@ class _HomeWidgetsSettings extends StatelessWidget {
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
       subtitle: const Text('الصلاة والقبلة والأذكار على شاشة هاتفك'),
-      trailing: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+      trailing: const Icon(MishkatNavigationIcons.forward, size: 16),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute<void>(builder: (_) => const HomeWidgetsPage()),
@@ -897,7 +898,7 @@ class _DataSettings extends StatelessWidget {
           leading: const Icon(Icons.download_for_offline_outlined),
           title: const Text('إدارة التلاوات المحفوظة'),
           subtitle: const Text('تنزيل سورة أو حذفها وتشغيلها بلا شبكة'),
-          trailing: const Icon(Icons.chevron_left_rounded),
+          trailing: const Icon(MishkatNavigationIcons.forward),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute<void>(
