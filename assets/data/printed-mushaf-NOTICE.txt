@@ -1,0 +1,39 @@
+Printed Mushaf layout and Hafs display text
+
+The bundled printed-mushaf.json is generated from the Quranic Universal
+Library (QUL), developed by Tarteel, using its published QPC V2 (1421H)
+15-line layout and KFGQPC Hafs word-by-word Unicode text exports.
+
+Quran script and Madinah Mushaf source:
+King Fahd Glorious Quran Printing Complex (KFGQPC), Al-Madinah, Saudi Arabia.
+https://qurancomplex.gov.sa/
+
+Layout organisation and word-by-word exports:
+Quranic Universal Library (QUL) / Tarteel.
+https://qul.tarteel.ai/resources/mushaf-layout/10
+https://qul.tarteel.ai/resources/quran-script/312
+
+The two SQLite exports were obtained from this published mirror at a pinned
+revision, not from Quran Foundation API responses:
+https://github.com/manaf/KFGQPC-Madinah-Mushaf
+Revision: dad9cf67588ab66c914c155924d8a3699704a03d
+Directory: qul-data/
+Retrieved: 2026-11-05
+
+Input file SHA-256 values (uncompressed SQLite):
+qpc-v2-15-lines.db
+e4df98f35dd3b8927ff096337c8739e0f0b12c8ba622834c345eaa4c3e28dd8c
+qpc-hafs-word-by-word.db
+e1cf266ed47a56e58100c08f69499f635f84c97233318cc53daf17200fb9048e
+
+Reproducible conversion and validation:
+tools/mushaf_layout/build_printed_mushaf.py
+The conversion retains the source printed lines and display text and maps
+them to the application's existing canonical recitation word identities.
+The application does not claim ownership of the underlying Quranic content.
+The original publishers' terms apply to these resources; the application
+code's license and the SIL Open Font License do not relicense this data.
+
+The separately bundled UthmanicHafs_V22.ttf font is unchanged. Its source,
+checksum, copyright notice and embedded end-user license are recorded in
+assets/fonts/KFGQPC-NOTICE.txt.

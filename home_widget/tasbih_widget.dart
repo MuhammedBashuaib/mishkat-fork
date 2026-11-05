@@ -1,5 +1,8 @@
 import 'package:home_widget_generator/home_widget_generator.dart';
 
+// Design seed only: compact native layouts/progress ring are maintained
+// separately. Read docs/HOME_WIDGETS.md before running the generator.
+
 const _background = HWThemedColor(
   light: HWFixedColor(0xFFF8F3FC),
   dark: HWFixedColor(0xFF271E30),
@@ -18,10 +21,10 @@ const _text = HWThemedColor(
   description: 'ذكرك الحالي وعدّادك وهدفك في لمحة',
   widgetUrl: 'mishkat://tasbih',
   android: HomeWidgetAndroidConfiguration(
-    minWidth: 150,
-    minHeight: 160,
-    minResizeWidth: 150,
-    minResizeHeight: 160,
+    minWidth: 110,
+    minHeight: 110,
+    minResizeWidth: 110,
+    minResizeHeight: 110,
     targetCellWidth: 2,
     targetCellHeight: 2,
     resizeMode: HWAndroidResizeMode.horizontalAndVertical,

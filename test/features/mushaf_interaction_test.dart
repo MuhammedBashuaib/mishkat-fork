@@ -479,7 +479,8 @@ void main() {
       );
 
       // Verify Actions
-      expect(find.text('تشغيل التلاوة'), findsOneWidget);
+      expect(find.text('تشغيل هذه الآية فقط'), findsOneWidget);
+      expect(find.text('استماع إلى كلمة'), findsOneWidget);
       expect(find.text('نسخ'), findsOneWidget);
       expect(find.text('التفسير'), findsOneWidget);
       expect(find.text('حفظ'), findsOneWidget);

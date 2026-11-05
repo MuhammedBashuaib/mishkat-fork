@@ -1,6 +1,5 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-//
-// Placeholder SwiftUI widget.
+// CUSTOMIZED NATIVE WIDGET — preserve when regenerating Dart declarations.
+// See docs/HOME_WIDGETS.md for native rendering and the shared data contract.
 //
 // App Group ID used here: WirdWidgetHomeWidgetFlavor.appGroupId
 
@@ -48,38 +47,78 @@ struct WirdWidgetHomeWidgetEntry: TimelineEntry {
 
 struct WirdWidgetHomeWidgetEntryView: View {
   var entry: Provider.Entry
-
-  @Environment(\.colorScheme) var colorScheme
+  @Environment(\.colorScheme) private var systemColorScheme
+  private var colorScheme: ColorScheme { widgetColorScheme(systemColorScheme) }
+  private var accent: Color { colorScheme == .dark ? Color(hex: 0x72D4A3) : Color(hex: 0x238661) }
+  private var secondary: Color { colorScheme == .dark ? Color(hex: 0xA9C5B9) : Color(hex: 0x61776B) }
+  private var primary: Color { colorScheme == .dark ? Color(hex: 0xF2F8F4) : Color(hex: 0x233D30) }
+  private var hasPlan: Bool { !(entry.data.wirdPages ?? "ابدأ").hasPrefix("ابدأ") }
+  private var percentage: String {
+    let digits = Array("٠١٢٣٤٥٦٧٨٩")
+    let number = String(Int((entry.data.wirdProgressValue * 100).rounded()))
+    return String(number.map { digits[$0.wholeNumberValue ?? 0] }) + "٪"
+  }
 
   var body: some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            Text("مِشكاة • الورد اليومي")
-                .font(.system(size: 11.0, weight: .bold)).foregroundColor((colorScheme == .dark ? Color(red: 0.6627450980392157, green: 0.8509803921568627, blue: 0.8, opacity: 1.0) : Color(red: 0.2823529411764706, green: 0.4196078431372549, blue: 0.396078431372549, opacity: 1.0)))
-            Spacer(minLength: 0)
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(entry.data.wirdName ?? "")
-                    .font(.system(size: 11.0, weight: .semibold)).foregroundColor((colorScheme == .dark ? Color(red: 0.6627450980392157, green: 0.8509803921568627, blue: 0.8, opacity: 1.0) : Color(red: 0.2823529411764706, green: 0.4196078431372549, blue: 0.396078431372549, opacity: 1.0)))
-                    .multilineTextAlignment(.trailing)
-                Text(entry.data.wirdPages ?? "")
-                    .font(.system(size: 23.0, weight: .heavy)).foregroundColor((colorScheme == .dark ? Color(red: 0.9647058823529412, green: 0.9568627450980393, blue: 0.9450980392156862, opacity: 1.0) : Color(red: 0.14901960784313725, green: 0.23137254901960785, blue: 0.20784313725490197, opacity: 1.0)))
-                    .multilineTextAlignment(.trailing)
-                Text(entry.data.wirdDetail ?? "")
-                    .font(.system(size: 12.0, weight: .semibold)).foregroundColor((colorScheme == .dark ? Color(red: 0.6627450980392157, green: 0.8509803921568627, blue: 0.8, opacity: 1.0) : Color(red: 0.2823529411764706, green: 0.4196078431372549, blue: 0.396078431372549, opacity: 1.0)))
-                    .multilineTextAlignment(.trailing)
-                Text(entry.data.wirdProgress ?? "")
-                    .font(.system(size: 12.0, weight: .semibold)).foregroundColor((colorScheme == .dark ? Color(red: 0.6627450980392157, green: 0.8509803921568627, blue: 0.8, opacity: 1.0) : Color(red: 0.2823529411764706, green: 0.4196078431372549, blue: 0.396078431372549, opacity: 1.0)))
-                    .multilineTextAlignment(.trailing)
-            }
-            .padding(EdgeInsets(top: 8.0, leading: 12.0, bottom: 8.0, trailing: 12.0))
-            .background(RoundedRectangle(cornerRadius: 18.0).fill((colorScheme == .dark ? Color(red: 0.13725490196078433, green: 0.24313725490196078, blue: 0.2, opacity: 1.0) : Color(red: 0.8862745098039215, green: 0.9333333333333333, blue: 0.9058823529411765, opacity: 1.0))))
-            Spacer(minLength: 0)
-            Text(entry.data.wirdAction ?? "")
-                .font(.system(size: 10.0, weight: .semibold)).foregroundColor((colorScheme == .dark ? Color(red: 0.6627450980392157, green: 0.8509803921568627, blue: 0.8, opacity: 1.0) : Color(red: 0.2823529411764706, green: 0.4196078431372549, blue: 0.396078431372549, opacity: 1.0)))
-                .multilineTextAlignment(.trailing)
+    VStack(alignment: .trailing, spacing: 7) {
+      HStack(spacing: 6) {
+        Text(entry.data.wirdName ?? "رحلتك مع القرآن")
+          .font(.system(size: 10, weight: .medium)).lineLimit(1).minimumScaleFactor(0.8)
+        Spacer(minLength: 10)
+        Text("مِشكاة · الورد اليومي").font(.system(size: 10, weight: .semibold))
+        Image(systemName: "book.closed.fill").font(.system(size: 10, weight: .medium))
+          .accessibilityHidden(true)
+      }
+      .foregroundColor(secondary)
+      HStack(alignment: .center, spacing: 16) {
+        if hasPlan {
+          VStack(spacing: 0) {
+            Text(percentage).font(.system(size: 38, weight: .bold, design: .rounded))
+              .monospacedDigit().foregroundColor(accent).lineLimit(1).minimumScaleFactor(0.7)
+            Text("من الختمة").font(.system(size: 10)).foregroundColor(secondary)
+          }
+          .frame(minWidth: 76)
+        } else {
+          Image(systemName: "book.closed")
+            .font(.system(size: 32, weight: .light)).foregroundColor(accent.opacity(0.75))
+            .accessibilityHidden(true)
+            .frame(width: 60)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-    .applyContainerBackground((colorScheme == .dark ? Color(red: 0.08235294117647059, green: 0.1607843137254902, blue: 0.13725490196078433, opacity: 1.0) : Color(red: 0.9490196078431372, green: 0.9686274509803922, blue: 0.9529411764705882, opacity: 1.0)))
+        Spacer(minLength: 0)
+        VStack(alignment: .trailing, spacing: 4) {
+          Text(entry.data.wirdPages ?? "ابدأ ختمتك الأولى")
+            .font(.system(size: 22, weight: .bold)).foregroundColor(primary)
+          Text(entry.data.wirdDetail ?? "حدّد خطتك ليظهر وردك هنا")
+            .font(.system(size: 10)).foregroundColor(secondary)
+        }
+        .lineLimit(1).minimumScaleFactor(0.75)
+      }
+      .frame(maxHeight: .infinity)
+      progressLine
+      HStack {
+        Text(hasPlan ? entry.data.wirdRemainingPages : "خطوة صغيرة كل يوم")
+          .foregroundColor(secondary)
+        Spacer(minLength: 6)
+        Text(hasPlan ? entry.data.wirdCompletedPages : "رحلتك تبدأ بصفحة")
+          .foregroundColor(accent)
+      }
+      .font(.system(size: 10, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .applyContainerBackground(colorScheme == .dark ? Color(hex: 0x152923) : Color(hex: 0xF2F7F3))
     .widgetURL(URL(string: "mishkat://wird?homeWidget"))
+  }
+
+  private var progressLine: some View {
+    GeometryReader { geometry in
+      ZStack(alignment: .trailing) {
+        Capsule().fill(colorScheme == .dark ? Color(hex: 0x355449) : Color(hex: 0xD5E5DC))
+        Capsule().fill(accent).frame(width: geometry.size.width * entry.data.wirdProgressValue)
+      }
+    }
+    .frame(height: 5)
+    .accessibilityLabel("تقدم الختمة")
+    .accessibilityValue(entry.data.wirdProgress ?? "")
   }
 }
 
@@ -108,6 +147,9 @@ extension View {
 }
 
 struct WirdWidgetData {
+  let wirdProgressValue: Double
+  let wirdCompletedPages: String
+  let wirdRemainingPages: String
   let wirdName: String?
   let wirdPages: String?
   let wirdDetail: String?
@@ -118,6 +160,9 @@ struct WirdWidgetData {
 
   static func fromUserDefaults(_ defaults: UserDefaults?) -> WirdWidgetData {
     return WirdWidgetData(
+      wirdProgressValue: min(1, max(0, defaults?.double(forKey: "\(paramPrefix).wirdProgressValue") ?? 0)),
+      wirdCompletedPages: defaults?.string(forKey: "\(paramPrefix).wirdCompletedPages") ?? "",
+      wirdRemainingPages: defaults?.string(forKey: "\(paramPrefix).wirdRemainingPages") ?? "",
       wirdName: (defaults?.string(forKey: "\(paramPrefix).wirdName") ?? "رحلتك مع القرآن"),
       wirdPages: (defaults?.string(forKey: "\(paramPrefix).wirdPages") ?? "ابدأ ختمتك الأولى"),
       wirdDetail: (defaults?.string(forKey: "\(paramPrefix).wirdDetail") ?? "حدّد خطتك ليظهر وردك هنا"),
@@ -128,6 +173,9 @@ struct WirdWidgetData {
 
   static func previewFromUserDefaults(_ defaults: UserDefaults?) -> WirdWidgetData {
     return WirdWidgetData(
+      wirdProgressValue: min(1, max(0, (defaults?.object(forKey: "\(paramPrefix).wirdProgressValue") as? NSNumber)?.doubleValue ?? (41.0 / 604.0))),
+      wirdCompletedPages: defaults?.string(forKey: "\(paramPrefix).wirdCompletedPages") ?? "أنجزت ٤١ صفحة",
+      wirdRemainingPages: defaults?.string(forKey: "\(paramPrefix).wirdRemainingPages") ?? "باقي ٥٦٣ صفحة",
       wirdName: (defaults?.string(forKey: "\(paramPrefix).wirdName") ?? "ختمتي"),
       wirdPages: (defaults?.string(forKey: "\(paramPrefix).wirdPages") ?? "صفحة ٤٢ – ٦٢"),
       wirdDetail: (defaults?.string(forKey: "\(paramPrefix).wirdDetail") ?? "٢١ صفحة في وردك الحالي"),
@@ -137,3 +185,18 @@ struct WirdWidgetData {
   }
 }
 
+
+// Each widget is its own extension target; keep these helpers local to its source.
+private func widgetColorScheme(_ system: ColorScheme) -> ColorScheme {
+  switch UserDefaults(suiteName: "group.com.dakomn.mishkatapp.widgets")?.string(forKey: "widgetTheme") {
+  case "light": return .light
+  case "dark": return .dark
+  default: return system
+  }
+}
+
+private extension Color {
+  init(hex: UInt32) {
+    self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
+  }
+}

@@ -210,7 +210,7 @@ class _QuranAudioPlayerPageState extends State<QuranAudioPlayerPage>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${activeReciter.bitrate} kbps · ${activeReciter.sourceLabel}',
+                          'سور كاملة بتلاوة متصلة',
                           style: TextStyle(
                             fontSize: 12,
                             color: colors.textSecondary,
@@ -281,14 +281,13 @@ class _QuranAudioPlayerPageState extends State<QuranAudioPlayerPage>
             reciter: reciter,
             isSelected: reciter.id == currentReciterId,
             onSelect: () {
-              context.read<QuranCubit>().updateReciter(reciter.id);
-              context.read<SettingsCubit>().setReciter(reciter.id);
+              if (quranData != null) {
+                _showSurahPickerSheet(context, quranData, reciter);
+              }
             },
             onPlaySurah: quranData == null
                 ? null
                 : () {
-                    context.read<QuranCubit>().updateReciter(reciter.id);
-                    context.read<SettingsCubit>().setReciter(reciter.id);
                     _showSurahPickerSheet(context, quranData, reciter);
                   },
           ),
@@ -574,13 +573,9 @@ class _QuranAudioPlayerPageState extends State<QuranAudioPlayerPage>
                     trailing: const Icon(Icons.play_circle_fill_rounded),
                     onTap: () {
                       Navigator.pop(sheetContext);
-                      final global = data.globalFor(chapter.number, 1);
-                      cubit.openSurah(chapter.number);
-                      cubit.playAyah(
-                        global,
-                        continuous: true,
-                        origin: QuranPlaybackOrigin.audioPlayer,
-                      );
+                      cubit.updateReciter(reciter.id, restartIfPlaying: false);
+                      context.read<SettingsCubit>().setReciter(reciter.id);
+                      cubit.playSurah(chapter.number);
                     },
                   );
                 },
@@ -651,7 +646,7 @@ class _ReciterTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${reciter.bitrate} kbps · ${reciter.sourceLabel}',
+                    'تلاوة السورة كاملة',
                     style: TextStyle(fontSize: 12, color: colors.textSecondary),
                   ),
                 ],

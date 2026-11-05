@@ -674,6 +674,14 @@ class _ReadingCard extends StatelessWidget {
                                 ChoiceChip(
                                   label: Text('$target'),
                                   selected: item.count == target,
+                                  labelStyle: TextStyle(
+                                    color: item.count == target
+                                        ? colors.primaryDark
+                                        : colors.textPrimary,
+                                  ),
+                                  selectedColor: colors.primarySoft,
+                                  backgroundColor: colors.surface,
+                                  checkmarkColor: colors.primaryDark,
                                   onSelected: (_) {
                                     onInteraction();
                                     context.read<AdhkarCubit>().setCountTarget(

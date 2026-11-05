@@ -54,3 +54,6 @@ app.*.map.json
 /android/key.properties
 **/signing-private/
 *.aab
+
+# The offline model is assembled from tracked parts into generated Android assets.
+/android/app/src/main/assets/asr/model.int8.onnx

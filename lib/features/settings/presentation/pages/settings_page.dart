@@ -70,7 +70,7 @@ class SettingsPage extends StatelessWidget {
                   _SettingsRow(
                     icon: Icons.widgets_outlined,
                     title: 'ودجت مشكاة',
-                    subtitle: 'الصلاة والقبلة والأذكار على شاشة هاتفك',
+                    subtitle: 'إضافات الشاشة الرئيسية والصلاة على شاشة القفل',
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute<void>(

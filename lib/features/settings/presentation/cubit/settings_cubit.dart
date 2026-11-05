@@ -80,6 +80,8 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> setTheme(AppThemePreference value) =>
       _save(state.settings.copyWith(theme: value));
+  Future<void> setWidgetTheme(AppThemePreference value) =>
+      _save(state.settings.copyWith(widgetTheme: value));
   Future<void> setUiFontScale(double value) =>
       _save(state.settings.copyWith(uiFontScale: value));
   Future<void> setQuranFont(double value) =>

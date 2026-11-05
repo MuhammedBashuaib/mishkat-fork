@@ -12,6 +12,7 @@ import '../cubit/quran_cubit.dart';
 import '../cubit/quran_memorization_cubit.dart';
 import '../cubit/quran_state.dart';
 import '../cubit/quran_visual_recall_cubit.dart';
+import '../services/quran_recitation_text.dart';
 import '../../../../core/theme/navigation_icons.dart';
 
 /// Modal bottom sheet presented upon long-pressing an Ayah.
@@ -183,7 +184,7 @@ class AyahActionSheet extends StatelessWidget {
                             ayahText,
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyLarge?.copyWith(
-                              fontFamily: 'Amiri',
+                              fontFamily: 'AmiriQuran',
                               fontSize: 20,
                               height: 1.85,
                               color: theme.colorScheme.onSurface,
@@ -198,10 +199,12 @@ class AyahActionSheet extends StatelessWidget {
                         builder: (context, state) {
                           final isThisAyahPlaying =
                               state.audioStatus == QuranAudioStatus.playing &&
-                              state.audioGlobalAyah == ayah.globalAyah;
+                              state.audioGlobalAyah == ayah.globalAyah &&
+                              state.audioWordIndex == null;
                           final isThisAyahLoading =
                               state.audioStatus == QuranAudioStatus.loading &&
-                              state.audioGlobalAyah == ayah.globalAyah;
+                              state.audioGlobalAyah == ayah.globalAyah &&
+                              state.audioWordIndex == null;
 
                           return FilledButton.icon(
                             style: FilledButton.styleFrom(
@@ -216,31 +219,13 @@ class AyahActionSheet extends StatelessWidget {
                                 ? null
                                 : () {
                                     final cubit = context.read<QuranCubit>();
-                                    final settingsCubit = context
-                                        .read<SettingsCubit?>();
-                                    final continuous =
-                                        settingsCubit
-                                            ?.state
-                                            .settings
-                                            .quranContinuous ??
-                                        true;
-                                    final autoScroll =
-                                        settingsCubit
-                                            ?.state
-                                            .settings
-                                            .quranAutoScroll ??
-                                        true;
                                     if (isThisAyahPlaying) {
-                                      cubit.toggleAudio(
-                                        continuous: continuous,
-                                        autoScroll: autoScroll,
-                                        origin: playbackOrigin,
-                                      );
+                                      cubit.stopAudio();
                                     } else {
                                       cubit.playAyah(
                                         ayah.globalAyah,
-                                        continuous: continuous,
-                                        autoScroll: autoScroll,
+                                        continuous: false,
+                                        autoScroll: false,
                                         origin: playbackOrigin,
                                       );
                                     }
@@ -256,13 +241,13 @@ class AyahActionSheet extends StatelessWidget {
                                   )
                                 : Icon(
                                     isThisAyahPlaying
-                                        ? Icons.pause
+                                        ? Icons.stop_rounded
                                         : Icons.play_arrow,
                                   ),
                             label: Text(
                               isThisAyahPlaying
-                                  ? 'إيقاف مؤقت للتلاوة'
-                                  : 'تشغيل التلاوة',
+                                  ? 'إيقاف تلاوة الآية'
+                                  : 'تشغيل هذه الآية فقط',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -272,6 +257,24 @@ class AyahActionSheet extends StatelessWidget {
                         },
                       ),
 
+                      const SizedBox(height: 12),
+                      _AyahWordPlayer(ayah: ayah, ayahText: ayahText),
+                      BlocBuilder<QuranCubit, QuranState>(
+                        builder: (context, state) {
+                          if (state.audioStatus != QuranAudioStatus.failure ||
+                              state.audioGlobalAyah != ayah.globalAyah ||
+                              state.error == null) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              state.error!,
+                              style: TextStyle(color: theme.colorScheme.error),
+                            ),
+                          );
+                        },
+                      ),
                       const SizedBox(height: 12),
 
                       Builder(
@@ -825,6 +828,130 @@ class _SecondaryActionButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Uses word positions rather than guessed timestamps in the chosen recitation.
+/// Pause marks remain attached to their preceding word and never consume an
+/// audio position, matching the Quran.com educational word recordings.
+class _AyahWordPlayer extends StatefulWidget {
+  const _AyahWordPlayer({required this.ayah, required this.ayahText});
+
+  final AyahBounds ayah;
+  final String ayahText;
+
+  @override
+  State<_AyahWordPlayer> createState() => _AyahWordPlayerState();
+}
+
+class _AyahWordPlayerState extends State<_AyahWordPlayer> {
+  int? _selectedWord;
+
+  List<String> get _words {
+    final words = <String>[];
+    for (final token in widget.ayahText.trim().split(RegExp(r'\s+'))) {
+      if (QuranRecitationText.hasArabicLetter(token)) {
+        words.add(token);
+      } else if (words.isNotEmpty && token.isNotEmpty) {
+        words[words.length - 1] = '${words.last} $token';
+      }
+    }
+    return words;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final words = _words;
+    if (words.isEmpty) return const SizedBox.shrink();
+    return Material(
+      color: theme.colorScheme.primary.withValues(alpha: .05),
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        key: const ValueKey('ayah-word-player'),
+        leading: const Icon(Icons.record_voice_over_outlined),
+        title: const Text('استماع إلى كلمة'),
+        subtitle: const Text('حدد كلمة من الآية لسماع نطقها'),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        children: [
+          Wrap(
+            spacing: 5,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+            children: [
+              for (var index = 0; index < words.length; index++)
+                ChoiceChip(
+                  key: ValueKey('ayah-word-${index + 1}'),
+                  label: Text(
+                    words[index],
+                    style: const TextStyle(
+                      fontFamily: 'AmiriQuran',
+                      fontSize: 20,
+                    ),
+                  ),
+                  selected: _selectedWord == index + 1,
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => _selectedWord = index + 1),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          BlocBuilder<QuranCubit, QuranState>(
+            builder: (context, state) {
+              final isSelectedWord =
+                  state.audioGlobalAyah == widget.ayah.globalAyah &&
+                  state.audioWordIndex == _selectedWord &&
+                  _selectedWord != null;
+              final isLoading =
+                  isSelectedWord &&
+                  state.audioStatus == QuranAudioStatus.loading;
+              final isPlaying =
+                  isSelectedWord &&
+                  state.audioStatus == QuranAudioStatus.playing;
+              return SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('ayah-play-word'),
+                  onPressed: _selectedWord == null || isLoading
+                      ? null
+                      : () {
+                          final cubit = context.read<QuranCubit>();
+                          if (isPlaying) {
+                            cubit.stopAudio();
+                          } else {
+                            cubit.playWord(
+                              globalAyah: widget.ayah.globalAyah,
+                              word: _selectedWord!,
+                            );
+                          }
+                        },
+                  icon: isLoading
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(isPlaying ? Icons.stop_rounded : Icons.volume_up),
+                  label: Text(
+                    isPlaying ? 'إيقاف الكلمة' : 'تشغيل الكلمة المحددة',
+                  ),
+                ),
+              );
+            },
+          ),
+          Text(
+            'نطق الكلمات التعليمي · Quran.com\nصوت مستقل عن قارئ التلاوة المختار',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }

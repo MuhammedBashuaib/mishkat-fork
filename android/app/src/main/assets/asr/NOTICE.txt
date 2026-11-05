@@ -1,0 +1,5 @@
+Speech recognition model: NVIDIA FastConformer Arabic (stt_ar_fastconformer_hybrid_large_pcd_v1.0),
+CTC branch as exported to ONNX (int8) by OpenVoiceOS:
+https://huggingface.co/OpenVoiceOS/stt_ar_fastconformer_hybrid_large_pcd_v1.0_onnx (revision c5f78db4d5a8da706ab74cad73481c18b8d736b9)
+Licensed under CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/).
+Changes: sherpa-onnx metadata_props (vocab_size, normalize_type, subsampling_factor, model_type) appended to the ONNX file.

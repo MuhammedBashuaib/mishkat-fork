@@ -9,6 +9,7 @@ class MushafInteractionState extends Equatable {
     this.selectedPage,
     this.isActionSheetOpen = false,
     this.playingAyah,
+    this.selectionRevision = 0,
   });
 
   /// Initial state with no selection or active action sheet.
@@ -26,6 +27,10 @@ class MushafInteractionState extends Equatable {
   /// Global Ayah index (1..6236) currently playing audio, separate from selection (Q5 foundation).
   final int? playingAyah;
 
+  /// Advances even when the same Ayah is tapped again, so a new playback start
+  /// can be requested after continuous recitation has moved past it.
+  final int selectionRevision;
+
   /// Whether an Ayah is currently selected.
   bool get hasSelection => selectedAyah != null;
 
@@ -34,10 +39,12 @@ class MushafInteractionState extends Equatable {
     int? selectedPage,
     bool? isActionSheetOpen,
     int? playingAyah,
+    int? selectionRevision,
     bool clearSelection = false,
     bool clearPlaying = false,
   }) {
     return MushafInteractionState(
+      selectionRevision: selectionRevision ?? this.selectionRevision,
       selectedAyah: clearSelection ? null : (selectedAyah ?? this.selectedAyah),
       selectedPage: clearSelection ? null : (selectedPage ?? this.selectedPage),
       isActionSheetOpen: isActionSheetOpen ?? this.isActionSheetOpen,
@@ -51,5 +58,6 @@ class MushafInteractionState extends Equatable {
     selectedPage,
     isActionSheetOpen,
     playingAyah,
+    selectionRevision,
   ];
 }

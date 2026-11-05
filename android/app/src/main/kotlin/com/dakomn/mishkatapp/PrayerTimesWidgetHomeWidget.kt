@@ -1,10 +1,16 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-//
-// This is a placeholder Glance (Jetpack Compose) widget.
+// CUSTOMIZED NATIVE WIDGET — preserve when regenerating Dart declarations.
+// See docs/HOME_WIDGETS.md for the native rendering/data contract.
 package com.dakomn.mishkatapp
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.DpSize
+import androidx.glance.LocalSize
+import androidx.glance.appwidget.SizeMode
 import android.content.Context
+import android.os.SystemClock
+import android.widget.RemoteViews
+import androidx.glance.appwidget.AndroidRemoteViews
+import androidx.glance.layout.width
 import androidx.compose.ui.graphics.Color
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
@@ -21,11 +27,9 @@ import es.antonborri.home_widget.HomeWidgetPlugin
 import androidx.glance.layout.Column
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.text.TextStyle
-import androidx.glance.color.ColorProvider
 import androidx.compose.ui.unit.sp
 import androidx.glance.text.FontWeight
 import androidx.glance.text.TextAlign
@@ -41,6 +45,12 @@ import es.antonborri.home_widget.actionStartActivity
 
 class PrayerTimesWidgetHomeWidget : GlanceAppWidget() {
   override val stateDefinition = HomeWidgetGlanceStateDefinition()
+  // Lock-screen hosts commonly provide a taller surface than the 4×2 home widget.
+  // The same saved prayer data and native clock serve both placements.
+  override val sizeMode = SizeMode.Responsive(setOf(
+      DpSize(220.dp, 130.dp), DpSize(300.dp, 160.dp),
+      DpSize(300.dp, 210.dp), DpSize(360.dp, 240.dp),
+  ))
 
   override suspend fun provideGlance(context: Context, id: GlanceId) {
     provideContent { WidgetContent(context, currentState()) }
@@ -55,40 +65,67 @@ class PrayerTimesWidgetHomeWidget : GlanceAppWidget() {
     val hwPreviewData =
         PrayerTimesWidgetData.previewFromPreferences(HomeWidgetPlugin.getData(context))
     return listOf(
-      "e179124a",
+      "prayer-home-lock-v2",
       hwLocales.joinToString(","),
-      hwPreviewData.toString(),
+      hwPreviewData.copy(prayerNextAt = 0L).toString(),
+      HomeWidgetPlugin.getData(context).getString("widgetTheme", "system"),
     ).joinToString("|")
   }
 
   @Composable
   private fun WidgetContent(context: Context, currentState: HomeWidgetGlanceState, preview: Boolean = false) {
     val prefs = currentState.preferences
+    val size = LocalSize.current
+    val compact = size.width < 280.dp || size.height < 150.dp
+    val tall = size.height >= 190.dp
     val widgetData =
         if (preview) PrayerTimesWidgetData.previewFromPreferences(prefs)
         else PrayerTimesWidgetData.fromPreferences(prefs)
     GlanceTheme {
-            Box(modifier = GlanceModifier.background(ColorProvider(day = Color(0xFFF3F8F5), night = Color(0xFF10211B))).padding(16.dp).fillMaxSize().clickable(onClick = actionStartActivity<MainActivity>(context, Uri.parse("mishkat://prayer?homeWidget"))), contentAlignment = Alignment.Center) {
+            Box(modifier = GlanceModifier.background(mishkatWidgetColor(prefs, day = Color(0xFFF3F8F5), night = Color(0xFF10211B))).padding(if (compact) 12.dp else 16.dp).fillMaxSize().clickable(onClick = actionStartActivity<MainActivity>(context, Uri.parse("mishkat://prayer?homeWidget"))), contentAlignment = Alignment.Center) {
                 Column(modifier = GlanceModifier.fillMaxSize(), horizontalAlignment = Alignment.End) {
                     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = widgetData.prayerCity ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFF60716B), night = Color(0xFFADBBB5)), fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End))
-                        Spacer(modifier = GlanceModifier.defaultWeight())
-                        Text(modifier = GlanceModifier.background(ColorProvider(day = Color(0xFFDDEDE7), night = Color(0xFF1D3930))).cornerRadius(999.0.dp).padding(start = 8.0.dp, top = 3.0.dp, end = 8.0.dp, bottom = 3.0.dp), text = "مِشكاة • الصلاة", style = TextStyle(color = ColorProvider(day = Color(0xFF276C5D), night = Color(0xFF91DDC0)), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End))
+                        Text(modifier = GlanceModifier.defaultWeight(), text = widgetData.prayerCity ?: "", maxLines = 1, style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF60716B), night = Color(0xFFADBBB5)), fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End))
+                        Spacer(modifier = GlanceModifier.width(8.dp))
+                        Text(modifier = GlanceModifier.background(mishkatWidgetColor(prefs, day = Color(0xFFDDEDE7), night = Color(0xFF1D3930))).cornerRadius(999.0.dp).padding(start = 8.0.dp, top = 3.0.dp, end = 8.0.dp, bottom = 3.0.dp), text = "مِشكاة • الصلاة", maxLines = 1, style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF276C5D), night = Color(0xFF91DDC0)), fontSize = if (compact) 11.sp else 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End))
                     }
                     Spacer(modifier = GlanceModifier.defaultWeight())
                     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(horizontalAlignment = Alignment.Start) {
-                            Text(modifier = GlanceModifier.background(ColorProvider(day = Color(0xFFDDEDE7), night = Color(0xFF1D3930))).cornerRadius(12.0.dp).padding(start = 10.0.dp, top = 7.0.dp, end = 10.0.dp, bottom = 7.0.dp), text = widgetData.prayerRemaining ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFF60716B), night = Color(0xFFADBBB5)), fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End))
+                            Column(
+                                modifier = GlanceModifier.background(mishkatWidgetColor(prefs, day = Color(0xFFDDEDE7), night = Color(0xFF1D3930))).cornerRadius(12.dp).width(if (compact) 110.dp else 132.dp).padding(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(text = "متبقي", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF60716B), night = Color(0xFFADBBB5)), fontSize = 11.sp))
+                                val remaining = widgetData.prayerNextAt - System.currentTimeMillis()
+                                if (remaining > 0L) {
+                                    val timer = RemoteViews(context.packageName, R.layout.mishkat_widget_countdown).apply {
+                                        // In system mode the day/night XML color tracks the launcher theme.
+                                        when (prefs.getString("widgetTheme", "system")) {
+                                            "light" -> setTextColor(R.id.mishkat_prayer_countdown, 0xFF276C5D.toInt())
+                                            "dark" -> setTextColor(R.id.mishkat_prayer_countdown, 0xFF91DDC0.toInt())
+                                        }
+                                        setChronometerCountDown(R.id.mishkat_prayer_countdown, true)
+                                        // The launcher owns ticking. The saved timeline advances at each prayer.
+                                        // Use the system timer format: unlike a static prefix it stays valid at hour boundaries.
+                                        setChronometer(R.id.mishkat_prayer_countdown, SystemClock.elapsedRealtime() + remaining, null, !preview)
+                                        if (preview) setTextViewText(R.id.mishkat_prayer_countdown, "48:30")
+                                    }
+                                    AndroidRemoteViews(remoteViews = timer)
+                                } else {
+                                    Text(text = widgetData.prayerRemaining ?: "افتح مشكاة لتحديث المواقيت", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF60716B), night = Color(0xFFADBBB5)), fontSize = 11.sp, textAlign = TextAlign.Center))
+                                }
+                            }
                         }
                         Spacer(modifier = GlanceModifier.defaultWeight())
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(text = "الصلاة القادمة", style = TextStyle(color = ColorProvider(day = Color(0xFF60716B), night = Color(0xFFADBBB5)), fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End))
-                            Text(text = widgetData.prayerNextName ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFF17362F), night = Color(0xFFF3F8F5)), fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End))
-                            Text(text = widgetData.prayerNextTime ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFF276C5D), night = Color(0xFF91DDC0)), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End))
+                            Text(text = "الصلاة القادمة", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF60716B), night = Color(0xFFADBBB5)), fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End))
+                            Text(text = widgetData.prayerNextName ?: "", maxLines = 1, style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF17362F), night = Color(0xFFF3F8F5)), fontSize = if (tall) 28.sp else 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End))
+                            Text(text = widgetData.prayerNextTime ?: "", maxLines = 1, style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF276C5D), night = Color(0xFF91DDC0)), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End))
                         }
                     }
                     Spacer(modifier = GlanceModifier.defaultWeight())
-                    Text(modifier = GlanceModifier.background(ColorProvider(day = Color(0xFFDDEDE7), night = Color(0xFF1D3930))).cornerRadius(10.0.dp).padding(start = 9.0.dp, top = 5.0.dp, end = 9.0.dp, bottom = 5.0.dp), text = widgetData.prayerUpcoming ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFF60716B), night = Color(0xFFADBBB5)), fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End))
+                    Text(modifier = GlanceModifier.background(mishkatWidgetColor(prefs, day = Color(0xFFDDEDE7), night = Color(0xFF1D3930))).cornerRadius(10.0.dp).padding(start = 9.0.dp, top = 5.0.dp, end = 9.0.dp, bottom = 5.0.dp), text = widgetData.prayerUpcoming ?: "", maxLines = if (tall) 2 else 1, style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF60716B), night = Color(0xFFADBBB5)), fontSize = if (compact) 10.sp else 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End))
                 }
             }
     }
@@ -97,6 +134,7 @@ class PrayerTimesWidgetHomeWidget : GlanceAppWidget() {
 }
 
 data class PrayerTimesWidgetData(
+    val prayerNextAt: Long = 0,
     val prayerCity: String? = null,
     val prayerRemaining: String? = null,
     val prayerNextName: String? = null,
@@ -109,6 +147,7 @@ data class PrayerTimesWidgetData(
         fun fromPreferences(prefs: android.content.SharedPreferences, now: Long = System.currentTimeMillis()): PrayerTimesWidgetData {
             val timedValues = resolveTimedValues(prefs, now)
             return PrayerTimesWidgetData(
+                prayerNextAt = timedValues.optLong("prayerNextAt", 0L),
                 prayerCity = prefs.getString("${PREFERENCES_PREFIX}.prayerCity", "حدّد موقعك في مشكاة"),
                 prayerRemaining = if (timedValues.has("prayerRemaining") && !timedValues.isNull("prayerRemaining")) timedValues.optString("prayerRemaining") else "افتح مشكاة لتحديث المواقيت",
                 prayerNextName = if (timedValues.has("prayerNextName") && !timedValues.isNull("prayerNextName")) timedValues.optString("prayerNextName") else "—",
@@ -120,8 +159,9 @@ data class PrayerTimesWidgetData(
         fun previewFromPreferences(prefs: android.content.SharedPreferences, now: Long = System.currentTimeMillis()): PrayerTimesWidgetData {
             val timedValues = resolveTimedValues(prefs, now)
             return PrayerTimesWidgetData(
+                prayerNextAt = timedValues.optLong("prayerNextAt", now + 2910000L),
                 prayerCity = prefs.getString("${PREFERENCES_PREFIX}.prayerCity", "مكة المكرمة"),
-                prayerRemaining = if (timedValues.has("prayerRemaining") && !timedValues.isNull("prayerRemaining")) timedValues.optString("prayerRemaining") else "متبقي نحو ساعتين",
+                prayerRemaining = if (timedValues.has("prayerRemaining") && !timedValues.isNull("prayerRemaining")) timedValues.optString("prayerRemaining") else "48:30",
                 prayerNextName = if (timedValues.has("prayerNextName") && !timedValues.isNull("prayerNextName")) timedValues.optString("prayerNextName") else "المغرب",
                 prayerNextTime = if (timedValues.has("prayerNextTime") && !timedValues.isNull("prayerNextTime")) timedValues.optString("prayerNextTime") else "٥:٤٢ م",
                 prayerUpcoming = if (timedValues.has("prayerUpcoming") && !timedValues.isNull("prayerUpcoming")) timedValues.optString("prayerUpcoming") else "العصر ٣:٢١  •  المغرب ٥:٤٢  •  العشاء ٧:١٢",
@@ -146,7 +186,10 @@ data class PrayerTimesWidgetData(
                     }
                 }
                 val resolvedKey = activeKey ?: return org.json.JSONObject()
-                json.optJSONObject(resolvedKey) ?: org.json.JSONObject()
+                val values = json.optJSONObject(resolvedKey) ?: return org.json.JSONObject()
+                if (values.optLong("prayerNextAt", 0L) <= now) {
+                    org.json.JSONObject().put("prayerRemaining", "افتح مشكاة لتحديث المواقيت")
+                } else values
             } catch (_: Exception) {
                 org.json.JSONObject()
             }

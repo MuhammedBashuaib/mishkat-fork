@@ -1,6 +1,4 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-//
-// Placeholder SwiftUI widget.
+// CUSTOMIZED native widget. Maintain by hand; see docs/HOME_WIDGETS.md.
 //
 // App Group ID used here: TasbihWidgetHomeWidgetFlavor.appGroupId
 
@@ -62,37 +60,63 @@ struct TasbihWidgetHomeWidgetEntry: TimelineEntry {
 
 struct TasbihWidgetHomeWidgetEntryView: View {
   var entry: Provider.Entry
+  @Environment(\.colorScheme) private var systemColorScheme
 
-  @Environment(\.colorScheme) var colorScheme
+  private var colorScheme: ColorScheme {
+    let preference = UserDefaults(suiteName: TasbihWidgetHomeWidgetFlavor.appGroupId)?
+      .string(forKey: "widgetTheme")
+    switch preference {
+    case "light": return .light
+    case "dark": return .dark
+    default: return systemColorScheme
+    }
+  }
+  private var accent: Color { colorScheme == .dark ? Color(hex: 0xD7B8EE) : Color(hex: 0x795597) }
+  private var secondary: Color { colorScheme == .dark ? Color(hex: 0xBBA8C9) : Color(hex: 0x887095) }
+  private var primary: Color { colorScheme == .dark ? Color(hex: 0xFBF5FF) : Color(hex: 0x3B2949) }
 
   var body: some View {
-        VStack(alignment: .center, spacing: 0) {
-            Text("مِشكاة • المسبحة")
-                .font(.system(size: 11.0, weight: .bold)).foregroundColor((colorScheme == .dark ? Color(red: 0.8431372549019608, green: 0.7215686274509804, blue: 0.9333333333333333, opacity: 1.0) : Color(red: 0.4470588235294118, green: 0.3254901960784314, blue: 0.5294117647058824, opacity: 1.0)))
-            Spacer(minLength: 0)
-            VStack(alignment: .center, spacing: 0) {
-                Text(entry.data.tasbihDhikr ?? "")
-                    .font(.system(size: 13.0, weight: .semibold)).foregroundColor((colorScheme == .dark ? Color(red: 0.8431372549019608, green: 0.7215686274509804, blue: 0.9333333333333333, opacity: 1.0) : Color(red: 0.4470588235294118, green: 0.3254901960784314, blue: 0.5294117647058824, opacity: 1.0)))
-                    .multilineTextAlignment(.center)
-                Text(entry.data.tasbihCount ?? "")
-                    .font(.system(size: 36.0, weight: .heavy)).foregroundColor((colorScheme == .dark ? Color(red: 0.9647058823529412, green: 0.9568627450980393, blue: 0.9450980392156862, opacity: 1.0) : Color(red: 0.14901960784313725, green: 0.23137254901960785, blue: 0.20784313725490197, opacity: 1.0)))
-                    .multilineTextAlignment(.center)
-                Text(entry.data.tasbihTarget ?? "")
-                    .font(.system(size: 11.0, weight: .semibold)).foregroundColor((colorScheme == .dark ? Color(red: 0.8431372549019608, green: 0.7215686274509804, blue: 0.9333333333333333, opacity: 1.0) : Color(red: 0.4470588235294118, green: 0.3254901960784314, blue: 0.5294117647058824, opacity: 1.0)))
-                    .multilineTextAlignment(.center)
-                Text(entry.data.tasbihToday ?? "")
-                    .font(.system(size: 11.0, weight: .semibold)).foregroundColor((colorScheme == .dark ? Color(red: 0.8431372549019608, green: 0.7215686274509804, blue: 0.9333333333333333, opacity: 1.0) : Color(red: 0.4470588235294118, green: 0.3254901960784314, blue: 0.5294117647058824, opacity: 1.0)))
-                    .multilineTextAlignment(.center)
-            }
-            .padding(EdgeInsets(top: 8.0, leading: 12.0, bottom: 8.0, trailing: 12.0))
-            .background(RoundedRectangle(cornerRadius: 18.0).fill((colorScheme == .dark ? Color(red: 0.22745098039215686, green: 0.1607843137254902, blue: 0.27058823529411763, opacity: 1.0) : Color(red: 0.9372549019607843, green: 0.8901960784313725, blue: 0.9686274509803922, opacity: 1.0))))
-            Spacer(minLength: 0)
-            Text(entry.data.tasbihAction ?? "")
-                .font(.system(size: 10.0, weight: .semibold)).foregroundColor((colorScheme == .dark ? Color(red: 0.8431372549019608, green: 0.7215686274509804, blue: 0.9333333333333333, opacity: 1.0) : Color(red: 0.4470588235294118, green: 0.3254901960784314, blue: 0.5294117647058824, opacity: 1.0)))
-                .multilineTextAlignment(.center)
+    GeometryReader { geometry in
+      let ringSize = min(72, max(48, geometry.size.height - 70))
+      VStack(spacing: 3) {
+      HStack(spacing: 5) {
+        Spacer(minLength: 0)
+        Text("مِشكاة · المسبحة").font(.system(size: 10, weight: .semibold))
+        Image(systemName: "circle.dotted").font(.system(size: 11, weight: .medium))
+          .accessibilityHidden(true)
+      }
+      .foregroundColor(secondary)
+      Text(entry.data.tasbihDhikr ?? "سبحان الله")
+        .font(.system(size: 12, weight: .semibold)).foregroundColor(primary)
+        .lineLimit(2).minimumScaleFactor(0.75).multilineTextAlignment(.center)
+      Spacer(minLength: 0)
+      ZStack {
+        Circle().stroke(accent.opacity(0.22), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [1, 6]))
+        Circle().trim(from: 0, to: entry.data.tasbihProgressValue)
+          .stroke(accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+          .rotationEffect(.degrees(-90))
+        VStack(spacing: 0) {
+          Text(entry.data.tasbihCount ?? "٠")
+            .font(.system(size: ringSize < 60 ? 23 : 29, weight: .bold, design: .rounded)).monospacedDigit()
+            .foregroundColor(primary).lineLimit(1).minimumScaleFactor(0.6)
+          Text(entry.data.tasbihTarget ?? "الهدف ٣٣")
+            .font(.system(size: 8, weight: .medium)).foregroundColor(secondary)
+            .lineLimit(1).minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .applyContainerBackground((colorScheme == .dark ? Color(red: 0.15294117647058825, green: 0.11764705882352941, blue: 0.18823529411764706, opacity: 1.0) : Color(red: 0.9725490196078431, green: 0.9529411764705882, blue: 0.9882352941176471, opacity: 1.0)))
+        .padding(.horizontal, 7)
+      }
+      .frame(width: ringSize, height: ringSize)
+      .accessibilityElement(children: .combine)
+      if geometry.size.height >= 128 {
+        Spacer(minLength: 0)
+        Text(entry.data.tasbihToday ?? "اليوم ٠ تسبيحة")
+          .font(.system(size: 9, weight: .medium)).foregroundColor(secondary)
+          .lineLimit(1).minimumScaleFactor(0.75)
+      }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    .applyContainerBackground(colorScheme == .dark ? Color(hex: 0x271E30) : Color(hex: 0xF8F3FC))
     .widgetURL(URL(string: "mishkat://tasbih?homeWidget"))
   }
 }
@@ -122,6 +146,7 @@ extension View {
 }
 
 struct TasbihWidgetData {
+  let tasbihProgressValue: Double
   let tasbihDhikr: String?
   let tasbihCount: String?
   let tasbihTarget: String?
@@ -137,6 +162,7 @@ struct TasbihWidgetData {
   ) -> TasbihWidgetData {
     let timedValues = activeTimedValues(timedEntries ?? loadTimedEntries(defaults), at: date)
     return TasbihWidgetData(
+      tasbihProgressValue: min(1, max(0, defaults?.double(forKey: "\(paramPrefix).tasbihProgressValue") ?? 0)),
       tasbihDhikr: (defaults?.string(forKey: "\(paramPrefix).tasbihDhikr") ?? "سبحان الله"),
       tasbihCount: (defaults?.string(forKey: "\(paramPrefix).tasbihCount") ?? "٠"),
       tasbihTarget: (defaults?.string(forKey: "\(paramPrefix).tasbihTarget") ?? "الهدف ٣٣"),
@@ -152,6 +178,7 @@ struct TasbihWidgetData {
   ) -> TasbihWidgetData {
     let timedValues = activeTimedValues(timedEntries ?? loadTimedEntries(defaults), at: date)
     return TasbihWidgetData(
+      tasbihProgressValue: min(1, max(0, (defaults?.object(forKey: "\(paramPrefix).tasbihProgressValue") as? NSNumber)?.doubleValue ?? (24.0 / 33.0))),
       tasbihDhikr: (defaults?.string(forKey: "\(paramPrefix).tasbihDhikr") ?? "سبحان الله"),
       tasbihCount: (defaults?.string(forKey: "\(paramPrefix).tasbihCount") ?? "٢٤"),
       tasbihTarget: (defaults?.string(forKey: "\(paramPrefix).tasbihTarget") ?? "الهدف ٣٣"),
@@ -188,3 +215,9 @@ struct TasbihWidgetData {
   }
 }
 
+
+private extension Color {
+  init(hex: UInt32) {
+    self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
+  }
+}

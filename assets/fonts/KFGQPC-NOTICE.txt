@@ -1,0 +1,33 @@
+KFGQPC HAFS Uthmanic Script — Version 2.2
+
+Font file: UthmanicHafs_V22.ttf
+Publisher: King Fahd Glorious Quran Printing Complex, Al-Madinah, Saudi Arabia.
+Source: https://static-cdn.tarteel.ai/qul/fonts/UthmanicHafs_V22.ttf
+Resource documentation: https://qul.tarteel.ai/resources/font/245
+Downloaded: 2026-11-05
+SHA-256: aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145
+
+The font file is included unmodified. The copyright notice and license below
+are copied verbatim from its embedded name table (name IDs 0 and 13).
+QUL / Tarteel provides the source font; the font remains the property of KFGQPC.
+This notice does not extend the application code's license to the font.
+
+COPYRIGHT NOTICE
+
+The digitally signed machine readable Typeface(Font) licensed to you is copyrighted, (2010), King Fahd Glorious Quran Printing Complex.
+ISBN: 978-603-8010-15-0, Accession No. 1430/7278
+All rights reserved. This Font is the property of King Fahd Glorious Quran Printing Complex, and may not be reproduced, modified without the express written approval of King Fahd Glorious Quran Printing Complex.
+
+EMBEDDED END-USER LICENSE AGREEMENT
+
+ELECTRONIC END-USER LICENSE AGREEMENT
+
+By installing this Font You accept all the terms and conditions of this Agreement.
+
+Copyright (c) 2010 by King Fahd Glorious Quran Printing Complex (KFGQPC), AlMadinah AlMunawarrah, Kingdom of Saudi Arabia. All Rights Reserved. KFGQPC retains full title and ownership of this Typeface both as artwork and font software. This Agreement does not grant you any intellectual property rights in the Font.
+
+Permission is hereby granted, Free of Cost, to any person obtaining a copy of this Font accompanying this license, the rights to Use, Copy, Distribute, subject to the following conditions:
+
+1.    The Font Software cannot be Sold, Modified, Altered, Translated, Reverse Engineered, Decompiled, Disassembled, Reproduced or Attempted to discover the Source Code of this Font in no means.
+
+2.    The Font Software is provided "AS IS", and KFGQPC makes no warranties as to its use or performance, fitness for a particular purpose. KFGQPC does not and cannot warrant the performance or results you may obtain by using the Font. In no event shall KFGQPC be liable for any Claims, Damages or other Liability, including any Damages, arising from, out of the use or inability to use the Font or from other dealings in the Font.

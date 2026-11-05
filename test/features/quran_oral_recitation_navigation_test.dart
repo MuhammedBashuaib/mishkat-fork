@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/oral_recitation_mushaf.dart';
+import 'package:mishkat_app/features/quran/data/repositories/mushaf_layout_repository.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mishkat_app/app/app.dart';
 import 'package:mishkat_app/core/services/audio_service.dart';
@@ -134,6 +136,8 @@ void main() {
   late LibraryRepository globalLibraryRepo;
 
   setUpAll(() async {
+    await MushafLayoutRepository.instance.load();
+    await OralRecitationMushaf.preloadCanonicalText();
     globalQuranRepo = QuranRepository();
     globalAdhkarRepo = AdhkarRepository();
     globalLibraryRepo = LibraryRepository();
@@ -221,7 +225,7 @@ void main() {
 
       expect(
         find.text(
-          'تبقى الآيات مخفية أثناء القراءة، ثم تظهر بعد اكتمال كل آية مع تمييز مواضع الخطأ.',
+          'سمّع على صفحات المصحف نفسها كما في الختمة، مع إخفاء الآيات وإبقاء أرقامها. تنكشف الآية بعد إتمامها، ويمكنك طلب تلميح كلمة أو الضغط مطولاً لكشفها مؤقتاً.',
         ),
         findsOneWidget,
       );
@@ -235,13 +239,18 @@ void main() {
 
       // Verify Oral Recitation page is rendered without any ProviderNotFoundException
       expect(find.byType(QuranOralRecitationPage), findsOneWidget);
-      expect(find.text('التسميع الشفهي الذكي'), findsOneWidget);
-      expect(find.text('الفاتحة · الآيات 1 - 5'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('recitation-screen-title')),
+        findsOneWidget,
+      );
+      expect(find.text('تسميع · الآيات 1–5'), findsOneWidget);
       expect(find.text('جاهز للتسميع'), findsOneWidget);
       expect(find.text('بدء التسميع'), findsOneWidget);
 
       // Verify cubit received real QuranRepository instance from MishkatApp root
-      final innerContext = tester.element(find.text('التسميع الشفهي الذكي'));
+      final innerContext = tester.element(
+        find.byKey(const ValueKey('recitation-screen-title')),
+      );
       final cubit = innerContext.read<QuranOralRecitationCubit>();
       expect(cubit.quranRepository, same(globalQuranRepo));
       expect(cubit.state.lifecycle, OralRecitationLifecycle.ready);

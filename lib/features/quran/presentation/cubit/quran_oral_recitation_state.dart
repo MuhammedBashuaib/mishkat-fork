@@ -26,10 +26,24 @@ class QuranOralRecitationState extends Equatable {
     this.durationSeconds = 0,
     this.revealedGlobals = const {},
     this.completedGlobalAyahs = const {},
+    this.previewCompletedGlobalAyahs = const {},
+    this.visibleWordIndices = const {},
+    this.mistakeWordIndices = const {},
+    this.unresolvedMistakeWordIndices = const {},
     this.summary,
     this.errorMessage,
     this.isCommittingToMemorization = false,
     this.isMemorizationCommitted = false,
+    this.mode = OralRecitationMode.hidden,
+    this.isOfflineEngine = false,
+    this.audioLevel = 0,
+    this.isProcessingSpeech = false,
+    this.isDraining = false,
+    this.hintCount = 0,
+    this.hintedGlobalAyahs = const {},
+    this.hintedWordIndices = const {},
+    this.assistedWordIndices = const {},
+    this.correctionWordIndex,
   });
 
   final OralRecitationLifecycle lifecycle;
@@ -57,14 +71,50 @@ class QuranOralRecitationState extends Equatable {
 
   final Set<int> revealedGlobals;
   final Set<int> completedGlobalAyahs;
+
+  /// Stable live display only; never used for saved progress or scoring.
+  final Set<int> previewCompletedGlobalAyahs;
+
+  /// Authoritative words supported by final speech or a stable live hypothesis.
+  /// Visibility is independent of the listening cursor and saved progress.
+  final Set<int> visibleWordIndices;
+
+  /// Confirmed mistakes stay red for review after the reader corrects them.
+  final Set<int> mistakeWordIndices;
+
+  /// A dotted underline distinguishes mistakes still needing correction.
+  final Set<int> unresolvedMistakeWordIndices;
   final OralRecitationSessionSummary? summary;
   final String? errorMessage;
   final bool isCommittingToMemorization;
   final bool isMemorizationCommitted;
+  final OralRecitationMode mode;
+  final bool isOfflineEngine;
+  final double audioLevel;
+  final bool isProcessingSpeech;
+  final bool isDraining;
+  final int hintCount;
+  final Set<int> hintedGlobalAyahs;
+  final Set<int> hintedWordIndices;
+  final Set<int> assistedWordIndices;
+  final int? correctionWordIndex;
+
+  int get attemptedWords =>
+      alignedWords.where((w) => !w.status.isUpcoming).length;
+  double get coveragePercentage =>
+      targetWords.isEmpty ? 0 : attemptedWords / targetWords.length * 100;
 
   bool get isListening => lifecycle.isListening;
   bool get isPaused => lifecycle.isPaused;
   bool get isCompleted => lifecycle.isCompleted;
+  // Keep the chosen assistance level for the whole attempt, including pauses.
+  bool get canChangeMode =>
+      !isListening &&
+      !isPaused &&
+      !isCompleted &&
+      !isDraining &&
+      attemptedWords == 0 &&
+      committedTargetIndex == 0;
   bool get hasActiveSession =>
       sessionId != null && !lifecycle.isIdle && !lifecycle.isCompleted;
 
@@ -91,11 +141,27 @@ class QuranOralRecitationState extends Equatable {
     int? durationSeconds,
     Set<int>? revealedGlobals,
     Set<int>? completedGlobalAyahs,
+    Set<int>? previewCompletedGlobalAyahs,
+    Set<int>? visibleWordIndices,
+    Set<int>? mistakeWordIndices,
+    Set<int>? unresolvedMistakeWordIndices,
     OralRecitationSessionSummary? summary,
     String? errorMessage,
     bool clearError = false,
     bool? isCommittingToMemorization,
     bool? isMemorizationCommitted,
+    OralRecitationMode? mode,
+    bool? isOfflineEngine,
+    double? audioLevel,
+    bool? isProcessingSpeech,
+    bool? isDraining,
+    int? hintCount,
+    Set<int>? hintedGlobalAyahs,
+    Set<int>? hintedWordIndices,
+    Set<int>? assistedWordIndices,
+    int? correctionWordIndex,
+    bool clearCorrection = false,
+    bool clearSummary = false,
   }) {
     return QuranOralRecitationState(
       lifecycle: lifecycle ?? this.lifecycle,
@@ -120,12 +186,30 @@ class QuranOralRecitationState extends Equatable {
       durationSeconds: durationSeconds ?? this.durationSeconds,
       revealedGlobals: revealedGlobals ?? this.revealedGlobals,
       completedGlobalAyahs: completedGlobalAyahs ?? this.completedGlobalAyahs,
-      summary: summary ?? this.summary,
+      previewCompletedGlobalAyahs:
+          previewCompletedGlobalAyahs ?? this.previewCompletedGlobalAyahs,
+      visibleWordIndices: visibleWordIndices ?? this.visibleWordIndices,
+      mistakeWordIndices: mistakeWordIndices ?? this.mistakeWordIndices,
+      unresolvedMistakeWordIndices:
+          unresolvedMistakeWordIndices ?? this.unresolvedMistakeWordIndices,
+      summary: clearSummary ? null : (summary ?? this.summary),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       isCommittingToMemorization:
           isCommittingToMemorization ?? this.isCommittingToMemorization,
       isMemorizationCommitted:
           isMemorizationCommitted ?? this.isMemorizationCommitted,
+      mode: mode ?? this.mode,
+      isOfflineEngine: isOfflineEngine ?? this.isOfflineEngine,
+      audioLevel: audioLevel ?? this.audioLevel,
+      isProcessingSpeech: isProcessingSpeech ?? this.isProcessingSpeech,
+      isDraining: isDraining ?? this.isDraining,
+      hintCount: hintCount ?? this.hintCount,
+      hintedGlobalAyahs: hintedGlobalAyahs ?? this.hintedGlobalAyahs,
+      hintedWordIndices: hintedWordIndices ?? this.hintedWordIndices,
+      assistedWordIndices: assistedWordIndices ?? this.assistedWordIndices,
+      correctionWordIndex: clearCorrection
+          ? null
+          : (correctionWordIndex ?? this.correctionWordIndex),
     );
   }
 
@@ -153,9 +237,23 @@ class QuranOralRecitationState extends Equatable {
     durationSeconds,
     revealedGlobals,
     completedGlobalAyahs,
+    previewCompletedGlobalAyahs,
+    visibleWordIndices,
+    mistakeWordIndices,
+    unresolvedMistakeWordIndices,
     summary,
     errorMessage,
     isCommittingToMemorization,
     isMemorizationCommitted,
+    mode,
+    isOfflineEngine,
+    audioLevel,
+    isProcessingSpeech,
+    isDraining,
+    hintCount,
+    hintedGlobalAyahs,
+    hintedWordIndices,
+    assistedWordIndices,
+    correctionWordIndex,
   ];
 }

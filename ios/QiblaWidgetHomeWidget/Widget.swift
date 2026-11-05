@@ -1,6 +1,5 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-//
-// Placeholder SwiftUI widget.
+// CUSTOMIZED NATIVE WIDGET — preserve when regenerating Dart declarations.
+// See docs/HOME_WIDGETS.md for native rendering and the shared data contract.
 //
 // App Group ID used here: QiblaWidgetHomeWidgetFlavor.appGroupId
 
@@ -48,30 +47,34 @@ struct QiblaWidgetHomeWidgetEntry: TimelineEntry {
 
 struct QiblaWidgetHomeWidgetEntryView: View {
   var entry: Provider.Entry
-
-  @Environment(\.colorScheme) var colorScheme
+  @Environment(\.colorScheme) private var systemColorScheme
+  private var colorScheme: ColorScheme { widgetColorScheme(systemColorScheme) }
+  private var accent: Color { colorScheme == .dark ? Color(hex: 0xF0CF82) : Color(hex: 0x9B742C) }
+  private var secondary: Color { colorScheme == .dark ? Color(hex: 0xB7D0C7) : Color(hex: 0x526F63) }
+  private var hasBearing: Bool { entry.data.qiblaBearingDegrees.isFinite && entry.data.qiblaBearingDegrees >= 0 }
 
   var body: some View {
-        VStack(alignment: .center, spacing: 0) {
-            Text("مِشكاة • القبلة")
-                .font(.system(size: 12.0, weight: .bold)).foregroundColor(Color(red: 0.7176470588235294, green: 0.8156862745098039, blue: 0.7803921568627451, opacity: 1.0))
-            Spacer(minLength: 0)
-            Text(entry.data.qiblaArrow ?? "")
-                .font(.system(size: 42.0, weight: .regular)).foregroundColor(Color(red: 0.9411764705882353, green: 0.8117647058823529, blue: 0.5098039215686274, opacity: 1.0))
-            .padding(EdgeInsets(top: 8.0, leading: 15.0, bottom: 8.0, trailing: 15.0))
-            .background(RoundedRectangle(cornerRadius: 999.0).fill((colorScheme == .dark ? Color(red: 0.10588235294117647, green: 0.25098039215686274, blue: 0.21176470588235294, opacity: 1.0) : Color(red: 0.19215686274509805, green: 0.37254901960784315, blue: 0.32941176470588235, opacity: 1.0))))
-            .overlay(RoundedRectangle(cornerRadius: 999.0).strokeBorder(Color(red: 0.9411764705882353, green: 0.8117647058823529, blue: 0.5098039215686274, opacity: 1.0), lineWidth: 1.0))
-            Spacer(minLength: 0)
-            VStack(alignment: .center, spacing: 0) {
-                Text(entry.data.qiblaBearing ?? "")
-                    .font(.system(size: 13.0, weight: .bold)).foregroundColor(Color(red: 0.9568627450980393, green: 0.9803921568627451, blue: 0.9686274509803922, opacity: 1.0))
-                Text(entry.data.qiblaDistance ?? "")
-                    .font(.system(size: 10.0)).foregroundColor(Color(red: 0.7176470588235294, green: 0.8156862745098039, blue: 0.7803921568627451, opacity: 1.0))
-                .padding(.top, 1.0)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .applyContainerBackground((colorScheme == .dark ? Color(red: 0.054901960784313725, green: 0.1568627450980392, blue: 0.12941176470588237, opacity: 1.0) : Color(red: 0.12941176470588237, green: 0.30980392156862746, blue: 0.26666666666666666, opacity: 1.0)))
+    VStack(spacing: 3) {
+      Text("مِشكاة • القبلة").font(.system(size: 11, weight: .bold)).foregroundColor(secondary)
+      Spacer(minLength: 0)
+      ZStack {
+        Circle().fill(colorScheme == .dark ? Color(hex: 0x1B4036) : Color(hex: 0xE0EDE6))
+        Circle().strokeBorder(accent.opacity(0.7), lineWidth: 1)
+        VStack { Text("N").font(.system(size: 9, weight: .semibold)).foregroundColor(secondary); Spacer() }.padding(.top, 5)
+        Image(systemName: "location.north.fill")
+          .font(.system(size: 33)).foregroundColor(accent)
+          .rotationEffect(.degrees(hasBearing ? entry.data.qiblaBearingDegrees : 0))
+      }
+      .frame(width: 66, height: 66)
+      .accessibilityLabel(hasBearing ? "اتجاه القبلة بالنسبة للشمال" : "الشمال — حدّد موقعك لاتجاه القبلة")
+      Spacer(minLength: 0)
+      Text(hasBearing ? (entry.data.qiblaBearing ?? "القبلة") : "الشمال").font(.system(size: 12, weight: .bold))
+        .foregroundColor(colorScheme == .dark ? Color(hex: 0xF4FAF7) : Color(hex: 0x17362F)).lineLimit(1).minimumScaleFactor(0.8)
+      Text(hasBearing ? "بالنسبة للشمال" : "حدّد موقعك للقبلة").font(.system(size: 9)).foregroundColor(secondary)
+      Text("اضغط للبوصلة الحية").font(.system(size: 9, weight: .semibold)).foregroundColor(secondary)
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .applyContainerBackground(colorScheme == .dark ? Color(hex: 0x0E2821) : Color(hex: 0xF3F8F5))
     .widgetURL(URL(string: "mishkat://qibla?homeWidget"))
   }
 }
@@ -101,6 +104,7 @@ extension View {
 }
 
 struct QiblaWidgetData {
+  let qiblaBearingDegrees: Double
   let qiblaArrow: String?
   let qiblaBearing: String?
   let qiblaDistance: String?
@@ -109,6 +113,7 @@ struct QiblaWidgetData {
 
   static func fromUserDefaults(_ defaults: UserDefaults?) -> QiblaWidgetData {
     return QiblaWidgetData(
+      qiblaBearingDegrees: (defaults?.object(forKey: "\(paramPrefix).qiblaBearingDegrees") as? NSNumber)?.doubleValue ?? -1,
       qiblaArrow: (defaults?.string(forKey: "\(paramPrefix).qiblaArrow") ?? "↑"),
       qiblaBearing: (defaults?.string(forKey: "\(paramPrefix).qiblaBearing") ?? "حدّد موقعك"),
       qiblaDistance: (defaults?.string(forKey: "\(paramPrefix).qiblaDistance") ?? "افتح مشكاة للبوصلة الحية"),
@@ -117,6 +122,7 @@ struct QiblaWidgetData {
 
   static func previewFromUserDefaults(_ defaults: UserDefaults?) -> QiblaWidgetData {
     return QiblaWidgetData(
+      qiblaBearingDegrees: (defaults?.object(forKey: "\(paramPrefix).qiblaBearingDegrees") as? NSNumber)?.doubleValue ?? 277,
       qiblaArrow: (defaults?.string(forKey: "\(paramPrefix).qiblaArrow") ?? "↗"),
       qiblaBearing: (defaults?.string(forKey: "\(paramPrefix).qiblaBearing") ?? "٢٧٧° شمال غربي"),
       qiblaDistance: (defaults?.string(forKey: "\(paramPrefix).qiblaDistance") ?? "٨٢٣ كم إلى الكعبة"),
@@ -124,3 +130,18 @@ struct QiblaWidgetData {
   }
 }
 
+
+// Each widget is its own extension target; keep these helpers local to its source.
+private func widgetColorScheme(_ system: ColorScheme) -> ColorScheme {
+  switch UserDefaults(suiteName: "group.com.dakomn.mishkatapp.widgets")?.string(forKey: "widgetTheme") {
+  case "light": return .light
+  case "dark": return .dark
+  default: return system
+  }
+}
+
+private extension Color {
+  init(hex: UInt32) {
+    self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
+  }
+}

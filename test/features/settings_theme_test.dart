@@ -67,6 +67,24 @@ class _TestSettingsApp extends StatelessWidget {
 }
 
 void main() {
+  test(
+    'widget appearance defaults and persists independently from app theme',
+    () {
+      final settings = AppSettings.fromJson({'theme': 'dark'});
+      expect(settings.theme, AppThemePreference.dark);
+      expect(settings.widgetTheme, AppThemePreference.system);
+      final updated = settings.copyWith(widgetTheme: AppThemePreference.light);
+      expect(updated.theme, AppThemePreference.dark);
+      expect(updated.widgetTheme, AppThemePreference.light);
+      expect(updated, isNot(settings));
+      expect(AppSettings.fromJson(updated.toJson()), updated);
+      expect(
+        AppSettings.fromJson({'widgetTheme': 'unsupported'}).widgetTheme,
+        AppThemePreference.system,
+      );
+    },
+  );
+
   testWidgets('theme selector applies and persists dark mode', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));

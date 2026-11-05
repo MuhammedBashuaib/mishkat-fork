@@ -6,6 +6,8 @@ import android.media.AudioAttributes
 import android.media.SoundPool
 import android.net.Uri
 import android.provider.Settings
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
@@ -16,9 +18,47 @@ class MainActivity : AudioServiceActivity() {
     private var adhanChannel: MethodChannel? = null
     private var speechModels: ArabicSpeechModelManager? = null
     private var speechSettingsChannel: MethodChannel? = null
+    private var offlineRecitation: OfflineRecitationPlugin? = null
+    private var readerWindowChannel: MethodChannel? = null
+    private var readerFullscreen = false
+
+    private fun applyReaderWindow() {
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (readerFullscreen) {
+                hide(WindowInsetsCompat.Type.systemBars())
+            } else {
+                show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && readerFullscreen) applyReaderWindow()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        readerWindowChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.dakomn.mishkatapp/reader_window",
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setFullscreen" -> {
+                        readerFullscreen = call.arguments == true
+                        applyReaderWindow()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        }
+
+        offlineRecitation?.dispose()
+        offlineRecitation = OfflineRecitationPlugin(this, flutterEngine.dartExecutor.binaryMessenger)
 
         adhanChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.dakomn.mishkatapp/adhan").also { channel ->
             channel.setMethodCallHandler { call, result ->
@@ -65,6 +105,14 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        readerWindowChannel?.setMethodCallHandler(null)
+        readerWindowChannel = null
+        if (readerFullscreen) {
+            readerFullscreen = false
+            applyReaderWindow()
+        }
+        offlineRecitation?.dispose()
+        offlineRecitation = null
         tasbihSound?.dispose()
         tasbihSound = null
         adhanChannel?.setMethodCallHandler(null)
@@ -74,6 +122,11 @@ class MainActivity : AudioServiceActivity() {
         speechModels?.dispose()
         speechModels = null
         super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    override fun onStop() {
+        offlineRecitation?.onHostStop()
+        super.onStop()
     }
 
     private fun openVoiceInputSettings(): Boolean {

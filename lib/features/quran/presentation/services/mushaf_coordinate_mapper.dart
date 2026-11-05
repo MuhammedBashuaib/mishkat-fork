@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 /// Pure coordinate mapping service translating between Screen/Widget local coordinates
 /// and SVG viewBox coordinates for the King Fahd Quran Complex (KFQC) Mushaf pages.
 ///
-/// Handles aspect-ratio preservation via [BoxFit.contain], letterboxing/pillarboxing,
-/// page padding, and custom viewBox offsets (such as Pages 1-2 ornamental frames).
+/// Uses the same fit and padding as the SVG, including the fullscreen canvas
+/// and custom viewBox offsets on the two opening pages.
 class MushafCoordinateMapper {
-  const MushafCoordinateMapper();
+  const MushafCoordinateMapper({this.contentPadding = defaultPadding});
+
+  final EdgeInsets contentPadding;
 
   /// Default padding applied inside the Mushaf page container.
   static const EdgeInsets defaultPadding = EdgeInsets.all(8);
@@ -15,13 +17,14 @@ class MushafCoordinateMapper {
   Rect getSvgDestinationRect({
     required Size contentSize,
     required Rect viewBox,
-    EdgeInsets padding = defaultPadding,
+    EdgeInsets? padding,
   }) {
-    final availableWidth = (contentSize.width - padding.horizontal).clamp(
+    final pagePadding = padding ?? contentPadding;
+    final availableWidth = (contentSize.width - pagePadding.horizontal).clamp(
       0.0,
       double.infinity,
     );
-    final availableHeight = (contentSize.height - padding.vertical).clamp(
+    final availableHeight = (contentSize.height - pagePadding.vertical).clamp(
       0.0,
       double.infinity,
     );
@@ -40,8 +43,8 @@ class MushafCoordinateMapper {
     return Alignment.center.inscribe(
       fitted.destination,
       Rect.fromLTWH(
-        padding.left,
-        padding.top,
+        pagePadding.left,
+        pagePadding.top,
         availableSize.width,
         availableSize.height,
       ),
@@ -56,7 +59,7 @@ class MushafCoordinateMapper {
     required Offset localPosition,
     required Size contentSize,
     required Rect viewBox,
-    EdgeInsets padding = defaultPadding,
+    EdgeInsets? padding,
   }) {
     final destRect = getSvgDestinationRect(
       contentSize: contentSize,
@@ -91,7 +94,7 @@ class MushafCoordinateMapper {
     required Offset viewBoxCoordinate,
     required Size contentSize,
     required Rect viewBox,
-    EdgeInsets padding = defaultPadding,
+    EdgeInsets? padding,
   }) {
     final destRect = getSvgDestinationRect(
       contentSize: contentSize,
@@ -114,7 +117,7 @@ class MushafCoordinateMapper {
     required Rect viewBoxRect,
     required Size contentSize,
     required Rect viewBox,
-    EdgeInsets padding = defaultPadding,
+    EdgeInsets? padding,
   }) {
     final topLeft = viewBoxToLocal(
       viewBoxCoordinate: viewBoxRect.topLeft,
@@ -136,7 +139,7 @@ class MushafCoordinateMapper {
     required List<Offset> points,
     required Size contentSize,
     required Rect viewBox,
-    EdgeInsets padding = defaultPadding,
+    EdgeInsets? padding,
   }) {
     final path = Path();
     if (points.isEmpty) return path;
@@ -169,7 +172,7 @@ class MushafCoordinateMapper {
     required RenderBox pageRenderBox,
     required Size contentSize,
     required Rect viewBox,
-    EdgeInsets padding = defaultPadding,
+    EdgeInsets? padding,
   }) {
     final localPosition = pageRenderBox.globalToLocal(screenPosition);
     return localToViewBox(

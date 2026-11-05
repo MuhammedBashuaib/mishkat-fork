@@ -1,6 +1,4 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-//
-// This is a placeholder Glance (Jetpack Compose) widget.
+// CUSTOMIZED native widget. Maintain by hand; see docs/HOME_WIDGETS.md.
 package com.dakomn.mishkatapp
 
 import androidx.compose.runtime.Composable
@@ -25,7 +23,6 @@ import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.text.TextStyle
-import androidx.glance.color.ColorProvider
 import androidx.compose.ui.unit.sp
 import androidx.glance.text.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,6 +55,7 @@ class AdhkarWidgetHomeWidget : GlanceAppWidget() {
       "a5541cb9",
       hwLocales.joinToString(","),
       hwPreviewData.toString(),
+      HomeWidgetPlugin.getData(context).getString("widgetTheme", "system"),
     ).joinToString("|")
   }
 
@@ -68,17 +66,17 @@ class AdhkarWidgetHomeWidget : GlanceAppWidget() {
         if (preview) AdhkarWidgetData.previewFromPreferences(prefs)
         else AdhkarWidgetData.fromPreferences(prefs)
     GlanceTheme {
-            Box(modifier = GlanceModifier.background(ColorProvider(day = Color(0xFFFFF8F2), night = Color(0xFF211A18))).padding(16.dp).fillMaxSize().clickable(onClick = actionStartActivity<MainActivity>(context, Uri.parse("mishkat://adhkar?homeWidget"))), contentAlignment = Alignment.Center) {
+            Box(modifier = GlanceModifier.background(mishkatWidgetColor(prefs, day = Color(0xFFFFF8F2), night = Color(0xFF211A18))).padding(16.dp).fillMaxSize().clickable(onClick = actionStartActivity<MainActivity>(context, Uri.parse("mishkat://adhkar?homeWidget"))), contentAlignment = Alignment.Center) {
                 Column(modifier = GlanceModifier.fillMaxSize(), horizontalAlignment = Alignment.End) {
                     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(modifier = GlanceModifier.background(ColorProvider(day = Color(0xFFF3E6DE), night = Color(0xFF3B2C27))).cornerRadius(999.0.dp).padding(start = 9.0.dp, top = 4.0.dp, end = 9.0.dp, bottom = 4.0.dp), text = widgetData.dhikrCount ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFF8B5D43), night = Color(0xFFE8C19F)), fontSize = 10.sp, fontWeight = FontWeight.Bold))
+                        Text(modifier = GlanceModifier.background(mishkatWidgetColor(prefs, day = Color(0xFFF3E6DE), night = Color(0xFF3B2C27))).cornerRadius(999.0.dp).padding(start = 9.0.dp, top = 4.0.dp, end = 9.0.dp, bottom = 4.0.dp), text = widgetData.dhikrCount ?: "", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF8B5D43), night = Color(0xFFE8C19F)), fontSize = 10.sp, fontWeight = FontWeight.Bold))
                         Spacer(modifier = GlanceModifier.defaultWeight())
-                        Text(text = widgetData.dhikrCategory ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFF8B5D43), night = Color(0xFFE8C19F)), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End))
+                        Text(text = widgetData.dhikrCategory ?: "", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF8B5D43), night = Color(0xFFE8C19F)), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End))
                     }
                     Spacer(modifier = GlanceModifier.defaultWeight())
-                    Text(modifier = GlanceModifier.background(ColorProvider(day = Color(0xFFF3E6DE), night = Color(0xFF3B2C27))).cornerRadius(14.0.dp).padding(start = 11.0.dp, top = 8.0.dp, end = 11.0.dp, bottom = 8.0.dp), text = widgetData.dhikrText ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFF3E2C24), night = Color(0xFFF7EEE8)), fontSize = 15.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End))
+                    Text(modifier = GlanceModifier.background(mishkatWidgetColor(prefs, day = Color(0xFFF3E6DE), night = Color(0xFF3B2C27))).cornerRadius(14.0.dp).padding(start = 11.0.dp, top = 8.0.dp, end = 11.0.dp, bottom = 8.0.dp), text = widgetData.dhikrText ?: "", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF3E2C24), night = Color(0xFFF7EEE8)), fontSize = 15.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End))
                     Spacer(modifier = GlanceModifier.defaultWeight())
-                    Text(text = "← اضغط للمتابعة داخل مشكاة", style = TextStyle(color = ColorProvider(day = Color(0xFF7A6559), night = Color(0xFFC2ACA0)), fontSize = 10.sp, textAlign = TextAlign.End))
+                    Text(text = "← اضغط للمتابعة داخل مشكاة", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF7A6559), night = Color(0xFFC2ACA0)), fontSize = 10.sp, textAlign = TextAlign.End))
                 }
             }
     }

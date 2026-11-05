@@ -5,6 +5,7 @@ import 'package:mishkat_app/core/services/audio_service.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/features/quran/data/models/oral_recitation_models.dart';
 import 'package:mishkat_app/features/quran/data/models/quran_models.dart';
+import 'package:mishkat_app/features/quran/data/repositories/mushaf_layout_repository.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_memorization_repository.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_repository.dart';
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_memorization_cubit.dart';
@@ -12,6 +13,8 @@ import 'package:mishkat_app/features/quran/presentation/cubit/quran_oral_recitat
 import 'package:mishkat_app/features/quran/presentation/pages/quran_oral_recitation_page.dart';
 import 'package:mishkat_app/features/quran/presentation/services/quran_alignment_engine.dart';
 import 'package:mishkat_app/features/quran/presentation/services/speech_recognition_service.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/oral_recitation_word_page.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/oral_recitation_mushaf.dart';
 
 class InMemoryLocalStorageService implements LocalStorageService {
   final Map<String, dynamic> _data = {};
@@ -394,6 +397,9 @@ void main() {
         expect(oralCubit.state.matchedWordsCount, 4);
         expect(oralCubit.state.progressPercentage, 50.0);
         expect(oralCubit.state.liveTranscript, 'بسم الله الرحمن الرحيم');
+        expect(oralCubit.state.completedGlobalAyahs, isEmpty);
+        mockSpeech.emitTranscript('بسم الله الرحمن الرحيم', isFinal: true);
+        await pumpEventQueue();
         expect(oralCubit.state.completedGlobalAyahs, contains(1));
       },
     );
@@ -482,7 +488,10 @@ void main() {
       );
       await oralCubit.startRecitation();
 
-      mockSpeech.emitTranscript('بسم الله الرحمن الرحيم الحمد لله رب العالمين');
+      mockSpeech.emitTranscript(
+        'بسم الله الرحمن الرحيم الحمد لله رب العالمين',
+        isFinal: true,
+      );
       await pumpEventQueue();
 
       expect(oralCubit.state.lifecycle, OralRecitationLifecycle.completed);
@@ -507,7 +516,7 @@ void main() {
           endGlobalAyah: 2,
         );
         await oralCubit.startRecitation();
-        mockSpeech.emitTranscript('بسم الله');
+        mockSpeech.emitTranscript('بسم الله', isFinal: true);
         await pumpEventQueue();
         final progressBeforeError = oralCubit.state.matchedWordsCount;
 
@@ -535,18 +544,19 @@ void main() {
     });
 
     test(
-      '10. Memorization outcome is calculated independently for each Ayah',
+      '10. Memorization outcome accounts for assistance independently per Ayah',
       () async {
         await oralCubit.prepareSession(
           surahNumber: 1,
           startGlobalAyah: 1,
           endGlobalAyah: 2,
         );
+        oralCubit.setMode(OralRecitationMode.hidden);
         await oralCubit.startRecitation();
-        mockSpeech.emitTranscript(
-          'بسم الله الرحمن الرحيم خطأ خطأ خطأ خطأ',
-          isFinal: true,
-        );
+        mockSpeech.emitTranscript('بسم الله الرحمن الرحيم', isFinal: true);
+        await pumpEventQueue();
+        oralCubit.revealAyah(2);
+        mockSpeech.emitTranscript('الحمد لله رب العالمين', isFinal: true);
         await pumpEventQueue();
         await oralCubit.commitToMemorization();
 
@@ -558,7 +568,7 @@ void main() {
           (record) => record.globalAyah == 2,
         );
         expect(first.outcome.name, 'easy');
-        expect(second.outcome.name, 'failed');
+        expect(second.outcome.name, 'difficult');
       },
     );
   });
@@ -569,6 +579,12 @@ void main() {
     late InMemoryLocalStorageService storage;
     late QuranMemorizationRepository memRepo;
     late QuranMemorizationCubit memCubit;
+
+    setUpAll(() async {
+      await MushafLayoutRepository.instance.load();
+      // Decode bundled page text outside widget tests' fake async zone.
+      await OralRecitationMushaf.preloadCanonicalText();
+    });
 
     setUp(() async {
       mockSpeech = MockSpeechRecognitionService();
@@ -601,7 +617,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('التسميع الشفهي الذكي'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('recitation-screen-title')),
+        findsOneWidget,
+      );
       expect(find.text('بدء التسميع'), findsOneWidget);
       expect(find.text('جاهز للتسميع'), findsOneWidget);
     });
@@ -715,55 +734,91 @@ void main() {
         await tester.tap(find.text('بدء التسميع'));
         await tester.pumpAndSettle();
 
-        expect(find.text('جارٍ الاستماع...'), findsOneWidget);
+        expect(find.text('جارٍ الاستماع'), findsOneWidget);
         expect(find.text('إيقاف مؤقت'), findsOneWidget);
 
         // Emit recognized words
         mockSpeech.emitTranscript('بسم الله');
         await tester.pumpAndSettle();
 
+        expect(find.text('مسموع: '), findsNothing);
+        await tester.tap(
+          find.byKey(const ValueKey('recitation-session-details')),
+        );
+        await tester.pumpAndSettle();
+        expect(mockSpeech.isListening, isTrue);
         expect(find.text('مسموع: '), findsOneWidget);
         expect(find.text('بسم الله'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(milliseconds: 100));
       },
     );
 
-    testWidgets('Omitted Quran word remains visible in red at its position', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<QuranMemorizationCubit>.value(value: memCubit),
-            RepositoryProvider<QuranRepository>.value(value: fakeQuranRepo),
-          ],
-          child: MaterialApp(
-            home: QuranOralRecitationPage(
-              surahNumber: 1,
-              startGlobalAyah: 1,
-              endGlobalAyah: 3,
-              speechService: mockSpeech,
+    testWidgets(
+      'Reading mode keeps its Mushaf verses visible and guides the omitted word',
+      (tester) async {
+        await tester.pumpWidget(
+          MultiBlocProvider(
+            providers: [
+              BlocProvider<QuranMemorizationCubit>.value(value: memCubit),
+              RepositoryProvider<QuranRepository>.value(value: fakeQuranRepo),
+            ],
+            child: MaterialApp(
+              home: QuranOralRecitationPage(
+                surahNumber: 1,
+                startGlobalAyah: 1,
+                endGlobalAyah: 3,
+                speechService: mockSpeech,
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('بدء التسميع'));
-      await tester.pump();
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('recitation-display-options')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('recitation-mode-reading')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('العودة إلى المصحف'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('بدء التسميع'));
+        await tester.pump();
 
-      // Omit «رَبِّ» while continuing with «ٱلْعَٰلَمِينَ».
-      mockSpeech.emitTranscript(
-        'بسم الله الرحمن الرحيم الحمد لله العالمين',
-        isFinal: true,
-      );
-      await tester.pump();
+        // Omit «رَبِّ» while continuing with «ٱلْعَٰلَمِينَ».
+        mockSpeech.emitTranscript(
+          'بسم الله الرحمن الرحيم الحمد لله العالمين',
+          isFinal: true,
+        );
+        await tester.pump();
 
-      final omitted = tester.widget<Text>(find.text('رَبِّ'));
-      expect(omitted.style?.color, isNotNull);
-      expect(omitted.style?.decoration, TextDecoration.underline);
-      final color = omitted.style!.color!;
-      expect(color.r, greaterThan(color.g));
-      expect(color.r, greaterThan(color.b));
-    });
+        expect(find.text('رَبِّ'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('recitation-correct-word')),
+          findsOneWidget,
+        );
+        final painter =
+            tester
+                    .widget<CustomPaint>(
+                      find.byKey(const Key('oral-word-page-paint')),
+                    )
+                    .painter!
+                as OralRecitationWordsPainter;
+        expect(
+          painter.words
+              .where((word) => !word.visible)
+              .map((word) => word.globalAyah)
+              .toSet(),
+          {4, 5, 6, 7},
+        );
+        expect(
+          find.byKey(const ValueKey('recitation-correction')),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(milliseconds: 100));
+      },
+    );
 
     testWidgets('Moving app to background pauses microphone capture', (
       tester,

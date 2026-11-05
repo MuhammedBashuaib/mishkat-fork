@@ -27,6 +27,8 @@ class WirdWidgetContent {
           '${widgetDigits(plan!.todayEnd - plan.resumePage.clamp(plan.nextPage, plan.todayEnd) + 1)} صفحة في وردك الحالي',
       },
       progress = plan?.progress ?? 0,
+      completedPages = plan?.completedPages.clamp(0, plan.totalPages) ?? 0,
+      remainingPages = plan?.remainingPages.clamp(0, plan.totalPages) ?? 0,
       progressLabel = plan == null
           ? 'خطوة صغيرة كل يوم'
           : '${widgetDigits((plan.progress * 100).round())}٪ من الختمة',
@@ -41,6 +43,10 @@ class WirdWidgetContent {
   final String pages;
   final String detail;
   final double progress;
+  final int completedPages;
+  final int remainingPages;
+  String get completedLabel => 'أنجزت ${widgetDigits(completedPages)} صفحة';
+  String get remainingLabel => 'باقي ${widgetDigits(remainingPages)} صفحة';
   final String progressLabel;
   final String action;
 

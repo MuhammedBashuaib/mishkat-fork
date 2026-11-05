@@ -1,5 +1,8 @@
 import 'package:home_widget_generator/home_widget_generator.dart';
 
+// Design seed only: native layouts are maintained separately.
+// Read docs/HOME_WIDGETS.md before running the generator.
+
 const _background = HWThemedColor(
   light: HWFixedColor(0xFFF2F7F3),
   dark: HWFixedColor(0xFF152923),
@@ -19,9 +22,9 @@ const _text = HWThemedColor(
   widgetUrl: 'mishkat://wird',
   android: HomeWidgetAndroidConfiguration(
     minWidth: 250,
-    minHeight: 160,
+    minHeight: 130,
     minResizeWidth: 220,
-    minResizeHeight: 160,
+    minResizeHeight: 130,
     targetCellWidth: 4,
     targetCellHeight: 2,
     resizeMode: HWAndroidResizeMode.horizontalAndVertical,

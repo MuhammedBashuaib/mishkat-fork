@@ -40,6 +40,16 @@ class QuranCubit extends Cubit<QuranState> {
       },
     );
     _repeatSubscription = _repeatController.stateStream.listen(_onRepeatState);
+    _playbackErrorSubscription = _audio.playbackErrors.listen((_) {
+      if (isClosed || _playbackOrigin == null) return;
+      _repeatController.stop();
+      emit(
+        state.copyWith(
+          audioStatus: QuranAudioStatus.failure,
+          error: 'انقطع الصوت أو تعذّر تشغيله. تحقق من الاتصال واضغط تشغيل للمحاولة مجدداً.',
+        ),
+      );
+    });
   }
 
   final QuranRepository _repository;
@@ -48,18 +58,26 @@ class QuranCubit extends Cubit<QuranState> {
   late final StreamSubscription<PlayerState> _playerSubscription;
   late final AudioRepeatController _repeatController;
   late final StreamSubscription<AudioRepeatState> _repeatSubscription;
+  late final StreamSubscription<Object> _playbackErrorSubscription;
 
   String reciter;
   bool _continuous = true;
   bool autoScroll;
   bool _advancingContinuously = false;
   QuranPlaybackOrigin? _playbackOrigin;
+  Timer? _sleepTimer;
+  Timer? _sleepTicker;
+  DateTime? _sleepDeadline;
+  int? _completedRequestId;
+  bool _readerSelectionPending = false;
+  int? _readerConsumedSelection;
 
   QuranRepository get repository => _repository;
   QuranAudioService get audioService => _audio;
   AudioRepeatController get repeatController => _repeatController;
   bool get isContinuous => _continuous;
   QuranPlaybackOrigin? get playbackOrigin => _playbackOrigin;
+  bool get hasPendingReaderSelection => _readerSelectionPending;
   void setContinuous(bool value) {
     _continuous = value;
     _repeatController.setContinuous(value);
@@ -122,6 +140,17 @@ class QuranCubit extends Cubit<QuranState> {
       }
       _repeatController.updateConfig(repeatConfig);
 
+      final listening = _storage.readMap('quran_listening_settings');
+      final savedMode = listening['mode'];
+      final listeningMode = QuranListeningMode.values.firstWhere(
+        (mode) => mode.name == savedMode,
+        orElse: () => QuranListeningMode.once,
+      );
+      final speed = listening['speed'];
+      final playbackSpeed = speed is num && speed.isFinite
+          ? speed.toDouble().clamp(0.5, 2.0)
+          : 1.0;
+
       emit(
         state.copyWith(
           status: QuranStatus.ready,
@@ -130,6 +159,8 @@ class QuranCubit extends Cubit<QuranState> {
           lastRead: lastRead,
           bookmarks: bookmarks,
           repeatConfig: repeatConfig,
+          listeningMode: listeningMode,
+          playbackSpeed: playbackSpeed,
         ),
       );
     } on Object catch (error) {
@@ -162,7 +193,15 @@ class QuranCubit extends Cubit<QuranState> {
         (data != null
             ? data.pointForGlobal(data.page(safePage).first.global)
             : state.lastRead);
-    emit(state.copyWith(currentPage: safePage, lastRead: lastRead));
+    emit(
+      state.copyWith(
+        currentPage: safePage,
+        lastRead: lastRead,
+        readerSelectedAyah: safePage == state.currentPage
+            ? state.readerSelectedAyah
+            : null,
+      ),
+    );
     await _persist();
   }
 
@@ -268,6 +307,192 @@ class QuranCubit extends Cubit<QuranState> {
   void setFontSize(double value) =>
       emit(state.copyWith(fontSize: value.clamp(20, 60)));
 
+  void selectReaderAyah(int? global) {
+    if (isClosed) return;
+    _readerSelectionPending = global != null;
+    emit(state.copyWith(readerSelectedAyah: global?.clamp(1, 6236)));
+  }
+
+  /// A reader selection is a starting point, never an implicit play command.
+  Future<void> toggleReaderAudio({
+    int? selectedGlobalAyah,
+    bool autoScroll = true,
+  }) async {
+    final data = state.data;
+    if (data == null) return;
+    final page = data.page(state.currentPage);
+    final selected = selectedGlobalAyah ?? state.readerSelectedAyah;
+    final onPage =
+        selected != null &&
+        selected >= page.first.global &&
+        selected <= page.last.global;
+    final target = onPage ? selected : page.first.global;
+    final ownsPlayback = _playbackOrigin == QuranPlaybackOrigin.mushaf;
+    final hasNewSelection =
+        onPage &&
+        (_readerSelectionPending || selected != _readerConsumedSelection);
+    if (ownsPlayback &&
+        !hasNewSelection &&
+        state.audioWordIndex == null &&
+        (state.audioStatus == QuranAudioStatus.playing ||
+            state.audioStatus == QuranAudioStatus.paused ||
+            state.audioStatus == QuranAudioStatus.loading)) {
+      await _toggleCurrentAudio(continuous: true, autoScroll: autoScroll);
+      return;
+    }
+    _readerSelectionPending = false;
+    _readerConsumedSelection = onPage ? selected : null;
+    await playAyah(
+      target,
+      continuous: true,
+      autoScroll: autoScroll,
+      origin: QuranPlaybackOrigin.mushaf,
+    );
+  }
+
+  Future<void> playSurah(int surah) async {
+    final data = state.data;
+    if (data == null || isClosed) return;
+    final safe = surah.clamp(1, 114);
+    final requestId = ++_playbackRequestId;
+    _repeatController.stop();
+    _playbackOrigin = QuranPlaybackOrigin.audioPlayer;
+    _continuous = false;
+    emit(
+      state.copyWith(
+        audioStatus: QuranAudioStatus.loading,
+        audioSurah: safe,
+        audioGlobalAyah: null,
+        audioWordIndex: null,
+        activeStation: null,
+        repeatState: const AudioRepeatState(),
+        clearError: true,
+      ),
+    );
+    try {
+      await _audio.playSurah(
+        reciter: reciter,
+        surah: safe,
+        title: 'سورة ${data.chapter(safe).name}',
+      );
+      if (requestId != _playbackRequestId || isClosed) return;
+      await _audio.setPlaybackSpeed(state.playbackSpeed);
+    } on Object catch (error) {
+      if (requestId != _playbackRequestId || isClosed) return;
+      emit(
+        state.copyWith(
+          audioStatus: QuranAudioStatus.failure,
+          error: error is QuranAudioOfflineException
+              ? error.message
+              : 'تعذّر تشغيل السورة. تحقق من اتصال الإنترنت وحاول مجدداً.',
+        ),
+      );
+    }
+  }
+
+  Future<void> playWord({required int globalAyah, required int word}) async {
+    final data = state.data;
+    if (data == null || word < 1 || isClosed) return;
+    final point = data.pointForGlobal(globalAyah);
+    final requestId = ++_playbackRequestId;
+    _cancelSleepTimer();
+    _repeatController.stop();
+    _continuous = false;
+    _playbackOrigin = QuranPlaybackOrigin.mushaf;
+    emit(
+      state.copyWith(
+        audioStatus: QuranAudioStatus.loading,
+        audioGlobalAyah: point.global,
+        audioWordIndex: word,
+        audioSurah: null,
+        activeStation: null,
+        sleepTimerRemaining: null,
+        repeatState: const AudioRepeatState(),
+        clearError: true,
+      ),
+    );
+    try {
+      await _audio.playWord(surah: point.surah, ayah: point.ayah, word: word);
+    } on Object catch (error) {
+      if (requestId != _playbackRequestId || isClosed) return;
+      emit(
+        state.copyWith(
+          audioStatus: QuranAudioStatus.failure,
+          error: error is QuranAudioOfflineException
+              ? error.message
+              : 'تعذّر تشغيل هذه الكلمة. تحقق من الاتصال وحاول مجدداً.',
+        ),
+      );
+    }
+  }
+
+  Future<void> toggleWordAudio() async {
+    final global = state.audioGlobalAyah;
+    final word = state.audioWordIndex;
+    if (global == null || word == null) return;
+    if (state.audioStatus == QuranAudioStatus.failure) {
+      await playWord(globalAyah: global, word: word);
+    } else if (_audio.isPlaying) {
+      emit(state.copyWith(audioStatus: QuranAudioStatus.paused));
+      await _audio.pause();
+    } else if (state.audioStatus == QuranAudioStatus.paused) {
+      await _audio.resume();
+    }
+  }
+
+  Future<void> setListeningMode(QuranListeningMode mode) async {
+    emit(state.copyWith(listeningMode: mode));
+    await _persistListeningSettings();
+  }
+
+  Future<void> setPlaybackSpeed(double speed) async {
+    if (!speed.isFinite || state.activeStation != null) return;
+    final safe = speed.clamp(0.5, 2.0);
+    try {
+      if (state.audioSurah != null) await _audio.setPlaybackSpeed(safe);
+      if (isClosed) return;
+      emit(state.copyWith(playbackSpeed: safe));
+      await _persistListeningSettings();
+    } on Object {
+      if (!isClosed) emit(state.copyWith(error: 'تعذّر تغيير سرعة التشغيل.'));
+    }
+  }
+
+  Future<void> _persistListeningSettings() => _storage.writeMap(
+    'quran_listening_settings',
+    {'mode': state.listeningMode.name, 'speed': state.playbackSpeed},
+  );
+
+  void _cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTicker?.cancel();
+    _sleepTimer = null;
+    _sleepTicker = null;
+    _sleepDeadline = null;
+  }
+
+  /// Owned by the application Cubit, so navigation cannot reset the deadline.
+  void setSleepTimer(Duration? duration) {
+    _cancelSleepTimer();
+    if (duration == null || duration <= Duration.zero) {
+      emit(state.copyWith(sleepTimerRemaining: null));
+      return;
+    }
+    final safe = Duration(seconds: duration.inSeconds.clamp(1, 86400));
+    _sleepDeadline = DateTime.now().add(safe);
+    emit(state.copyWith(sleepTimerRemaining: safe));
+    _sleepTimer = Timer(safe, () => unawaited(stopAudio()));
+    _sleepTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (isClosed || _sleepDeadline == null) return;
+      final remaining = _sleepDeadline!.difference(DateTime.now());
+      emit(
+        state.copyWith(
+          sleepTimerRemaining: remaining.isNegative ? Duration.zero : remaining,
+        ),
+      );
+    });
+  }
+
   Future<void> playCurrent({
     required bool continuous,
     bool? autoScroll,
@@ -278,8 +503,9 @@ class QuranCubit extends Cubit<QuranState> {
     _continuous = continuous;
     _repeatController.setContinuous(continuous);
     if (autoScroll != null) this.autoScroll = autoScroll;
-    final global =
-        state.audioGlobalAyah ?? data.page(state.currentPage).first.global;
+    final global = origin == QuranPlaybackOrigin.mushaf
+        ? state.readerSelectedAyah ?? data.page(state.currentPage).first.global
+        : state.audioGlobalAyah ?? data.page(state.currentPage).first.global;
     _repeatController.stop();
     await _play(global, autoScroll: autoScroll, origin: origin);
   }
@@ -307,6 +533,7 @@ class QuranCubit extends Cubit<QuranState> {
     final data = state.data;
     if (data == null) return;
     if (origin != null) _playbackOrigin = origin;
+    _cancelSleepTimer();
     final requestId = ++_playbackRequestId;
     final safe = global.clamp(1, 6236);
     final shouldScroll = autoScroll ?? this.autoScroll;
@@ -321,7 +548,10 @@ class QuranCubit extends Cubit<QuranState> {
       state.copyWith(
         audioStatus: QuranAudioStatus.loading,
         audioGlobalAyah: safe,
+        audioSurah: null,
+        audioWordIndex: null,
         activeStation: null,
+        sleepTimerRemaining: null,
         clearError: true,
       ),
     );
@@ -352,11 +582,15 @@ class QuranCubit extends Cubit<QuranState> {
     _playbackOrigin = QuranPlaybackOrigin.audioPlayer;
 
     if (!station.isAudioPlayable || station.streamUrl == null) {
+      await _audio.stop();
+      if (requestId != _playbackRequestId || isClosed) return;
       emit(
         state.copyWith(
           audioStatus: QuranAudioStatus.failure,
           activeStation: station,
           audioGlobalAyah: null,
+          audioSurah: null,
+          audioWordIndex: null,
           error:
               station.notes ??
               'رابط البث غير معتمد حالياً. في انتظار اعتماد رابط رسمي موثق.',
@@ -370,6 +604,9 @@ class QuranCubit extends Cubit<QuranState> {
         audioStatus: QuranAudioStatus.loading,
         activeStation: station,
         audioGlobalAyah: null,
+        audioSurah: null,
+        audioWordIndex: null,
+        repeatState: const AudioRepeatState(),
         clearError: true,
       ),
     );
@@ -379,6 +616,14 @@ class QuranCubit extends Cubit<QuranState> {
         station.streamUrl!,
         title: station.title,
         sourceLabel: station.sourceLabel,
+      );
+    } on TimeoutException {
+      if (requestId != _playbackRequestId || isClosed) return;
+      emit(
+        state.copyWith(
+          audioStatus: QuranAudioStatus.failure,
+          error: 'استغرق الاتصال بالإذاعة وقتاً طويلاً. اضغط تشغيل للمحاولة مجدداً.',
+        ),
       );
     } on QuranAudioOfflineException catch (e) {
       if (requestId != _playbackRequestId) return;
@@ -401,12 +646,46 @@ class QuranCubit extends Cubit<QuranState> {
     bool? autoScroll,
     QuranPlaybackOrigin origin = QuranPlaybackOrigin.general,
   }) async {
+    if (origin == QuranPlaybackOrigin.mushaf) {
+      await toggleReaderAudio(autoScroll: autoScroll ?? this.autoScroll);
+      return;
+    }
+    await _toggleCurrentAudio(
+      continuous: continuous,
+      autoScroll: autoScroll,
+      origin: origin,
+    );
+  }
+
+  Future<void> _toggleCurrentAudio({
+    required bool continuous,
+    bool? autoScroll,
+    QuranPlaybackOrigin origin = QuranPlaybackOrigin.general,
+  }) async {
     _continuous = continuous;
     _repeatController.setContinuous(continuous);
     if (autoScroll != null) this.autoScroll = autoScroll;
 
-    if (state.activeStation != null) {
-      if (_audio.isPlaying) {
+    final surah = state.audioSurah;
+    if (surah != null) {
+      if (state.audioStatus == QuranAudioStatus.failure ||
+          state.audioStatus == QuranAudioStatus.idle) {
+        await playSurah(surah);
+      } else if (_audio.isPlaying) {
+        emit(state.copyWith(audioStatus: QuranAudioStatus.paused));
+        await _audio.pause();
+      } else if (state.audioStatus == QuranAudioStatus.paused) {
+        await _audio.resume();
+      }
+      return;
+    }
+
+    final station = state.activeStation;
+    if (station != null) {
+      if (state.audioStatus == QuranAudioStatus.failure) {
+        await playStation(station);
+      } else if (_audio.isPlaying) {
+        emit(state.copyWith(audioStatus: QuranAudioStatus.paused));
         await _audio.pause();
       } else if (state.audioStatus == QuranAudioStatus.paused) {
         await _audio.resume();
@@ -423,6 +702,7 @@ class QuranCubit extends Cubit<QuranState> {
       emit(state.copyWith(audioStatus: QuranAudioStatus.playing));
     } else if (_audio.isPlaying) {
       _repeatController.pause();
+      emit(state.copyWith(audioStatus: QuranAudioStatus.paused));
       await _audio.pause();
     } else if (state.audioStatus == QuranAudioStatus.paused) {
       _repeatController.resume();
@@ -437,18 +717,24 @@ class QuranCubit extends Cubit<QuranState> {
   }
 
   Future<void> stopAudio() async {
-    _playbackRequestId++;
+    if (isClosed) return;
+    ++_playbackRequestId;
+    _cancelSleepTimer();
     _repeatController.stop();
-    await _audio.stop();
     _playbackOrigin = null;
     emit(
       state.copyWith(
         audioStatus: QuranAudioStatus.idle,
         audioGlobalAyah: null,
+        audioSurah: null,
+        audioWordIndex: null,
+        sleepTimerRemaining: null,
         activeStation: null,
         repeatState: const AudioRepeatState(),
+        clearError: true,
       ),
     );
+    await _audio.stop();
   }
 
   Future<void> stopAudioIfOwnedBy(QuranPlaybackOrigin origin) async {
@@ -456,6 +742,11 @@ class QuranCubit extends Cubit<QuranState> {
   }
 
   Future<void> nextAudioAyah({bool? autoScroll}) async {
+    final surah = state.audioSurah;
+    if (surah != null) {
+      if (surah < 114) await playSurah(surah + 1);
+      return;
+    }
     if (state.repeatState.isActive) {
       _repeatController.next();
       return;
@@ -472,6 +763,11 @@ class QuranCubit extends Cubit<QuranState> {
   }
 
   Future<void> previousAudioAyah({bool? autoScroll}) async {
+    final surah = state.audioSurah;
+    if (surah != null) {
+      if (surah > 1) await playSurah(surah - 1);
+      return;
+    }
     if (state.repeatState.isActive) {
       _repeatController.previous();
       return;
@@ -502,10 +798,12 @@ class QuranCubit extends Cubit<QuranState> {
     bool? autoScroll,
     QuranPlaybackOrigin origin = QuranPlaybackOrigin.general,
   }) async {
+    final requestId = ++_playbackRequestId;
     if (autoScroll != null) this.autoScroll = autoScroll;
     _playbackOrigin = origin;
     emit(state.copyWith(repeatConfig: config));
     await _storage.writeMap('audio_repeat_config', config.toJson());
+    if (requestId != _playbackRequestId || isClosed) return;
     await _repeatController.start(
       config: config,
       initialGlobalAyah: initialGlobalAyah ?? state.audioGlobalAyah,
@@ -541,15 +839,86 @@ class QuranCubit extends Cubit<QuranState> {
     if (reciter == value) return;
     reciter = value;
     if (restartIfPlaying &&
+        state.audioSurah != null &&
+        (state.audioStatus == QuranAudioStatus.playing ||
+            state.audioStatus == QuranAudioStatus.loading)) {
+      unawaited(playSurah(state.audioSurah!));
+      return;
+    }
+    if (restartIfPlaying &&
         (state.audioStatus == QuranAudioStatus.playing ||
             state.audioStatus == QuranAudioStatus.loading) &&
-        state.audioGlobalAyah != null) {
+        state.audioGlobalAyah != null &&
+        state.audioWordIndex == null) {
       unawaited(_play(state.audioGlobalAyah!, autoScroll: false));
     }
   }
 
   void _onPlayerState(PlayerState player) {
     if (isClosed) return;
+    // Ignore late native events after an explicit stop or failed preparation.
+    if (_playbackOrigin == null &&
+        state.audioGlobalAyah == null &&
+        state.audioSurah == null &&
+        state.activeStation == null) {
+      return;
+    }
+    if (state.audioStatus == QuranAudioStatus.failure) return;
+    if (state.audioSurah != null) {
+      if (player.processingState == ProcessingState.completed) {
+        if (state.audioStatus == QuranAudioStatus.loading ||
+            _completedRequestId == _playbackRequestId) {
+          return;
+        }
+        _completedRequestId = _playbackRequestId;
+        final surah = state.audioSurah!;
+        switch (state.listeningMode) {
+          case QuranListeningMode.repeat:
+            unawaited(playSurah(surah));
+          case QuranListeningMode.next when surah < 114:
+            unawaited(playSurah(surah + 1));
+          case QuranListeningMode.once:
+          case QuranListeningMode.next:
+            unawaited(stopAudio());
+        }
+        return;
+      }
+      if (player.processingState == ProcessingState.loading ||
+          player.processingState == ProcessingState.buffering) {
+        if (state.audioStatus != QuranAudioStatus.paused) {
+          emit(state.copyWith(audioStatus: QuranAudioStatus.loading));
+        }
+        return;
+      }
+      if (player.processingState == ProcessingState.ready) {
+        if (player.playing) {
+          emit(state.copyWith(audioStatus: QuranAudioStatus.playing));
+        } else if (state.audioStatus != QuranAudioStatus.loading) {
+          emit(state.copyWith(audioStatus: QuranAudioStatus.paused));
+        }
+        return;
+      }
+    }
+    if (state.activeStation != null) {
+      // A failed load can report idle after its error has already reached the
+      // UI. Retain the station so the play button can retry it.
+      if (state.audioStatus == QuranAudioStatus.failure) return;
+      if (player.processingState == ProcessingState.loading ||
+          player.processingState == ProcessingState.buffering) {
+        if (player.playing || state.audioStatus != QuranAudioStatus.paused) {
+          emit(state.copyWith(audioStatus: QuranAudioStatus.loading));
+        }
+        return;
+      }
+      if (player.processingState == ProcessingState.ready) {
+        if (player.playing) {
+          emit(state.copyWith(audioStatus: QuranAudioStatus.playing));
+        } else if (state.audioStatus != QuranAudioStatus.loading) {
+          emit(state.copyWith(audioStatus: QuranAudioStatus.paused));
+        }
+        return;
+      }
+    }
     if (player.processingState == ProcessingState.idle) {
       if (state.repeatState.isDelaying ||
           _advancingContinuously ||
@@ -559,22 +928,25 @@ class QuranCubit extends Cubit<QuranState> {
         return;
       }
       _playbackOrigin = null;
+      _cancelSleepTimer();
       emit(
         state.copyWith(
           audioStatus: QuranAudioStatus.idle,
           audioGlobalAyah: null,
+          audioSurah: null,
+          audioWordIndex: null,
+          sleepTimerRemaining: null,
           activeStation: null,
         ),
       );
     } else if (player.processingState == ProcessingState.completed) {
+      if (state.audioStatus == QuranAudioStatus.loading ||
+          _completedRequestId == _playbackRequestId) {
+        return;
+      }
+      _completedRequestId = _playbackRequestId;
       if (state.activeStation != null) {
-        _playbackOrigin = null;
-        emit(
-          state.copyWith(
-            audioStatus: QuranAudioStatus.idle,
-            activeStation: null,
-          ),
-        );
+        unawaited(stopAudio());
         return;
       }
       if (state.repeatState.isActive) {
@@ -588,19 +960,20 @@ class QuranCubit extends Cubit<QuranState> {
           }),
         );
       } else {
-        _playbackOrigin = null;
-        emit(
-          state.copyWith(
-            audioStatus: QuranAudioStatus.idle,
-            audioGlobalAyah: null,
-            activeStation: null,
-          ),
-        );
+        unawaited(stopAudio());
       }
-    } else if (player.playing) {
-      emit(state.copyWith(audioStatus: QuranAudioStatus.playing));
-    } else if (state.audioStatus == QuranAudioStatus.playing) {
-      emit(state.copyWith(audioStatus: QuranAudioStatus.paused));
+    } else if (player.processingState == ProcessingState.loading ||
+        player.processingState == ProcessingState.buffering) {
+      if (state.audioStatus != QuranAudioStatus.paused) {
+        emit(state.copyWith(audioStatus: QuranAudioStatus.loading));
+      }
+    } else if (player.processingState == ProcessingState.ready) {
+      if (player.playing) {
+        emit(state.copyWith(audioStatus: QuranAudioStatus.playing));
+      } else if (state.audioStatus != QuranAudioStatus.loading &&
+          !state.repeatState.isDelaying) {
+        emit(state.copyWith(audioStatus: QuranAudioStatus.paused));
+      }
     }
   }
 
@@ -635,8 +1008,11 @@ class QuranCubit extends Cubit<QuranState> {
 
   @override
   Future<void> close() async {
+    _playbackRequestId++;
+    _cancelSleepTimer();
     await _playerSubscription.cancel();
     await _repeatSubscription.cancel();
+    await _playbackErrorSubscription.cancel();
     _repeatController.dispose();
     await _audio.dispose();
     return super.close();

@@ -31,6 +31,7 @@ class MushafInteractionCubit extends Cubit<MushafInteractionState> {
     emit(
       state.copyWith(
         selectedAyah: ayah,
+        selectionRevision: state.selectionRevision + 1,
         selectedPage: ayah.page,
         isActionSheetOpen: openActionSheet,
       ),

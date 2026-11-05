@@ -1,6 +1,4 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-//
-// Placeholder SwiftUI widget.
+// CUSTOMIZED native widget. Maintain by hand; see docs/HOME_WIDGETS.md.
 //
 // App Group ID used here: AdhkarWidgetHomeWidgetFlavor.appGroupId
 
@@ -63,7 +61,17 @@ struct AdhkarWidgetHomeWidgetEntry: TimelineEntry {
 struct AdhkarWidgetHomeWidgetEntryView: View {
   var entry: Provider.Entry
 
-  @Environment(\.colorScheme) var colorScheme
+  @Environment(\.colorScheme) private var systemColorScheme
+
+  private var colorScheme: ColorScheme {
+    let preference = UserDefaults(suiteName: AdhkarWidgetHomeWidgetFlavor.appGroupId)?
+      .string(forKey: "widgetTheme")
+    switch preference {
+    case "light": return .light
+    case "dark": return .dark
+    default: return systemColorScheme
+    }
+  }
 
   var body: some View {
         VStack(alignment: .trailing, spacing: 0) {

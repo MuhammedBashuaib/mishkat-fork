@@ -7,6 +7,7 @@ import '../../../../core/services/local_storage_service.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/data/services/notification_schedule_planner.dart';
 import '../../data/models/khatma_plan.dart';
+import '../../data/models/khatma_schedule.dart';
 import 'khatma_state.dart';
 
 class KhatmaCubit extends Cubit<KhatmaState> {
@@ -44,26 +45,52 @@ class KhatmaCubit extends Cubit<KhatmaState> {
     required int durationDays,
     required int startPage,
     String? reminderPrayer,
+    String? reminderTime,
+    KhatmaPlanningMode planningMode = KhatmaPlanningMode.duration,
+    int? dailyPages,
   }) async {
-    final safeStart = startPage.clamp(1, 604);
-    final duration = durationDays.clamp(1, 3650);
-    final daily = ((604 - safeStart + 1) / duration).ceil().clamp(1, 604);
+    final schedule = planningMode == KhatmaPlanningMode.pages
+        ? KhatmaSchedule.fromDailyPages(
+            startPage: startPage,
+            dailyPages: dailyPages ?? 5,
+          )
+        : KhatmaSchedule.fromDuration(
+            startPage: startPage,
+            durationDays: durationDays,
+          );
+    final safeStart = schedule.startPage;
+    final duration = schedule.durationDays;
+    final daily = schedule.maxDailyPages;
+    final now = DateTime.now();
+    final time = KhatmaPlan.normalizeReminderTime(reminderTime);
     final plan = KhatmaPlan(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: now.microsecondsSinceEpoch.toString(),
       name: name.trim().isEmpty ? 'ختمتي' : name.trim(),
       durationDays: duration,
       dailyPages: daily,
-      startDate: DateTime.now(),
+      startDate: now,
+      planningMode: planningMode,
+      balancedSchedule: schedule.isBalanced,
       startPage: safeStart,
       progressPage: safeStart - 1,
       lastReadPage: safeStart,
       currentWardEndPage: math.min(604, safeStart + daily - 1),
       status: KhatmaStatus.active,
-      reminderPrayer: reminderPrayer,
-      createdAt: DateTime.now(),
+      reminderPrayer: time == null ? reminderPrayer : null,
+      reminderTime: time,
+      createdAt: now,
     );
-    emit(KhatmaState(plans: [plan, ...state.plans], activeId: plan.id));
-    await _persist();
+    final updated = KhatmaState(
+      plans: [plan, ...state.plans],
+      activeId: plan.id,
+    );
+    // Publish the plan only once it is durable. Scheduling can then fail
+    // independently while the saved plan remains available for a retry.
+    await _storage.writeMap('khatma', {
+      'activeId': updated.activeId,
+      'plans': updated.plans.map((item) => item.toJson()).toList(),
+    });
+    emit(updated);
     await _refreshNotificationCalendar();
   }
 
@@ -71,6 +98,7 @@ class KhatmaCubit extends Cubit<KhatmaState> {
     if (!state.plans.any((item) => item.id == id)) return;
     emit(state.copyWith(activeId: id));
     await _persist();
+    await _refreshNotificationCalendar();
   }
 
   Future<void> recordProgress(int page) async {
@@ -102,7 +130,7 @@ class KhatmaCubit extends Cubit<KhatmaState> {
     final completed = progress >= 604;
     final currentWardEnd = plan.todayEnd;
     final nextWardEnd = !completed && progress >= currentWardEnd
-        ? math.min(604, progress + plan.dailyPages)
+        ? plan.nextWardEndAfter(progress)
         : (plan.currentWardEndPage ?? currentWardEnd);
     final updated = plan.copyWith(
       progressPage: progress,
@@ -151,13 +179,19 @@ class KhatmaCubit extends Cubit<KhatmaState> {
   Future<void> rebalance(int remainingDays) async {
     final plan = state.active;
     if (plan == null || plan.remainingPages == 0) return;
-    final days = remainingDays.clamp(1, 3650);
-    final daily = (plan.remainingPages / days).ceil().clamp(1, 604);
+    final schedule = KhatmaSchedule.fromDuration(
+      startPage: plan.nextPage,
+      durationDays: remainingDays,
+    );
     await _replace(
       plan.copyWith(
-        durationDays: days,
-        dailyPages: daily,
-        currentWardEndPage: math.min(604, plan.progressPage + daily),
+        durationDays: schedule.durationDays,
+        dailyPages: schedule.maxDailyPages,
+        planningMode: KhatmaPlanningMode.duration,
+        balancedSchedule: true,
+        scheduleStartPage: plan.nextPage,
+        scheduleStartDate: DateTime.now(),
+        currentWardEndPage: schedule.endPageAfter(plan.progressPage),
       ),
     );
     await _refreshNotificationCalendar();

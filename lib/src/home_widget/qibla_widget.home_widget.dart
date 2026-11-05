@@ -1,5 +1,6 @@
 // dart format off
-// GENERATED CODE - DO NOT MODIFY BY HAND
+// Generated bridge with maintained native widget fields.
+// See docs/HOME_WIDGETS.md before regenerating.
 // ignore_for_file: type=lint
 
 import 'dart:async';
@@ -17,11 +18,13 @@ class QiblaWidgetHomeWidget {
     String? qiblaArrow,
     String? qiblaBearing,
     String? qiblaDistance,
+    double? qiblaBearingDegrees,
   }) {
     return Future.wait([
       if (qiblaArrow != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.qiblaArrow', qiblaArrow, appGroupId: _$appGroupId),
       if (qiblaBearing != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.qiblaBearing', qiblaBearing, appGroupId: _$appGroupId),
       if (qiblaDistance != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.qiblaDistance', qiblaDistance, appGroupId: _$appGroupId),
+      if (qiblaBearingDegrees != null) HomeWidget.saveWidgetData<double>('${_$paramPrefix}.qiblaBearingDegrees', qiblaBearingDegrees, appGroupId: _$appGroupId),
     ]);
   }
 
@@ -29,19 +32,22 @@ class QiblaWidgetHomeWidget {
     bool qiblaArrow = false,
     bool qiblaBearing = false,
     bool qiblaDistance = false,
+    bool qiblaBearingDegrees = false,
   }) {
     return Future.wait([
       if (qiblaArrow) HomeWidget.saveWidgetData('${_$paramPrefix}.qiblaArrow', null, appGroupId: _$appGroupId),
       if (qiblaBearing) HomeWidget.saveWidgetData('${_$paramPrefix}.qiblaBearing', null, appGroupId: _$appGroupId),
       if (qiblaDistance) HomeWidget.saveWidgetData('${_$paramPrefix}.qiblaDistance', null, appGroupId: _$appGroupId),
+      if (qiblaBearingDegrees) HomeWidget.saveWidgetData('${_$paramPrefix}.qiblaBearingDegrees', null, appGroupId: _$appGroupId),
     ]);
   }
 
-  static Future<({String? qiblaArrow, String? qiblaBearing, String? qiblaDistance})> getData() async {
+  static Future<({String? qiblaArrow, String? qiblaBearing, String? qiblaDistance, double? qiblaBearingDegrees})> getData() async {
     return (
       qiblaArrow: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.qiblaArrow', defaultValue: '↑', appGroupId: _$appGroupId),
       qiblaBearing: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.qiblaBearing', defaultValue: 'حدّد موقعك', appGroupId: _$appGroupId),
       qiblaDistance: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.qiblaDistance', defaultValue: 'افتح مشكاة للبوصلة الحية', appGroupId: _$appGroupId),
+      qiblaBearingDegrees: await HomeWidget.getWidgetData<double>('${_$paramPrefix}.qiblaBearingDegrees', defaultValue: -1, appGroupId: _$appGroupId),
     );
   }
 

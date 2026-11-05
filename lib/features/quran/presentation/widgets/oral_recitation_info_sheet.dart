@@ -9,8 +9,7 @@ import '../pages/quran_oral_recitation_page.dart';
 import '../pages/quran_reader_page.dart';
 import '../services/speech_recognition_service.dart';
 
-/// Modal bottom sheet presenting the technical boundaries, feasibility requirements,
-/// and truthful status of the Audio-Assisted Oral Recitation & Mistake Correction feature.
+/// A short introduction before entering the selected recitation range.
 class OralRecitationInfoSheet extends StatelessWidget {
   const OralRecitationInfoSheet({
     super.key,
@@ -108,7 +107,7 @@ class OralRecitationInfoSheet extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'اقرأ من حفظك، وسيتابع التطبيق تلاوتك آيةً آية.',
+                          'ثبّت حفظك مع متابعة التلاوة كلمةً كلمة.',
                           style: TextStyle(
                             fontSize: 12.5,
                             color: colors.textSecondary,
@@ -138,7 +137,7 @@ class OralRecitationInfoSheet extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'تبقى الآيات مخفية أثناء القراءة، ثم تظهر بعد اكتمال كل آية مع تمييز مواضع الخطأ.',
+                        'سمّع على صفحات المصحف بسطورها الثابتة، مع خطوط خافتة مكان الكلمات المخفية وأرقام الآيات في مواضعها. تظهر الكلمات مع تلاوتك، ويمكنك طلب تلميح أو كشف الآية مؤقتاً بالضغط المطوّل.',
                         style: TextStyle(
                           color: colors.textPrimary,
                           fontSize: 12.5,
@@ -161,7 +160,7 @@ class OralRecitationInfoSheet extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'يُستخدم الميكروفون أثناء الجلسة ولا يحتفظ التطبيق بتسجيلك.',
+                      'يُعالج الصوت على جهازك أثناء الجلسة، ولا يُرفع أو يُحفظ تسجيلك.',
                       style: TextStyle(
                         color: colors.textSecondary,
                         fontSize: 11,
@@ -181,7 +180,7 @@ class OralRecitationInfoSheet extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'من شاشة التسميع يمكنك فحص حزمة العربية وتنزيلها إذا كانت خدمة جهازك تدعم ذلك، ثم التسميع دون إنترنت بعد ظهور الحزمة كجاهزة.',
+                      'نموذج التسميع مضمّن في نسخة Android: يعمل دون إنترنت ودون تنزيل حزمة صوتية من إعدادات الجهاز.',
                       style: TextStyle(
                         color: colors.textSecondary,
                         fontSize: 11,
@@ -189,6 +188,15 @@ class OralRecitationInfoSheet extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'عند عدم وضوح الصوت نطلب إعادة الموضع. المتابعة تساعدك على الحفظ، ولا تُقيّم أحكام التجويد.',
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 11,
+                  height: 1.6,
+                ),
               ),
               const SizedBox(height: MishkatSpacing.base),
               MishkatPrimaryAction(

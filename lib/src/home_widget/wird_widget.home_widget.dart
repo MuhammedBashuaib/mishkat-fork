@@ -1,5 +1,6 @@
 // dart format off
-// GENERATED CODE - DO NOT MODIFY BY HAND
+// Generated bridge with maintained native widget fields.
+// See docs/HOME_WIDGETS.md before regenerating.
 // ignore_for_file: type=lint
 
 import 'dart:async';
@@ -19,6 +20,9 @@ class WirdWidgetHomeWidget {
     String? wirdDetail,
     String? wirdProgress,
     String? wirdAction,
+    double? wirdProgressValue,
+    String? wirdCompletedPages,
+    String? wirdRemainingPages,
   }) {
     return Future.wait([
       if (wirdName != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.wirdName', wirdName, appGroupId: _$appGroupId),
@@ -26,6 +30,9 @@ class WirdWidgetHomeWidget {
       if (wirdDetail != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.wirdDetail', wirdDetail, appGroupId: _$appGroupId),
       if (wirdProgress != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.wirdProgress', wirdProgress, appGroupId: _$appGroupId),
       if (wirdAction != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.wirdAction', wirdAction, appGroupId: _$appGroupId),
+      if (wirdProgressValue != null) HomeWidget.saveWidgetData<double>('${_$paramPrefix}.wirdProgressValue', wirdProgressValue, appGroupId: _$appGroupId),
+      if (wirdCompletedPages != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.wirdCompletedPages', wirdCompletedPages, appGroupId: _$appGroupId),
+      if (wirdRemainingPages != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.wirdRemainingPages', wirdRemainingPages, appGroupId: _$appGroupId),
     ]);
   }
 
@@ -35,6 +42,9 @@ class WirdWidgetHomeWidget {
     bool wirdDetail = false,
     bool wirdProgress = false,
     bool wirdAction = false,
+    bool wirdProgressValue = false,
+    bool wirdCompletedPages = false,
+    bool wirdRemainingPages = false,
   }) {
     return Future.wait([
       if (wirdName) HomeWidget.saveWidgetData('${_$paramPrefix}.wirdName', null, appGroupId: _$appGroupId),
@@ -42,16 +52,22 @@ class WirdWidgetHomeWidget {
       if (wirdDetail) HomeWidget.saveWidgetData('${_$paramPrefix}.wirdDetail', null, appGroupId: _$appGroupId),
       if (wirdProgress) HomeWidget.saveWidgetData('${_$paramPrefix}.wirdProgress', null, appGroupId: _$appGroupId),
       if (wirdAction) HomeWidget.saveWidgetData('${_$paramPrefix}.wirdAction', null, appGroupId: _$appGroupId),
+      if (wirdProgressValue) HomeWidget.saveWidgetData('${_$paramPrefix}.wirdProgressValue', null, appGroupId: _$appGroupId),
+      if (wirdCompletedPages) HomeWidget.saveWidgetData('${_$paramPrefix}.wirdCompletedPages', null, appGroupId: _$appGroupId),
+      if (wirdRemainingPages) HomeWidget.saveWidgetData('${_$paramPrefix}.wirdRemainingPages', null, appGroupId: _$appGroupId),
     ]);
   }
 
-  static Future<({String? wirdName, String? wirdPages, String? wirdDetail, String? wirdProgress, String? wirdAction})> getData() async {
+  static Future<({String? wirdName, String? wirdPages, String? wirdDetail, String? wirdProgress, String? wirdAction, double? wirdProgressValue, String? wirdCompletedPages, String? wirdRemainingPages})> getData() async {
     return (
       wirdName: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.wirdName', defaultValue: 'رحلتك مع القرآن', appGroupId: _$appGroupId),
       wirdPages: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.wirdPages', defaultValue: 'ابدأ ختمتك الأولى', appGroupId: _$appGroupId),
       wirdDetail: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.wirdDetail', defaultValue: 'حدّد خطتك ليظهر وردك هنا', appGroupId: _$appGroupId),
       wirdProgress: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.wirdProgress', defaultValue: 'خطوة صغيرة كل يوم', appGroupId: _$appGroupId),
       wirdAction: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.wirdAction', defaultValue: 'اضغط لإنشاء خطة', appGroupId: _$appGroupId),
+      wirdProgressValue: await HomeWidget.getWidgetData<double>('${_$paramPrefix}.wirdProgressValue', defaultValue: 0, appGroupId: _$appGroupId),
+      wirdCompletedPages: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.wirdCompletedPages', defaultValue: 'أنجزت ٠ صفحة', appGroupId: _$appGroupId),
+      wirdRemainingPages: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.wirdRemainingPages', defaultValue: 'باقي ٠ صفحة', appGroupId: _$appGroupId),
     );
   }
 

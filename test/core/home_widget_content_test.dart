@@ -29,6 +29,12 @@ void main() {
       expect(content.pages, 'صفحة ٤٥ – ٦٢');
       expect(content.detail, '١٨ صفحة في وردك الحالي');
       expect(content.progressLabel, '٧٪ من الختمة');
+      expect(content.completedPages, 41);
+      expect(content.remainingPages, 563);
+      expect(content.completedLabel, 'أنجزت ٤١ صفحة');
+      expect(content.remainingLabel, 'باقي ٥٦٣ صفحة');
+      // The saved reading position is a bookmark, not completed pages.
+      expect(content.progress, closeTo(41 / 604, 0.0001));
       expect(content.action, 'اضغط لمتابعة القراءة');
       expect(WirdWidgetContent(plan(resume: 90)).pages, 'صفحة ٦٢ – ٦٢');
     },
@@ -45,6 +51,30 @@ void main() {
     );
     expect(completed.pages, 'أتممت الختمة');
     expect(completed.progressLabel, '١٠٠٪ من الختمة');
+    expect(completed.progress, 1);
+    expect(completed.remainingPages, 0);
+    expect(WirdWidgetContent(null).progress, 0);
+    expect(WirdWidgetContent(null).completedPages, 0);
+    expect(WirdWidgetContent(null).remainingPages, 0);
+  });
+
+  test('a plan starting later uses only the pages in that plan', () {
+    final partial = KhatmaPlan(
+      id: 'partial',
+      name: 'ختمة',
+      durationDays: 10,
+      dailyPages: 10,
+      startDate: DateTime(2026),
+      startPage: 505,
+      progressPage: 554,
+      status: KhatmaStatus.paused,
+      createdAt: DateTime(2026),
+    );
+    final content = WirdWidgetContent(partial);
+    expect(content.completedPages, 50);
+    expect(content.remainingPages, 50);
+    expect(content.progress, 0.5);
+    expect(content.detail, 'الخطة متوقفة مؤقتًا');
   });
 
   test('tasbih preserves the session while daily total resets at midnight', () {

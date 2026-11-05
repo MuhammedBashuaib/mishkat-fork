@@ -30,17 +30,24 @@ class HomeWidgetService {
   HomeWidgetService({
     required AdhkarRepository adhkarRepository,
     PrayerCalculator calculator = const PrayerCalculator(),
-  }) : this._internal(adhkarRepository, calculator);
+    DateTime Function()? now,
+  }) : this._internal(adhkarRepository, calculator, now ?? DateTime.now);
 
-  HomeWidgetService._internal(this._adhkarRepository, this._calculator);
+  HomeWidgetService._internal(
+    this._adhkarRepository,
+    this._calculator,
+    this._now,
+  );
 
   static const appGroupId = 'group.com.dakomn.mishkatapp.widgets';
 
   final AdhkarRepository _adhkarRepository;
   final PrayerCalculator _calculator;
+  final DateTime Function() _now;
   StreamSubscription<Uri?>? _clickSubscription;
   Timer? _tasbihDebounce;
   Future<void> _tasbihWrites = Future.value();
+  Future<void> _settingsWrites = Future.value();
 
   bool get isSupportedPlatform =>
       !kIsWeb &&
@@ -65,21 +72,46 @@ class HomeWidgetService {
     await sync(settings);
   }
 
-  /// Saves two days of local data and asks both native platforms to redraw.
+  /// Saves a week of prayer times and two days of adhkar locally.
   /// Timed entries let prayer and adhkar content advance while Flutter is not
   /// running; no network request or continuous background task is required.
-  Future<void> sync(AppSettings settings) async {
-    if (!isSupportedPlatform) return;
-    await Future.wait([
-      _guarded('while syncing prayer widget', () => _syncPrayer(settings)),
-      _guarded('while syncing qibla widget', () => _syncQibla(settings)),
-      _guarded('while syncing adhkar widget', _syncAdhkar),
-    ]);
+  Future<void> sync(AppSettings settings) {
+    if (!isSupportedPlatform) return Future.value();
+    // Serialize changes so rapid theme/location edits cannot restore old data.
+    _settingsWrites = _settingsWrites.then((_) async {
+      await _guarded('while syncing widget appearance', () async {
+        await HomeWidget.saveWidgetData<String>(
+          'widgetTheme',
+          settings.widgetTheme.name,
+          appGroupId: appGroupId,
+        );
+      });
+      await Future.wait([
+        _guarded('while syncing prayer widget', () => _syncPrayer(settings)),
+        _guarded('while syncing qibla widget', () => _syncQibla(settings)),
+        _guarded('while syncing adhkar widget', _syncAdhkar),
+        _guarded('while refreshing wird appearance', () async {
+          await WirdWidgetHomeWidget.updateWidget();
+        }),
+        _guarded('while refreshing tasbih appearance', () async {
+          await TasbihWidgetHomeWidget.updateWidget();
+        }),
+      ]);
+    });
+    return _settingsWrites;
   }
 
   Future<bool> isInstalled(MishkatHomeWidget widget) async {
     if (!isSupportedPlatform) return false;
     try {
+      // The gallery's Home Screen card must not report a Lock Screen-only
+      // installation as its medium Home Screen widget.
+      if (widget == MishkatHomeWidget.prayerTimes &&
+          defaultTargetPlatform == TargetPlatform.iOS) {
+        final installed =
+            await PrayerTimesWidgetHomeWidget.getInstalledWidgets();
+        return installed.any((info) => info.iOSFamily == 'systemMedium');
+      }
       final result = switch (widget) {
         MishkatHomeWidget.prayerTimes =>
           PrayerTimesWidgetHomeWidget.isInstalled(),
@@ -128,6 +160,9 @@ class HomeWidgetService {
         wirdPages: content.pages,
         wirdDetail: content.detail,
         wirdProgress: content.progressLabel,
+        wirdProgressValue: content.progress,
+        wirdCompletedPages: content.completedLabel,
+        wirdRemainingPages: content.remainingLabel,
         wirdAction: content.action,
       );
       await WirdWidgetHomeWidget.updateWidget();
@@ -148,12 +183,13 @@ class HomeWidgetService {
     if (!isSupportedPlatform) return Future.value();
     _tasbihWrites = _tasbihWrites.then(
       (_) => _guarded('while syncing tasbih widget', () async {
-        final now = DateTime.now();
+        final now = _now();
         final content = TasbihWidgetContent(state, now: now);
         await TasbihWidgetHomeWidget.saveData(
           tasbihDhikr: content.dhikr,
           tasbihCount: content.count,
           tasbihTarget: content.target,
+          tasbihProgressValue: content.progress,
           tasbihAction: content.action,
           timedData: {
             now.subtract(const Duration(seconds: 1)): TasbihWidgetTimedData(
@@ -180,16 +216,13 @@ class HomeWidgetService {
       return;
     }
 
-    final now = DateTime.now();
-    final end = now.add(const Duration(hours: 48));
-    final points = <DateTime>{now.subtract(const Duration(seconds: 1))};
+    final now = _now();
+    final end = now.add(const Duration(days: 7));
+    final points = <DateTime>{now};
 
-    // Hourly points keep the human-friendly remaining estimate useful, while
-    // exact prayer points advance the next-prayer title at the right moment.
-    for (var hour = 1; hour <= 48; hour++) {
-      points.add(now.add(Duration(hours: hour)));
-    }
-    for (var day = 0; day <= 2; day++) {
+    // Native timers count down to the absolute timestamp without waking Flutter.
+    // Only prayer boundaries need a new title/target in the widget timeline.
+    for (var day = 0; day <= 7; day++) {
       final date = DateTime(now.year, now.month, now.day + day, 12);
       final schedule = _schedule(settings, date);
       points.addAll(
@@ -202,6 +235,14 @@ class HomeWidgetService {
     final ordered = points.where((time) => !time.isAfter(end)).toList()..sort();
     final timedData = <DateTime, PrayerTimesWidgetTimedData>{
       for (final point in ordered) point: _prayerDataAt(settings, point),
+      // Never keep presenting a cached prayer as current after the horizon.
+      end: const PrayerTimesWidgetTimedData(
+        prayerNextAt: 0,
+        prayerRemaining: 'افتح مشكاة لتحديث المواقيت',
+        prayerNextName: '—',
+        prayerNextTime: '—',
+        prayerUpcoming: 'افتح مشكاة لتحديث مواقيت الأسبوع',
+      ),
     };
     await PrayerTimesWidgetHomeWidget.saveData(
       prayerCity: settings.city.isEmpty ? 'موقعك الحالي' : settings.city,
@@ -211,10 +252,11 @@ class HomeWidgetService {
   }
 
   PrayerTimesWidgetTimedData _prayerDataAt(AppSettings settings, DateTime at) {
-    final schedule = _schedule(settings, at.add(const Duration(seconds: 1)));
+    final schedule = _schedule(settings, at);
     final remaining = schedule.next.at.difference(at);
     return PrayerTimesWidgetTimedData(
-      prayerRemaining: _remainingLabel(remaining),
+      prayerRemaining: AppFormatters.duration(remaining),
+      prayerNextAt: schedule.next.at.millisecondsSinceEpoch,
       prayerNextName: schedule.next.name,
       prayerNextTime: _arabicDigits(AppFormatters.time(schedule.next.at)),
       prayerUpcoming: _upcomingLabel(settings, schedule, at),
@@ -258,8 +300,9 @@ class HomeWidgetService {
     if (!settings.hasLocation) {
       await QiblaWidgetHomeWidget.saveData(
         qiblaArrow: '↑',
-        qiblaBearing: 'حدّد موقعك',
-        qiblaDistance: 'افتح مشكاة للبوصلة الحية',
+        qiblaBearing: 'الشمال',
+        qiblaDistance: 'حدّد موقعك لاتجاه القبلة',
+        qiblaBearingDegrees: -1,
       );
       await QiblaWidgetHomeWidget.updateWidget();
       return;
@@ -267,6 +310,7 @@ class HomeWidgetService {
     final result = _calculator.qibla(settings.latitude!, settings.longitude!);
     await QiblaWidgetHomeWidget.saveData(
       qiblaArrow: _bearingArrow(result.bearing),
+      qiblaBearingDegrees: result.bearing,
       qiblaBearing:
           '${_arabicDigits(result.bearing.round().toString())}° ${_bearingName(result.bearing)}',
       qiblaDistance:
@@ -277,7 +321,7 @@ class HomeWidgetService {
 
   Future<void> _syncAdhkar() async {
     final categories = await _adhkarRepository.load();
-    final now = DateTime.now();
+    final now = _now();
     final end = now.add(const Duration(hours: 48));
     final points = <DateTime>{now.subtract(const Duration(seconds: 1))};
     for (var day = 0; day <= 2; day++) {
@@ -357,15 +401,6 @@ class HomeWidgetService {
         silent: true,
       ),
     );
-  }
-
-  static String _remainingLabel(Duration duration) {
-    if (duration.inMinutes < 1) return 'حان وقت الصلاة';
-    if (duration.inMinutes < 60) return 'متبقي أقل من ساعة';
-    final hours = (duration.inMinutes / 60).ceil();
-    if (hours == 1) return 'متبقي نحو ساعة';
-    if (hours == 2) return 'متبقي نحو ساعتين';
-    return 'متبقي نحو ${_arabicDigits('$hours')} ساعات';
   }
 
   static String _countLabel(int count) {

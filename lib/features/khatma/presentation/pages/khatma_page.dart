@@ -13,6 +13,7 @@ import '../../../settings/presentation/cubit/settings_cubit.dart';
 import '../../data/models/khatma_plan.dart';
 import '../cubit/khatma_cubit.dart';
 import '../cubit/khatma_state.dart';
+import '../widgets/khatma_plan_builder.dart';
 
 class KhatmaPage extends StatelessWidget {
   const KhatmaPage({super.key});
@@ -165,7 +166,7 @@ class KhatmaPage extends StatelessWidget {
 
   static String _status(KhatmaPlan plan) => switch (plan.status) {
     KhatmaStatus.active =>
-      '${plan.remainingPages} صفحة متبقية · ${plan.dailyPages} يوميًا',
+      '${plan.remainingPages} صفحة متبقية · ${plan.remainingDays} يومًا',
     KhatmaStatus.paused => 'متوقفة مؤقتًا',
     KhatmaStatus.completed => 'ختمة مكتملة — تقبّل الله',
   };
@@ -175,11 +176,7 @@ class KhatmaPage extends StatelessWidget {
     int suggestedPage, {
     int initialDuration = 30,
   }) async {
-    final name = TextEditingController(text: 'ختمتي');
-    final page = TextEditingController(text: '$suggestedPage');
-    var duration = initialDuration;
-    String? reminder = 'fajr';
-    final create = await showModalBottomSheet<bool>(
+    final draft = await showModalBottomSheet<KhatmaPlanDraft>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -189,143 +186,55 @@ class KhatmaPage extends StatelessWidget {
           top: Radius.circular(MishkatRadius.xl),
         ),
       ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          final safePage = (int.tryParse(page.text) ?? 1).clamp(1, 604);
-          final daily = ((604 - safePage + 1) / duration).ceil();
-          return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              MishkatSpacing.lg,
-              MishkatSpacing.md,
-              MishkatSpacing.lg,
-              MediaQuery.viewInsetsOf(context).bottom + MishkatSpacing.xl,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: context.mishkat.border,
-                      borderRadius: BorderRadius.circular(MishkatRadius.pill),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: MishkatSpacing.lg),
-                Text(
-                  'أنشئ خطة ختمتك',
-                  style: Theme.of(context).textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  'اختر نقطة البداية والمدة، وسنحسب وردك اليومي.',
-                  style: TextStyle(color: context.mishkat.textSecondary),
-                ),
-                const SizedBox(height: MishkatSpacing.base),
-                TextField(
-                  controller: name,
-                  decoration: const InputDecoration(labelText: 'اسم الختمة'),
-                ),
-                const SizedBox(height: MishkatSpacing.md),
-                TextField(
-                  controller: page,
-                  keyboardType: TextInputType.number,
-                  onChanged: (_) => setSheetState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'ابدأ من الصفحة',
-                  ),
-                ),
-                const SizedBox(height: MishkatSpacing.base),
-                Text(
-                  'مدة الختمة',
-                  style: Theme.of(context).textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: MishkatSpacing.sm),
-                Wrap(
-                  spacing: MishkatSpacing.sm,
-                  runSpacing: MishkatSpacing.sm,
-                  children: [
-                    for (final option in const [
-                      (days: 7, label: 'أسبوع'),
-                      (days: 15, label: '15 يومًا'),
-                      (days: 30, label: 'شهر'),
-                      (days: 60, label: 'شهران'),
-                      (days: 90, label: '3 أشهر'),
-                    ])
-                      _DurationOption(
-                        label: option.label,
-                        selected: duration == option.days,
-                        onTap: () =>
-                            setSheetState(() => duration = option.days),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: MishkatSpacing.base),
-                DropdownButtonFormField<String?>(
-                  initialValue: reminder,
-                  decoration: const InputDecoration(labelText: 'تذكير الورد'),
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('دون تذكير')),
-                    DropdownMenuItem(value: 'fajr', child: Text('بعد الفجر')),
-                    DropdownMenuItem(value: 'dhuhr', child: Text('بعد الظهر')),
-                    DropdownMenuItem(value: 'asr', child: Text('بعد العصر')),
-                    DropdownMenuItem(
-                      value: 'maghrib',
-                      child: Text('بعد المغرب'),
-                    ),
-                    DropdownMenuItem(value: 'isha', child: Text('بعد العشاء')),
-                  ],
-                  onChanged: (value) => reminder = value,
-                ),
-                const SizedBox(height: MishkatSpacing.base),
-                Container(
-                  padding: const EdgeInsets.all(MishkatSpacing.base),
-                  decoration: BoxDecoration(
-                    color: context.mishkat.primarySoft,
-                    borderRadius: BorderRadius.circular(MishkatRadius.md),
-                    border: Border.all(color: context.mishkat.border),
-                  ),
-                  child: Text(
-                    'وردك: $daily صفحة يوميًا\nموعد الإتمام المتوقع: ${AppFormatters.gregorianDate(DateTime.now().add(Duration(days: duration - 1)))}',
-                    style: TextStyle(
-                      height: 1.65,
-                      fontWeight: FontWeight.w800,
-                      color: context.mishkat.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: MishkatSpacing.lg),
-                MishkatPrimaryButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  label: 'ابدأ الختمة',
-                  icon: const Icon(Icons.check_rounded),
-                ),
-              ],
-            ),
-          );
-        },
+      builder: (_) => KhatmaPlanBuilder(
+        suggestedPage: suggestedPage,
+        initialDuration: initialDuration,
       ),
     );
-    if (create == true && context.mounted) {
-      if (reminder != null) {
+    if (draft == null || !context.mounted) return;
+    final cubit = context.read<KhatmaCubit>();
+    final previousIds = cubit.state.plans.map((plan) => plan.id).toSet();
+    final wantsReminder =
+        draft.reminderPrayer != null || draft.reminderTime != null;
+    String? reminderMessage;
+    if (wantsReminder) {
+      try {
         final settings = context.read<SettingsCubit>();
-        if (!settings.state.settings.notificationsEnabled) {
-          await settings.setNotificationsEnabled(true);
+        final allowed = await settings.setNotificationsEnabled(true);
+        if (!allowed) {
+          reminderMessage = 'حُفظت الخطة. لتلقي تذكير الورد، اسمح بالإشعارات من إعدادات الجهاز.';
+        } else if (!settings.state.preciseAlarmsAllowed) {
+          reminderMessage = 'حُفظت الخطة. فعّل إذن المنبّهات والتذكيرات من إعدادات الجهاز ليصلك الإشعار في الوقت المحدد.';
         }
+      } on Object {
+        reminderMessage =
+            'حُفظت الخطة، وتعذّر تفعيل الإشعارات. أعد تفعيلها من الإعدادات.';
       }
+    }
+    try {
+      await cubit.create(
+        name: draft.name,
+        durationDays: draft.schedule.durationDays,
+        startPage: draft.startPage,
+        planningMode: draft.planningMode,
+        dailyPages: draft.schedule.maxDailyPages,
+        reminderPrayer: draft.reminderPrayer,
+        reminderTime: draft.reminderTime,
+      );
+      if (context.mounted && reminderMessage != null) {
+        context.showMessage(reminderMessage);
+      }
+    } on Object {
       if (!context.mounted) return;
-      await context.read<KhatmaCubit>().create(
-        name: name.text,
-        durationDays: duration,
-        startPage: int.tryParse(page.text) ?? 1,
-        reminderPrayer: reminder,
+      final saved = cubit.state.plans.any(
+        (plan) => !previousIds.contains(plan.id),
+      );
+      context.showMessage(
+        saved
+            ? 'حُفظت الخطة، وتعذّرت جدولة التذكير. أعد تفعيل الإشعارات من الإعدادات.'
+            : 'تعذّر حفظ الخطة. حاول مرة أخرى.',
       );
     }
-    name.dispose();
-    page.dispose();
   }
 }
 
@@ -463,7 +372,7 @@ class _ActivePlanCard extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '${plan.dailyPages} صفحة · ${plan.remainingPages} صفحة متبقية',
+                '${plan.currentWardPages} صفحة · ${plan.remainingPages} صفحة متبقية',
                 style: TextStyle(
                   fontSize: 12.5,
                   color: context.mishkat.textSecondary,
@@ -473,6 +382,32 @@ class _ActivePlanCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: MishkatSpacing.base),
+        if (plan.status != KhatmaStatus.completed &&
+            (plan.reminderPrayer != null || plan.reminderTime != null)) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                plan.status == KhatmaStatus.paused
+                    ? Icons.notifications_paused_outlined
+                    : Icons.notifications_active_outlined,
+                size: 18,
+                color: context.mishkat.textSecondary,
+              ),
+              const SizedBox(width: MishkatSpacing.sm),
+              Expanded(
+                child: Text(
+                  _reminderLabel(context),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.mishkat.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: MishkatSpacing.base),
+        ],
         MishkatPrimaryAction(
           onPressed: plan.status != KhatmaStatus.active
               ? null
@@ -509,6 +444,29 @@ class _ActivePlanCard extends StatelessWidget {
       ],
     ),
   );
+
+  String _reminderLabel(BuildContext context) {
+    if (plan.status == KhatmaStatus.paused) {
+      return 'تذكير الورد متوقف مؤقتًا';
+    }
+    final time = KhatmaPlan.normalizeReminderTime(plan.reminderTime);
+    if (time != null) {
+      final clock = TimeOfDay(
+        hour: int.parse(time.substring(0, 2)),
+        minute: int.parse(time.substring(3)),
+      );
+      return 'تذكير الورد يوميًا ${clock.format(context)}';
+    }
+    final prayer = switch (plan.reminderPrayer) {
+      'fajr' => 'الفجر',
+      'dhuhr' => 'الظهر',
+      'asr' => 'العصر',
+      'maghrib' => 'المغرب',
+      'isha' => 'العشاء',
+      _ => 'الصلاة',
+    };
+    return 'تذكير الورد بعد $prayer بـ15 دقيقة';
+  }
 
   Future<void> _openReader(BuildContext context) async {
     final startPage = plan.resumePage
@@ -655,7 +613,7 @@ class _KhatmaStart extends StatelessWidget {
             child: _PlanPreset(
               days: 30,
               title: 'شهر',
-              detail: '21 صفحة يوميًا',
+              detail: '20–21 صفحة يوميًا',
               onTap: onCreate,
             ),
           ),
@@ -664,7 +622,7 @@ class _KhatmaStart extends StatelessWidget {
             child: _PlanPreset(
               days: 60,
               title: 'شهران',
-              detail: '11 صفحة يوميًا',
+              detail: '10–11 صفحة يوميًا',
               onTap: onCreate,
             ),
           ),
@@ -673,7 +631,7 @@ class _KhatmaStart extends StatelessWidget {
             child: _PlanPreset(
               days: 90,
               title: '3 أشهر',
-              detail: '7 صفحات يوميًا',
+              detail: '6–7 صفحات يوميًا',
               onTap: onCreate,
             ),
           ),
@@ -724,41 +682,6 @@ class _PlanPreset extends StatelessWidget {
           ),
         ),
       ],
-    ),
-  );
-}
-
-class _DurationOption extends StatelessWidget {
-  const _DurationOption({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: selected ? context.mishkat.brandDeep : context.mishkat.surface,
-    shape: StadiumBorder(
-      side: BorderSide(
-        color: selected ? context.mishkat.primary : context.mishkat.border,
-      ),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : context.mishkat.textSecondary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
     ),
   );
 }

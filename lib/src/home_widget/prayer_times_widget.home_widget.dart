@@ -1,5 +1,6 @@
 // dart format off
-// GENERATED CODE - DO NOT MODIFY BY HAND
+// Generated bridge with maintained native countdown timestamp.
+// See docs/HOME_WIDGETS.md before regenerating.
 // ignore_for_file: type=lint
 
 import 'dart:async';
@@ -271,12 +272,14 @@ class PrayerTimesWidgetHomeWidget {
 
 class PrayerTimesWidgetTimedData {
   final String? prayerRemaining;
+  final int? prayerNextAt;
   final String? prayerNextName;
   final String? prayerNextTime;
   final String? prayerUpcoming;
 
   const PrayerTimesWidgetTimedData({
     this.prayerRemaining,
+    this.prayerNextAt,
     this.prayerNextName,
     this.prayerNextTime,
     this.prayerUpcoming,
@@ -285,6 +288,7 @@ class PrayerTimesWidgetTimedData {
   factory PrayerTimesWidgetTimedData.fromJson(Map<String, dynamic>? json) {
     json ??= const {};
     return PrayerTimesWidgetTimedData(
+      prayerNextAt: (json['prayerNextAt'] as num?)?.toInt(),
       prayerRemaining: _readString(json['prayerRemaining']) ?? 'افتح مشكاة لتحديث المواقيت',
       prayerNextName: _readString(json['prayerNextName']) ?? '—',
       prayerNextTime: _readString(json['prayerNextTime']) ?? '—',
@@ -294,6 +298,7 @@ class PrayerTimesWidgetTimedData {
 
   Map<String, dynamic> toJson() {
     return {
+      if (prayerNextAt != null) 'prayerNextAt': prayerNextAt,
       if (prayerRemaining != null) 'prayerRemaining': prayerRemaining,
       if (prayerNextName != null) 'prayerNextName': prayerNextName,
       if (prayerNextTime != null) 'prayerNextTime': prayerNextTime,

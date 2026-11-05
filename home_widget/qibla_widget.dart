@@ -1,5 +1,8 @@
 import 'package:home_widget_generator/home_widget_generator.dart';
 
+// Design seed only: native bearing and appearance overrides are maintained
+// separately. Read docs/HOME_WIDGETS.md before running the generator.
+
 const _background = HWThemedColor(
   light: HWFixedColor(0xFF214F44),
   dark: HWFixedColor(0xFF0E2821),
@@ -17,10 +20,10 @@ const _compassSurface = HWThemedColor(
   description: 'اتجاه القبلة من موقعك مع انتقال للبوصلة الحية',
   widgetUrl: 'mishkat://qibla',
   android: HomeWidgetAndroidConfiguration(
-    minWidth: 110,
-    minHeight: 110,
-    minResizeWidth: 90,
-    minResizeHeight: 90,
+    minWidth: 140,
+    minHeight: 150,
+    minResizeWidth: 140,
+    minResizeHeight: 150,
     targetCellWidth: 2,
     targetCellHeight: 2,
     resizeMode: HWAndroidResizeMode.none,

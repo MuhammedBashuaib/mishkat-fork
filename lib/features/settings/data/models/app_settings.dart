@@ -49,6 +49,7 @@ class AppSettings extends Equatable {
     this.adhkarNotifications = true,
     this.reminders = const ReminderPreferences(),
     this.theme = AppThemePreference.system,
+    this.widgetTheme = AppThemePreference.system,
     this.uiFontScale = 1,
     this.quranFont = 32,
     this.reciter = 'ar.alafasy',
@@ -79,6 +80,9 @@ class AppSettings extends Equatable {
   final bool adhkarNotifications;
   final ReminderPreferences reminders;
   final AppThemePreference theme;
+
+  /// Home Screen widgets follow the device by default, independently of the app.
+  final AppThemePreference widgetTheme;
   final double uiFontScale;
   final double quranFont;
   final String reciter;
@@ -117,6 +121,7 @@ class AppSettings extends Equatable {
     }
 
     final themeName = json['theme'] as String? ?? 'system';
+    final widgetThemeName = json['widgetTheme'];
     const defaultPrayers = {
       'fajr': true,
       'dhuhr': true,
@@ -164,6 +169,10 @@ class AppSettings extends Equatable {
         (item) => item.name == themeName,
         orElse: () => AppThemePreference.system,
       ),
+      widgetTheme: AppThemePreference.values.firstWhere(
+        (item) => item.name == widgetThemeName,
+        orElse: () => AppThemePreference.system,
+      ),
       uiFontScale:
           (json['uiFontScale'] as num?)?.toDouble().clamp(1, 1.25) ?? 1,
       quranFont: (json['quranFont'] as num?)?.toDouble().clamp(20, 60) ?? 32,
@@ -197,6 +206,7 @@ class AppSettings extends Equatable {
     'adhkarNotifications': adhkarNotifications,
     'reminders': reminders.toJson(),
     'theme': theme.name,
+    'widgetTheme': widgetTheme.name,
     'uiFontScale': uiFontScale,
     'quranFont': quranFont,
     'reciter': reciter,
@@ -228,6 +238,7 @@ class AppSettings extends Equatable {
     bool? adhkarNotifications,
     ReminderPreferences? reminders,
     AppThemePreference? theme,
+    AppThemePreference? widgetTheme,
     double? uiFontScale,
     double? quranFont,
     String? reciter,
@@ -259,6 +270,7 @@ class AppSettings extends Equatable {
     adhkarNotifications: adhkarNotifications ?? this.adhkarNotifications,
     reminders: reminders ?? this.reminders,
     theme: theme ?? this.theme,
+    widgetTheme: widgetTheme ?? this.widgetTheme,
     uiFontScale: uiFontScale ?? this.uiFontScale,
     quranFont: quranFont ?? this.quranFont,
     reciter: reciter ?? this.reciter,
@@ -291,6 +303,7 @@ class AppSettings extends Equatable {
     adhkarNotifications,
     reminders,
     theme,
+    widgetTheme,
     uiFontScale,
     quranFont,
     reciter,

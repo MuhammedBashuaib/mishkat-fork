@@ -15,7 +15,7 @@ import '../widgets/tafsir_knowledge_sheet.dart';
 import 'quran_reader_page.dart';
 import 'quran_search_page.dart';
 
-/// Dedicated index page for browsing Surahs, Juz, and Bookmarks.
+/// Dedicated index page for browsing Surahs, Juz, Bookmarks, and opening pages.
 class QuranIndexPage extends StatefulWidget {
   const QuranIndexPage({super.key, this.initialMode = QuranIndexMode.surahs});
 
@@ -110,8 +110,12 @@ class _QuranIndexPageState extends State<QuranIndexPage>
           ),
           body: Column(
             children: [
-              // 1. Reading Continuation Banner (Last Read)
-              _buildContinuationBanner(context, state),
+              // Leave room for input and results when the keyboard is open.
+              Visibility(
+                visible: MediaQuery.viewInsetsOf(context).bottom == 0,
+                maintainState: true,
+                child: _buildContinuationBanner(context, state),
+              ),
 
               // 2. Filter / Search Bar
               Padding(
@@ -157,6 +161,23 @@ class _QuranIndexPageState extends State<QuranIndexPage>
                     ),
                   ),
                   onChanged: (val) => setState(() => _filter = val.trim()),
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  MishkatSpacing.base,
+                  MishkatSpacing.xs,
+                  MishkatSpacing.base,
+                  MishkatSpacing.sm,
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _showPageJump,
+                    icon: const Icon(Icons.find_in_page_outlined, size: 20),
+                    label: const Text('الانتقال إلى صفحة'),
+                  ),
                 ),
               ),
 
@@ -207,6 +228,22 @@ class _QuranIndexPageState extends State<QuranIndexPage>
           ),
         );
       },
+    );
+  }
+
+  Future<void> _showPageJump() async {
+    FocusScope.of(context).unfocus();
+    final page = await showDialog<int>(
+      context: context,
+      builder: (_) => const _PageJumpDialog(),
+    );
+    if (page == null || !mounted) return;
+
+    await context.read<QuranCubit>().openPage(page);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const QuranReaderPage()),
     );
   }
 
@@ -480,6 +517,71 @@ class _QuranIndexPageState extends State<QuranIndexPage>
       },
     );
   }
+}
+
+class _PageJumpDialog extends StatefulWidget {
+  const _PageJumpDialog();
+
+  @override
+  State<_PageJumpDialog> createState() => _PageJumpDialogState();
+}
+
+class _PageJumpDialogState extends State<_PageJumpDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _controller = TextEditingController();
+  bool _submitted = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  int? _parsePage(String value) {
+    final digits = QuranSearchNormalizer.convertArabicDigits(value.trim());
+    if (!RegExp(r'^[0-9]+$').hasMatch(digits)) return null;
+    final page = int.tryParse(digits);
+    return page != null && page >= 1 && page <= 604 ? page : null;
+  }
+
+  void _submit() {
+    if (_submitted || !_formKey.currentState!.validate()) return;
+    _submitted = true;
+    FocusScope.of(context).unfocus();
+    Navigator.pop(context, _parsePage(_controller.text)!);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('الانتقال إلى صفحة'),
+    scrollable: true,
+    content: Form(
+      key: _formKey,
+      child: TextFormField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.go,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        decoration: const InputDecoration(
+          labelText: 'رقم الصفحة',
+          helperText: 'من ١ إلى ٦٠٤',
+          errorMaxLines: 2,
+        ),
+        validator: (value) => _parsePage(value ?? '') == null
+            ? 'أدخل رقم صفحة من ١ إلى ٦٠٤'
+            : null,
+        onFieldSubmitted: (_) => _submit(),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('إلغاء'),
+      ),
+      FilledButton(onPressed: _submit, child: const Text('انتقال')),
+    ],
+  );
 }
 
 class _IndexTile extends StatelessWidget {

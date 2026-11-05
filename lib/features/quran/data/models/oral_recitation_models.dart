@@ -2,6 +2,19 @@ import 'package:equatable/equatable.dart';
 
 import 'murajaah_models.dart';
 
+/// How much of the authoritative text is visible during practice.
+enum OralRecitationMode {
+  reading,
+  firstWord,
+  hidden;
+
+  String get arabicLabel => switch (this) {
+    reading => 'قراءة وتتبع',
+    firstWord => 'أول كلمة',
+    hidden => 'من الحفظ',
+  };
+}
+
 /// The status of an individual word in the target Quranic sequence after speech alignment.
 enum WordAlignmentStatus {
   /// Word was recited correctly and matches the authoritative Quranic text.
@@ -176,6 +189,13 @@ class OralRecitationSessionSummary extends Equatable {
     required this.durationSeconds,
     required this.discrepancies,
     required this.completedAt,
+    this.attemptedWords = 0,
+    this.hintCount = 0,
+    this.assistedWords = 0,
+    this.coveragePercentage = 0,
+    this.mode = OralRecitationMode.hidden,
+    this.detectedMistakesCount = 0,
+    this.correctedMistakesCount = 0,
   });
 
   final String sessionId;
@@ -195,11 +215,33 @@ class OralRecitationSessionSummary extends Equatable {
   final List<RecitationDiscrepancy> discrepancies;
   final DateTime completedAt;
 
+  /// Words actually heard or explicitly bypassed, excluding the unread tail.
+  final int attemptedWords;
+  final int hintCount;
+  final int assistedWords;
+  final double coveragePercentage;
+  final OralRecitationMode mode;
+  final int detectedMistakesCount;
+  final int correctedMistakesCount;
+  int get unrecitedWords => (totalWords - attemptedWords).clamp(0, totalWords);
+
   ReviewOutcome get suggestedOutcome {
+    if (attemptedWords == 0) return ReviewOutcome.failed;
+    if (coveragePercentage < 100 ||
+        assistedWords > 0 ||
+        detectedMistakesCount > 0 ||
+        hintCount > 0 ||
+        uncertainCount > 0 ||
+        mode == OralRecitationMode.reading) {
+      return ReviewOutcome.difficult;
+    }
     if (accuracyPercentage >= 95.0 &&
         omissionsCount == 0 &&
-        substitutionsCount == 0) {
-      return ReviewOutcome.easy;
+        substitutionsCount == 0 &&
+        uncertainCount == 0) {
+      return mode == OralRecitationMode.hidden
+          ? ReviewOutcome.easy
+          : ReviewOutcome.good;
     }
     if (accuracyPercentage >= 85.0 && substitutionsCount <= 1) {
       return ReviewOutcome.good;
@@ -228,6 +270,13 @@ class OralRecitationSessionSummary extends Equatable {
     durationSeconds,
     discrepancies,
     completedAt,
+    attemptedWords,
+    hintCount,
+    assistedWords,
+    coveragePercentage,
+    mode,
+    detectedMistakesCount,
+    correctedMistakesCount,
   ];
 }
 

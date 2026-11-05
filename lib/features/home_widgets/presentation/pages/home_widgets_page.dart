@@ -17,6 +17,8 @@ import '../../../home/presentation/cubit/home_cubit.dart';
 import '../../../home/presentation/cubit/home_state.dart';
 import '../../../prayer_times/data/services/prayer_calculator.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
+import '../../../settings/data/models/app_settings.dart';
+import '../../../qibla/presentation/pages/qibla_page.dart';
 
 class HomeWidgetsPage extends StatefulWidget {
   const HomeWidgetsPage({super.key});
@@ -32,7 +34,6 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
   bool _loading = true;
   MishkatHomeWidget? _adding;
   _GalleryFilter _filter = _GalleryFilter.all;
-  bool? _darkPreview;
 
   HomeWidgetService get _service => context.read<HomeWidgetService>();
 
@@ -152,14 +153,73 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
         },
       );
 
+  Future<void> _showLockScreenInstructions() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    useSafeArea: true,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+      final steps = isIOS
+          ? const [
+              'افتح قفل iPhone، ثم اضغط مطولًا على شاشة القفل.',
+              'اختر «تخصيص» ثم «شاشة القفل».',
+              'اضغط «إضافة ودجت»، ثم اختر «مشكاة» و«مواقيت الصلاة».',
+              'اختر الشكل الذي يناسبك، ثم اضغط «تم».',
+            ]
+          : const [
+              'إذا كان جهازك يدعم ودجت شاشة القفل، افتح تخصيص شاشة القفل أو لوحة الودجت من إعدادات الجهاز.',
+              'اختر إضافة ودجت، ثم ابحث عن «مشكاة» و«مواقيت الصلاة».',
+              'ضع الودجت في المساحة المتاحة واحفظ التخصيص. تختلف الخطوات حسب نوع الجهاز.',
+            ];
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'أضف الصلاة إلى شاشة القفل',
+              style: Theme.of(sheetContext).textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isIOS
+                  ? 'متاحة على iPhone بنظام iOS 16 أو أحدث. يمكنك اختيار شكل مستطيل أو دائري أو سطر فوق الساعة.'
+                  : 'تعتمد الإتاحة على جهازك وإصدار النظام. إذا لم تجد خيار الودجت في شاشة القفل، استخدم ودجت الشاشة الرئيسية.',
+              style: TextStyle(color: sheetContext.mishkat.textSecondary),
+            ),
+            const SizedBox(height: 20),
+            for (var index = 0; index < steps.length; index++)
+              _InstructionStep(
+                number: widgetDigits(index + 1),
+                text: steps[index],
+                isLast: index == steps.length - 1,
+              ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => Navigator.pop(sheetContext),
+              child: const Text('فهمت'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsCubit>().state.settings;
     final homeState = context.watch<HomeCubit>().state;
     final wird = WirdWidgetContent(context.watch<KhatmaCubit>().state.active);
     final tasbih = TasbihWidgetContent(context.watch<TasbihCubit>().state);
-    final darkPreview =
-        _darkPreview ?? Theme.of(context).brightness == Brightness.dark;
+    final darkPreview = switch (settings.widgetTheme) {
+      AppThemePreference.system =>
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+      AppThemePreference.light => false,
+      AppThemePreference.dark => true,
+    };
     Widget preview(Widget child) => Theme(
       data: Theme.of(
         context,
@@ -175,7 +235,7 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
           icon: const Icon(MishkatNavigationIcons.back),
           tooltip: 'رجوع',
         ),
-        title: const Text('إضافات الشاشة الرئيسية'),
+        title: const Text('ودجت مشكاة'),
         actions: [
           IconButton(
             onPressed: () => _showManualInstructions(),
@@ -194,27 +254,12 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
         children: [
           _WidgetsIntro(isIOS: isIOS),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'اختر ما يرافق يومك',
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-              IconButton(
-                tooltip: darkPreview
-                    ? 'معاينة المظهر الفاتح'
-                    : 'معاينة المظهر الداكن',
-                onPressed: () => setState(() => _darkPreview = !darkPreview),
-                icon: Icon(
-                  darkPreview
-                      ? Icons.light_mode_outlined
-                      : Icons.dark_mode_outlined,
-                ),
-              ),
-            ],
+          _WidgetThemeSelector(value: settings.widgetTheme, isIOS: isIOS),
+          const SizedBox(height: 20),
+          Text(
+            'اختر ما يرافق يومك',
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           SingleChildScrollView(
@@ -248,7 +293,7 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
             _WidgetOptionCard(
               kind: _WidgetVisualKind.wird,
               title: 'الورد اليومي',
-              description: 'ورد ختمتك، موضع قراءتك، وتقدّمك في لمحة واحدة.',
+              description: 'وردك وتقدّم ختمتك والصفحات المتبقية في لمحة واحدة.',
               sizeLabel: 'عريضة · ٤×٢',
               installed: _installed[MishkatHomeWidget.wird] == true,
               loading: _loading || _adding != null,
@@ -262,8 +307,8 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
             _WidgetOptionCard(
               kind: _WidgetVisualKind.tasbih,
               title: 'المسبحة',
-              description: 'ذكرك وعدّادك وهدفك محفوظة؛ اضغط لفتح جلسة التسبيح.',
-              sizeLabel: 'مربعة · ٢×٢',
+              description: 'حلقة تتقدّم مع ذكرك نحو هدفك اليومي.',
+              sizeLabel: 'مدمجة · ٢×٢',
               installed: _installed[MishkatHomeWidget.tasbih] == true,
               loading: _loading || _adding != null,
               onAdd: () => _add(MishkatHomeWidget.tasbih),
@@ -276,7 +321,8 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
             _WidgetOptionCard(
               kind: _WidgetVisualKind.prayer,
               title: 'مواقيت الصلاة',
-              description: 'الصلاة القادمة، وقتها، ولمحة سريعة عن بقية اليوم.',
+              description:
+                  'الصلاة القادمة وعداد متبقٍ بالثواني من مواقيت تطبيقك.',
               sizeLabel: 'عريضة · ٤×٢',
               installed: _installed[MishkatHomeWidget.prayerTimes] == true,
               loading: _loading || _adding != null,
@@ -284,18 +330,33 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
               preview: preview(_PrayerWidgetPreview(state: homeState)),
             ),
             const SizedBox(height: MishkatSpacing.lg),
+            _LockScreenPrayerCard(
+              state: homeState,
+              isIOS: isIOS,
+              onInstructions: _showLockScreenInstructions,
+            ),
+            const SizedBox(height: MishkatSpacing.lg),
             _WidgetOptionCard(
               kind: _WidgetVisualKind.qibla,
               title: 'بوصلة القبلة',
-              description: 'اتجاه القبلة من الشمال، والضغط يفتح البوصلة الحية.',
+              description: 'سهم يوضح اتجاه القبلة من الشمال؛ اضغط لفتح البوصلة التي تتحرك مع جهازك.',
               sizeLabel: 'مربعة · ٢×٢',
               installed: _installed[MishkatHomeWidget.qibla] == true,
               loading: _loading || _adding != null,
               onAdd: () => _add(MishkatHomeWidget.qibla),
               preview: preview(
-                _QiblaWidgetPreview(
-                  latitude: settings.latitude,
-                  longitude: settings.longitude,
+                Semantics(
+                  button: true,
+                  label: 'افتح البوصلة الحية',
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(builder: (_) => const QiblaPage()),
+                    ),
+                    child: _QiblaWidgetPreview(
+                      latitude: settings.latitude,
+                      longitude: settings.longitude,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -322,6 +383,71 @@ class _HomeWidgetsPageState extends State<HomeWidgetsPage>
       ),
     );
   }
+}
+
+class _WidgetThemeSelector extends StatelessWidget {
+  const _WidgetThemeSelector({required this.value, required this.isIOS});
+
+  final AppThemePreference value;
+  final bool isIOS;
+
+  @override
+  Widget build(BuildContext context) => MishkatCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          isIOS ? 'مظهر ودجت الشاشة الرئيسية' : 'مظهر الودجت',
+          style: Theme.of(context).textTheme.titleSmall
+              ?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          isIOS
+              ? 'اختر حسب النظام أو مظهرًا ثابتًا للشاشة الرئيسية. ودجت شاشة القفل تتبع مظهر شاشة القفل.'
+              : 'يتبع مظهر جهازك تلقائيًا، أو اختر مظهرًا ثابتًا للودجت.',
+          style: TextStyle(
+            color: context.mishkat.textSecondary,
+            fontSize: 12,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final preference in AppThemePreference.values)
+              ChoiceChip(
+                key: ValueKey('widget-theme-${preference.name}'),
+                avatar: Icon(switch (preference) {
+                  AppThemePreference.system => Icons.brightness_auto_outlined,
+                  AppThemePreference.light => Icons.light_mode_outlined,
+                  AppThemePreference.dark => Icons.dark_mode_outlined,
+                }, size: 16),
+                label: Text(switch (preference) {
+                  AppThemePreference.system => 'حسب النظام',
+                  AppThemePreference.light => 'فاتح',
+                  AppThemePreference.dark => 'داكن',
+                }),
+                selected: value == preference,
+                selectedColor: context.mishkat.primarySoft,
+                backgroundColor: context.mishkat.surface,
+                checkmarkColor: context.mishkat.primary,
+                labelStyle: TextStyle(
+                  color: value == preference
+                      ? context.mishkat.primary
+                      : context.mishkat.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+                onSelected: (_) =>
+                    context.read<SettingsCubit>().setWidgetTheme(preference),
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
 class _WidgetsIntro extends StatelessWidget {
@@ -371,7 +497,7 @@ class _WidgetsIntro extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 isIOS
-                    ? 'خمس إضافات للصلاة والقرآن والذكر. اختر ما يرافقك، وافتحه بلمسة.'
+                    ? 'الصلاة والقرآن والذكر على شاشتك، والصلاة القادمة على شاشة القفل.'
                     : 'وردك وذكرك وصلاتك، أقرب إليك. خمس إضافات تعمل ببياناتك المحفوظة.',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.74),
@@ -491,6 +617,72 @@ class _WidgetOptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = kind.accent(isDark);
+    final compact = kind == _WidgetVisualKind.tasbih;
+
+    if (compact) {
+      return MishkatCard(
+        padding: const EdgeInsets.all(12),
+        borderColor: accent.withValues(alpha: isDark ? .2 : .13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                preview,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(kind.icon, color: accent, size: 19),
+                      const SizedBox(height: 8),
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        description,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: context.mishkat.textSecondary,
+                          fontSize: 11,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        sizeLabel,
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (installed) ...[
+                        const SizedBox(height: 8),
+                        _InstalledBadge(accent: accent),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _AddWidgetButton(
+              accent: accent,
+              softColor: kind.soft(isDark),
+              installed: installed,
+              loading: loading,
+              onPressed: onAdd,
+            ),
+          ],
+        ),
+      );
+    }
 
     return MishkatCard(
       padding: EdgeInsets.zero,
@@ -709,6 +901,178 @@ class _AddWidgetButton extends StatelessWidget {
   }
 }
 
+class _LockScreenPrayerCard extends StatelessWidget {
+  const _LockScreenPrayerCard({
+    required this.state,
+    required this.isIOS,
+    required this.onInstructions,
+  });
+
+  final HomeState state;
+  final bool isIOS;
+  final VoidCallback onInstructions;
+
+  @override
+  Widget build(BuildContext context) {
+    final next = state.schedule?.next;
+    final preference = context
+        .watch<SettingsCubit>()
+        .state
+        .settings
+        .widgetTheme;
+    final isDark = isIOS || preference == AppThemePreference.system
+        ? MediaQuery.platformBrightnessOf(context) == Brightness.dark
+        : preference == AppThemePreference.dark;
+    final foreground = isDark
+        ? const Color(0xFFF3F8F5)
+        : const Color(0xFF24463B);
+    return MishkatCard(
+      key: const ValueKey('lock-screen-prayer-card'),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                color: context.mishkat.primary,
+                size: 21,
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  'الصلاة على شاشة القفل',
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            isIOS
+                ? 'الصلاة القادمة ووقتها دون فتح التطبيق. اختر الشكل المستطيل للعداد المتبقي بالثواني.'
+                : 'الصلاة القادمة من مواقيت تطبيقك، على الأجهزة التي تدعم ودجت شاشة القفل.',
+            style: TextStyle(
+              color: context.mishkat.textSecondary,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            key: const ValueKey('lock-screen-prayer-preview'),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF20392F) : const Color(0xFFECF2EF),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: foreground.withValues(alpha: .16)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        next == null ? 'حدّد موقعك في مشكاة' : 'الصلاة القادمة',
+                        style: TextStyle(
+                          color: foreground.withValues(alpha: .7),
+                          fontSize: 10,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        next?.name ?? '—',
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        AppFormatters.time(next?.at),
+                        style: TextStyle(
+                          color: foreground.withValues(alpha: .8),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'متبقي',
+                        style: TextStyle(
+                          color: foreground.withValues(alpha: .7),
+                          fontSize: 10,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (next == null)
+                        Text(
+                          '—',
+                          style: TextStyle(color: foreground, fontSize: 20),
+                        )
+                      else
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: NextPrayerCountdown(
+                              key: const ValueKey(
+                                'lock-screen-prayer-countdown',
+                              ),
+                              targetTime: next.at,
+                              textStyle: TextStyle(
+                                color: foreground,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isIOS
+                ? 'المظهر يتبع شاشة القفل'
+                : 'معاينة مختصرة · المظهر حسب اختيارك للودجت',
+            style: TextStyle(
+              color: context.mishkat.textSecondary,
+              fontSize: 10,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const ValueKey('lock-screen-prayer-instructions'),
+            onPressed: onInstructions,
+            icon: const Icon(Icons.add_to_photos_outlined, size: 18),
+            label: const Text(
+              'طريقة الإضافة إلى شاشة القفل',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PrayerWidgetPreview extends StatelessWidget {
   const _PrayerWidgetPreview({required this.state});
   final HomeState state;
@@ -739,6 +1103,7 @@ class _PrayerWidgetPreview extends StatelessWidget {
             .toList() ??
         const [];
     return SizedBox(
+      key: const ValueKey('prayer-wide-preview'),
       height: 180,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 390),
@@ -843,18 +1208,26 @@ class _PrayerWidgetPreview extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 1),
-                            Text(
-                              next == null
-                                  ? '—'
-                                  : AppFormatters.duration(
-                                      next.at.difference(state.now),
-                                    ).substring(0, 5),
-                              style: TextStyle(
-                                color: accent,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
+                            if (next == null)
+                              Text('—', style: TextStyle(color: accent))
+                            else
+                              Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: NextPrayerCountdown(
+                                  key: const ValueKey(
+                                    'widget-prayer-countdown',
+                                  ),
+                                  targetTime: next.at,
+                                  textStyle: TextStyle(
+                                    color: accent,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -924,9 +1297,15 @@ class _QiblaWidgetPreview extends StatelessWidget {
     final result = latitude == null || longitude == null
         ? null
         : const PrayerCalculator().qibla(latitude!, longitude!);
-    final bearing = result?.bearing ?? 45;
+    final bearing = result?.bearing ?? 0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final gold = isDark ? const Color(0xFFF1D38A) : const Color(0xFFE8C984);
+    final gold = isDark ? const Color(0xFFF1D38A) : const Color(0xFF926C24);
+    final primaryText = isDark
+        ? const Color(0xFFF4FAF7)
+        : const Color(0xFF17362F);
+    final secondaryText = isDark
+        ? const Color(0xFFB7D0C7)
+        : const Color(0xFF60716B);
     return SizedBox.square(
       dimension: 190,
       child: Container(
@@ -936,7 +1315,7 @@ class _QiblaWidgetPreview extends StatelessWidget {
             end: Alignment.bottomLeft,
             colors: isDark
                 ? const [Color(0xFF17382F), Color(0xFF0C211B)]
-                : const [Color(0xFF2D6256), Color(0xFF173B32)],
+                : const [Color(0xFFF7FBF9), Color(0xFFEAF3EF)],
           ),
           borderRadius: MishkatRadius.brXl,
           border: Border.all(color: gold.withValues(alpha: .2)),
@@ -953,7 +1332,7 @@ class _QiblaWidgetPreview extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: .09),
+                      color: secondaryText.withValues(alpha: .2),
                     ),
                   ),
                   child: Center(
@@ -962,7 +1341,7 @@ class _QiblaWidgetPreview extends StatelessWidget {
                       height: 82,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.black.withValues(alpha: .08),
+                        color: gold.withValues(alpha: .07),
                         border: Border.all(color: gold.withValues(alpha: .15)),
                       ),
                     ),
@@ -981,27 +1360,27 @@ class _QiblaWidgetPreview extends StatelessWidget {
                         height: 24,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: .08),
+                          color: secondaryText.withValues(alpha: .1),
                           shape: BoxShape.circle,
                         ),
-                        child: const Text(
+                        child: Text(
                           'ش',
                           style: TextStyle(
-                            color: Color(0xFFAFCBC1),
+                            color: secondaryText,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'مِشكاة • القبلة',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.end,
                           style: TextStyle(
-                            color: Color(0xFFC8DDD5),
+                            color: secondaryText,
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                           ),
@@ -1021,10 +1400,10 @@ class _QiblaWidgetPreview extends StatelessWidget {
                   const Spacer(),
                   Text(
                     result == null
-                        ? 'حدّد موقعك'
+                        ? 'الشمال'
                         : '${result.bearing.round()}° من الشمال',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: primaryText,
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
                     ),
@@ -1032,14 +1411,11 @@ class _QiblaWidgetPreview extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     result == null
-                        ? 'افتح مشكاة للبوصلة الحية'
-                        : '${result.distanceKm.round()} كم إلى الكعبة',
+                        ? 'افتح مشكاة لتحديد موقعك'
+                        : '${result.distanceKm.round()} كم · اضغط للبوصلة الحية',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFB7D0C7),
-                      fontSize: 9.5,
-                    ),
+                    style: TextStyle(color: secondaryText, fontSize: 9.5),
                   ),
                 ],
               ),
@@ -1190,36 +1566,165 @@ class _WirdWidgetPreview extends StatelessWidget {
   final WirdWidgetContent content;
 
   @override
-  Widget build(BuildContext context) => _ProgressWidgetFrame(
-    kind: _WidgetVisualKind.wird,
-    title: 'مِشكاة • الورد اليومي',
-    action: content.action,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          content.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final green = isDark ? const Color(0xFF6CD6A0) : const Color(0xFF278859);
+    final primary = isDark ? const Color(0xFFF3F8F5) : const Color(0xFF17362F);
+    final secondary = isDark
+        ? const Color(0xFFADBBB5)
+        : const Color(0xFF60716B);
+    final hasPlan = content.completedPages + content.remainingPages > 0;
+    return SizedBox(
+      key: const ValueKey('wird-wide-preview'),
+      height: 180,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 390),
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF152923) : const Color(0xFFF2F7F3),
+          borderRadius: MishkatRadius.brXl,
+          border: Border.all(color: green.withValues(alpha: .2)),
+          boxShadow: MishkatShadows.elevated(context),
         ),
-        const SizedBox(height: 4),
-        Text(
-          content.pages,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.menu_book_rounded, size: 14, color: green),
+                const SizedBox(width: 6),
+                Text(
+                  'مِشكاة • الختمة',
+                  style: TextStyle(
+                    color: green,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    content.name,
+                    textAlign: TextAlign.end,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: secondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasPlan ? 'وردك الحالي' : 'رحلتك مع القرآن',
+                        style: TextStyle(color: secondary, fontSize: 9),
+                      ),
+                      const SizedBox(height: 3),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          content.pages,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: primary,
+                            fontSize: 22,
+                            height: 1.2,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        content.detail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: secondary, fontSize: 9),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Semantics(
+                  label: content.progressLabel,
+                  excludeSemantics: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        hasPlan
+                            ? '${widgetDigits((content.progress * 100).round())}٪'
+                            : 'ابدأ',
+                        style: TextStyle(
+                          color: green,
+                          fontSize: hasPlan ? 34 : 27,
+                          height: 1.05,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        hasPlan ? 'من الختمة' : 'ختمتك اليوم',
+                        style: TextStyle(color: secondary, fontSize: 9),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    key: const ValueKey('widget-wird-progress'),
+                    value: content.progress,
+                    minHeight: 5,
+                    backgroundColor: green.withValues(alpha: .16),
+                    color: green,
+                    semanticsLabel: 'تقدم الختمة',
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        hasPlan ? content.completedLabel : 'خطوة صغيرة كل يوم',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: secondary, fontSize: 10),
+                      ),
+                    ),
+                    if (hasPlan)
+                      Text(
+                        content.remainingLabel,
+                        style: TextStyle(
+                          color: green,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(content.detail, style: const TextStyle(fontSize: 11)),
-        const SizedBox(height: 10),
-        Text(
-          content.progressLabel,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-        ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _TasbihWidgetPreview extends StatelessWidget {
@@ -1227,100 +1732,137 @@ class _TasbihWidgetPreview extends StatelessWidget {
   final TasbihWidgetContent content;
 
   @override
-  Widget build(BuildContext context) => _ProgressWidgetFrame(
-    kind: _WidgetVisualKind.tasbih,
-    title: 'مِشكاة • المسبحة',
-    action: content.action,
-    square: true,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          content.dhikr,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-        ),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            content.count,
-            style: const TextStyle(
-              fontSize: 36,
-              height: 1.25,
-              fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) {
+    final accent = _WidgetVisualKind.tasbih.accent(
+      Theme.of(context).brightness == Brightness.dark,
+    );
+    return _CompactWidgetFrame(
+      key: const ValueKey('tasbih-compact-preview'),
+      kind: _WidgetVisualKind.tasbih,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            content.dhikr,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+          ),
+          SizedBox.square(
+            dimension: 83,
+            child: CustomPaint(
+              painter: _TasbihRingPainter(
+                progress: content.progress,
+                color: accent,
+              ),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          content.count,
+                          style: const TextStyle(
+                            fontSize: 29,
+                            height: 1.1,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        content.target,
+                        maxLines: 1,
+                        style: const TextStyle(fontSize: 8, height: 1.2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-        Text(content.target, style: const TextStyle(fontSize: 11)),
-        const SizedBox(height: 4),
-        Text(content.today, style: const TextStyle(fontSize: 10)),
-      ],
-    ),
-  );
+          Text(
+            content.today,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 9, color: accent.withValues(alpha: .8)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _ProgressWidgetFrame extends StatelessWidget {
-  const _ProgressWidgetFrame({
+class _TasbihRingPainter extends CustomPainter {
+  const _TasbihRingPainter({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2 - 4;
+    final track = Paint()..color = color.withValues(alpha: .18);
+    for (var bead = 0; bead < 33; bead++) {
+      final angle = -math.pi / 2 + bead / 33 * math.pi * 2;
+      canvas.drawCircle(
+        center + Offset(math.cos(angle) * radius, math.sin(angle) * radius),
+        1.6,
+        track,
+      );
+    }
+    if (progress <= 0) return;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      progress.clamp(0, 1) * math.pi * 2,
+      false,
+      Paint()
+        ..color = color
+        ..strokeWidth = 3.4
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_TasbihRingPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _CompactWidgetFrame extends StatelessWidget {
+  const _CompactWidgetFrame({
+    super.key,
     required this.kind,
-    required this.title,
-    required this.action,
     required this.child,
-    this.square = false,
   });
   final _WidgetVisualKind kind;
-  final String title;
-  final String action;
   final Widget child;
-  final bool square;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isWird = kind == _WidgetVisualKind.wird;
     final accent = kind.accent(isDark);
     return Container(
-      width: square ? 190 : 390,
-      constraints: const BoxConstraints(minHeight: 190),
-      padding: const EdgeInsets.all(14),
+      width: 156,
+      height: 156,
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: isDark
-            ? (square ? const Color(0xFF271E30) : const Color(0xFF152923))
-            : (square ? const Color(0xFFF8F3FC) : const Color(0xFFF2F7F3)),
-        borderRadius: MishkatRadius.brXl,
-        border: Border.all(color: accent.withValues(alpha: .2)),
-        boxShadow: MishkatShadows.elevated(context),
+            ? (isWird ? const Color(0xFF152923) : const Color(0xFF271E30))
+            : (isWird ? const Color(0xFFF2F7F3) : const Color(0xFFF8F3FC)),
+        borderRadius: BorderRadius.circular(23),
+        border: Border.all(color: accent.withValues(alpha: .17)),
       ),
       child: DefaultTextStyle(
         style: TextStyle(color: accent, fontFamily: 'Cairo'),
-        child: Column(
-          crossAxisAlignment: square
-              ? CrossAxisAlignment.center
-              : CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: kind.soft(isDark),
-                borderRadius: MishkatRadius.brLg,
-              ),
-              child: child,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              action,
-              textAlign: square ? TextAlign.center : TextAlign.start,
-              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+        child: child,
       ),
     );
   }
@@ -1345,8 +1887,8 @@ class _BehaviorNote extends StatelessWidget {
         Expanded(
           child: Text(
             isIOS
-                ? 'تتبع الودجت المظهر الفاتح والداكن، وتحدّث محتواها عبر Timeline من النظام.'
-                : 'تتحدّث الصلاة والأذكار في أوقاتها تلقائيًا دون تشغيل مستشعر دائم أو استهلاك ملحوظ للبطارية.',
+                ? 'يعمل عداد الصلاة بالثواني، ويتولى النظام تحديث المحتوى. سهم القبلة ثابت بالنسبة للشمال؛ البوصلة الحية متاحة بلمسة داخل التطبيق.'
+                : 'يعمل عداد الصلاة بالثواني وتتجدد المواقيت تلقائيًا. سهم القبلة ثابت بالنسبة للشمال؛ اضغط لفتح البوصلة الحية داخل التطبيق.',
             style: TextStyle(
               color: context.mishkat.primary,
               fontSize: 12,

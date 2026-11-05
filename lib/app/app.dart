@@ -226,6 +226,11 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       context.read<HomeCubit>().refresh();
       unawaited(context.read<SettingsCubit>().refreshNotificationSchedule());
+      unawaited(
+        context.read<HomeWidgetService>().sync(
+          context.read<SettingsCubit>().state.settings,
+        ),
+      );
       _syncProgressWidgets();
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {

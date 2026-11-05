@@ -1,5 +1,8 @@
 import 'package:home_widget_generator/home_widget_generator.dart';
 
+// Design seed only: native countdown, Lock Screen layouts and appearance are
+// maintained separately. Read docs/HOME_WIDGETS.md before regeneration.
+
 const _background = HWThemedColor(
   light: HWFixedColor(0xFFF3F8F5),
   dark: HWFixedColor(0xFF10211B),
@@ -43,19 +46,25 @@ const _titleStyle = HWTextStyle(
   widgetUrl: 'mishkat://prayer',
   android: HomeWidgetAndroidConfiguration(
     minWidth: 250,
-    minHeight: 110,
-    minResizeWidth: 180,
-    minResizeHeight: 90,
+    minHeight: 130,
+    minResizeWidth: 220,
+    minResizeHeight: 130,
     targetCellWidth: 4,
     targetCellHeight: 2,
     resizeMode: HWAndroidResizeMode.horizontalAndVertical,
+    // The generator enum cannot express the native home_screen|keyguard flags.
     widgetCategory: HWAndroidWidgetCategory.homeScreen,
     updatePeriodMillis: 1800000,
     backgroundColor: _background,
   ),
   iOS: HomeWidgetIOSConfiguration(
     groupId: 'group.com.dakomn.mishkatapp.widgets',
-    supportedFamilies: [HWWidgetFamily.systemMedium],
+    supportedFamilies: [
+      HWWidgetFamily.systemMedium,
+      HWWidgetFamily.accessoryRectangular,
+      HWWidgetFamily.accessoryCircular,
+      HWWidgetFamily.accessoryInline,
+    ],
     backgroundColor: _background,
   ),
   widget: HWSizedBox.expand(
@@ -113,7 +122,7 @@ const _titleStyle = HWTextStyle(
                         HWString(
                           'prayerRemaining',
                           defaultValue: 'افتح مشكاة لتحديث المواقيت',
-                          previewValue: 'متبقي نحو ساعتين',
+                          previewValue: '00:48:30',
                         ),
                       ),
                       style: _captionStyle,

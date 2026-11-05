@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/oral_recitation_mushaf.dart';
+import 'package:mishkat_app/features/quran/data/repositories/mushaf_layout_repository.dart';
 import 'package:mishkat_app/core/services/audio_service.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/features/quran/data/models/oral_recitation_models.dart';
@@ -57,6 +59,10 @@ class FakeAudioService extends QuranAudioService {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    await MushafLayoutRepository.instance.load();
+    await OralRecitationMushaf.preloadCanonicalText();
+  });
 
   final fatihaChapter = QuranChapter(
     number: 1,

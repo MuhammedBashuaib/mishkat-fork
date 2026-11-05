@@ -3,6 +3,7 @@ import 'package:mishkat_app/core/services/local_notification_service.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/features/khatma/data/models/khatma_plan.dart';
 import 'package:mishkat_app/features/quran/data/models/memorization_plan.dart';
+import 'package:mishkat_app/features/prayer_times/data/services/prayer_calculator.dart';
 import 'package:mishkat_app/features/settings/data/models/adhan_preferences.dart';
 import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
 import 'package:mishkat_app/features/settings/data/models/reminder_preferences.dart';
@@ -434,7 +435,7 @@ void main() {
         now: now,
       );
       expect(
-        withoutLocation.where((item) => item.payload == 'wird'),
+        withoutLocation.where((item) => item.payload == 'khatma:active'),
         hasLength(1),
       );
       final disabled = NotificationSchedulePlanner.build(
@@ -445,11 +446,177 @@ void main() {
         now: now,
       );
       expect(
-        disabled.where((item) => item.kind == AppNotificationKind.khatma),
-        isEmpty,
+        disabled.where((item) => item.payload == 'khatma:active'),
+        hasLength(1),
       );
     },
   );
+
+  test(
+    'custom khatma time repeats exactly without a location or generic wird',
+    () {
+      final now = DateTime(2026, 10, 31, 23, 50);
+      final plan = _khatmaPlan(now, reminderTime: '05:07');
+      final storage = _MemoryStorage({
+        'khatma': {
+          'plans': [plan.toJson()],
+        },
+      });
+      final result = NotificationSchedulePlanner.build(
+        storage: storage,
+        now: now,
+        settings: const AppSettings(
+          notificationsEnabled: true,
+          reminders: ReminderPreferences(dailyWirdEnabled: false),
+        ),
+      );
+      final reminders = result.where(
+        (item) => item.kind == AppNotificationKind.khatma,
+      );
+      expect(reminders, hasLength(1));
+      final reminder = reminders.single;
+      expect(reminder.at, DateTime(2026, 11, 1, 5, 7));
+      expect(reminder.repeatsDaily, true);
+      expect(reminder.payload, 'khatma:custom');
+    },
+  );
+
+  test('explicit time wins conflicts and suppresses the generic wird', () {
+    final now = DateTime(2026, 11, 5, 8);
+    final plan = _khatmaPlan(now, reminderTime: '09:00');
+    final result = NotificationSchedulePlanner.build(
+      storage: _MemoryStorage({
+        'khatma': {
+          'plans': [plan.toJson()],
+        },
+      }),
+      now: now,
+      settings: const AppSettings(notificationsEnabled: true),
+    );
+    expect(
+      result.singleWhere((item) => item.payload == 'khatma:custom').at,
+      DateTime(2026, 11, 5, 9),
+    );
+    expect(result.where((item) => item.payload == 'wird'), isEmpty);
+    expect(
+      result
+          .where((item) => item.payload == 'charity')
+          .every(
+            (item) => (item.at.hour * 60 + item.at.minute - 9 * 60).abs() >= 15,
+          ),
+      true,
+    );
+  });
+
+  test('past or exact current custom time moves to tomorrow without drift', () {
+    final now = DateTime(2026, 12, 31, 23, 59);
+    final plan = _khatmaPlan(now, reminderTime: '23:59');
+    final reminder = NotificationSchedulePlanner.build(
+      storage: _MemoryStorage({
+        'khatma': {
+          'plans': [plan.toJson()],
+        },
+      }),
+      now: now,
+      settings: const AppSettings(notificationsEnabled: true),
+    ).singleWhere((item) => item.payload == 'khatma:custom');
+    expect(reminder.at, DateTime(2027, 1, 1, 23, 59));
+  });
+
+  test(
+    'paused, completed, removed and malformed plans have no explicit alarm',
+    () {
+      final now = DateTime(2026, 11, 5, 8);
+      final plan = _khatmaPlan(now, reminderTime: '19:00');
+      for (final plans in [
+        [plan.copyWith(status: KhatmaStatus.paused).toJson()],
+        [plan.copyWith(status: KhatmaStatus.completed).toJson()],
+        [
+          {...plan.toJson(), 'reminderTime': '25:99'},
+        ],
+        <Map<String, dynamic>>[],
+      ]) {
+        final result = NotificationSchedulePlanner.build(
+          storage: _MemoryStorage({
+            'khatma': {'plans': plans},
+          }),
+          now: now,
+          settings: const AppSettings(notificationsEnabled: true),
+        );
+        expect(
+          result.where((item) => item.payload?.startsWith('khatma:') == true),
+          isEmpty,
+        );
+        // The replacement marker makes the service clear previous plan alarms.
+        expect(
+          result.any((item) => item.id == 100000 && item.at.isBefore(now)),
+          true,
+        );
+      }
+    },
+  );
+
+  test(
+    'after-prayer reminder uses the next actual prayer plus fifteen minutes',
+    () {
+      const settings = AppSettings(
+        notificationsEnabled: true,
+        latitude: 21.4225,
+        longitude: 39.8262,
+        reminders: ReminderPreferences(dailyWirdEnabled: false),
+      );
+      DateTime fajrOn(DateTime date) => const PrayerCalculator()
+          .calculate(
+            date: date,
+            latitude: settings.latitude!,
+            longitude: settings.longitude!,
+            methodKey: settings.method,
+            methodAuto: !settings.methodSet,
+            asr: settings.asr,
+            highLatitudes: settings.highLatitudes,
+            tune: settings.tune,
+          )['fajr']!
+          .add(const Duration(minutes: 15));
+      // Anchor to the calculated moment so this also covers a distant city
+      // whose prayer lands on the preceding local calendar date.
+      final now = fajrOn(DateTime(2026, 11, 5)).add(const Duration(minutes: 1));
+      final plan = _khatmaPlan(now, reminderPrayer: 'fajr');
+      final reminder = NotificationSchedulePlanner.build(
+        storage: _MemoryStorage({
+          'khatma': {
+            'plans': [plan.toJson()],
+          },
+        }),
+        now: now,
+        settings: settings,
+      ).singleWhere((item) => item.payload == 'khatma:custom');
+      expect(reminder.at, fajrOn(DateTime(2026, 11, 6)));
+      expect(reminder.repeatsDaily, true);
+    },
+  );
+
+  test('prayer plans retain explicit fallback time without location or generic wird', () {
+    final now = DateTime(2026, 11, 5, 12);
+    final plan = _khatmaPlan(now, reminderPrayer: 'isha');
+    final reminders = NotificationSchedulePlanner.build(
+      storage: _MemoryStorage({
+        'khatma': {
+          'plans': [plan.toJson()],
+        },
+      }),
+      now: now,
+      settings: const AppSettings(
+        notificationsEnabled: true,
+        reminders: ReminderPreferences(
+          dailyWirdEnabled: false,
+          dailyWirdMinute: 21 * 60 + 17,
+        ),
+      ),
+    ).where((item) => item.kind == AppNotificationKind.khatma);
+    expect(reminders, hasLength(1));
+    expect(reminders.single.payload, 'khatma:custom');
+    expect(reminders.single.at, DateTime(2026, 11, 5, 21, 17));
+  });
 
   test('migrates reminder choices and validates damaged saved values', () {
     final old = AppSettings.fromJson({
@@ -487,3 +654,21 @@ class _MemoryStorage extends LocalStorageService {
   Map<String, dynamic> readMap(String key) =>
       Map<String, dynamic>.from(values[key] ?? const <String, dynamic>{});
 }
+
+KhatmaPlan _khatmaPlan(
+  DateTime now, {
+  String? reminderTime,
+  String? reminderPrayer,
+}) => KhatmaPlan(
+  id: 'custom',
+  name: 'ختمتي',
+  durationDays: 150,
+  dailyPages: 5,
+  startDate: now,
+  startPage: 1,
+  progressPage: 0,
+  status: KhatmaStatus.active,
+  createdAt: now,
+  reminderTime: reminderTime,
+  reminderPrayer: reminderPrayer,
+);

@@ -45,15 +45,15 @@ class NotificationSchedulePlanner {
     if (settings.hasLocation) {
       _addPrayerBasedNotifications(
         items: items,
-        storage: storage,
         settings: settings,
         now: current,
         days: days,
       );
     }
 
+    _addKhatmaReminders(items, storage, settings, current);
     _addTimedAdhkar(items, settings, current);
-    _addGoodDeedReminders(items, storage, settings, current);
+    _addGoodDeedReminders(items, settings, current);
 
     _addMemorizationReminder(
       items: items,
@@ -68,15 +68,11 @@ class NotificationSchedulePlanner {
 
   static void _addPrayerBasedNotifications({
     required List<ScheduledAppNotification> items,
-    required LocalStorageService storage,
     required AppSettings settings,
     required DateTime now,
     required int days,
   }) {
     const calculator = PrayerCalculator();
-    final khatmaPlans = settings.reminders.dailyWirdEnabled
-        ? _activeKhatmaPlans(storage)
-        : const <KhatmaPlan>[];
 
     for (var day = 0; day < days; day++) {
       final date = DateTime(now.year, now.month, now.day + day);
@@ -144,32 +140,91 @@ class NotificationSchedulePlanner {
         }
         prayerIndex++;
       }
+    }
+  }
 
-      if (day != 0) continue;
-      for (var planIndex = 0; planIndex < khatmaPlans.length; planIndex++) {
-        final plan = khatmaPlans[planIndex];
-        final prayer = plan.reminderPrayer;
-        final prayerTime = prayer == null ? null : times[prayer];
-        if (prayerTime == null) continue;
-        final at = _nextDailyOccurrence(
-          prayerTime.add(const Duration(minutes: 15)),
+  static void _addKhatmaReminders(
+    List<ScheduledAppNotification> items,
+    LocalStorageService storage,
+    AppSettings settings,
+    DateTime now,
+  ) {
+    final plans = _activeKhatmaPlans(storage);
+    for (var index = 0; index < plans.length; index++) {
+      final plan = plans[index];
+      final customMinute = _customReminderMinute(plan.reminderTime);
+      DateTime? at;
+      if (customMinute != null) {
+        at = _nextDailyOccurrence(
+          DateTime(
+            now.year,
+            now.month,
+            now.day,
+            customMinute ~/ 60,
+            customMinute % 60,
+          ),
           now,
         );
-        items.add(
-          ScheduledAppNotification(
-            id: _khatmaBase + day * 100 + planIndex,
-            title: 'ورد ${plan.name}',
-            body: 'حان وقت وردك من القرآن. افتح خطتك لتكمل من موضعك المحفوظ.',
-            repeatsDaily: true,
-            at: at,
-            payload: 'khatma:${plan.id}',
-            sound: settings.reminders.sound,
-            vibrate: settings.vibrate,
-            kind: AppNotificationKind.khatma,
-          ),
+      } else if (settings.hasLocation && plan.reminderPrayer != null) {
+        // A reminder whose prayer has passed must use tomorrow's prayer,
+        // rather than carrying today's astronomical time into tomorrow.
+        // A selected city across time zones can fall on the previous local
+        // date, so include one additional calculation date.
+        for (var day = 0; day < 3; day++) {
+          final times = const PrayerCalculator().calculate(
+            date: DateTime(now.year, now.month, now.day + day),
+            latitude: settings.latitude!,
+            longitude: settings.longitude!,
+            methodKey: settings.method,
+            methodAuto: !settings.methodSet,
+            asr: settings.asr,
+            highLatitudes: settings.highLatitudes,
+            tune: settings.tune,
+          );
+          final candidate = times[plan.reminderPrayer!]?.add(
+            const Duration(minutes: 15),
+          );
+          if (candidate != null && candidate.isAfter(now)) {
+            at = candidate;
+            break;
+          }
+        }
+      }
+      if (at == null && !settings.hasLocation) {
+        final minute = ReminderPreferences.fromJson(settings.reminders.toJson())
+            .dailyWirdMinute;
+        at = _nextDailyOccurrence(
+          DateTime(now.year, now.month, now.day, minute ~/ 60, minute % 60),
+          now,
         );
       }
+      if (at == null) continue;
+      // Explicit plan reminders retain the user's time, including late night
+      // and early morning. General reminders are spaced around these slots.
+      // Their opt-in belongs to the plan, not the generic daily-wird toggle.
+      items.add(
+        ScheduledAppNotification(
+          id: _khatmaBase + index,
+          title: 'ورد ${plan.name}',
+          body: 'حان وقت وردك من القرآن. افتح خطتك لتكمل من موضعك المحفوظ.',
+          repeatsDaily: true,
+          at: at,
+          payload: 'khatma:${plan.id}',
+          sound: settings.reminders.sound,
+          vibrate: settings.vibrate,
+          kind: AppNotificationKind.khatma,
+        ),
+      );
     }
+  }
+
+  static int? _customReminderMinute(String? value) {
+    if (value == null || !RegExp(r'^\d{2}:\d{2}$').hasMatch(value)) {
+      return null;
+    }
+    final hour = int.parse(value.substring(0, 2));
+    final minute = int.parse(value.substring(3));
+    return hour < 24 && minute < 60 ? hour * 60 + minute : null;
   }
 
   static void _addTimedAdhkar(
@@ -248,7 +303,6 @@ class NotificationSchedulePlanner {
 
   static void _addGoodDeedReminders(
     List<ScheduledAppNotification> items,
-    LocalStorageService storage,
     AppSettings settings,
     DateTime now,
   ) {
@@ -325,7 +379,7 @@ class NotificationSchedulePlanner {
       );
     }
     if (preferences.dailyWirdEnabled &&
-        (!settings.hasLocation || _activeKhatmaPlans(storage).isEmpty)) {
+        !items.any((item) => item.payload?.startsWith('khatma:') == true)) {
       add(
         2,
         preferences.dailyWirdMinute,
@@ -467,13 +521,14 @@ class NotificationSchedulePlanner {
       try {
         final plan = KhatmaPlan.fromJson(Map<String, dynamic>.from(value));
         if (plan.status == KhatmaStatus.active &&
-            const [
-              'fajr',
-              'dhuhr',
-              'asr',
-              'maghrib',
-              'isha',
-            ].contains(plan.reminderPrayer)) {
+            (_customReminderMinute(plan.reminderTime) != null ||
+                const [
+                  'fajr',
+                  'dhuhr',
+                  'asr',
+                  'maghrib',
+                  'isha',
+                ].contains(plan.reminderPrayer))) {
           plans.add(plan);
         }
       } on Object {

@@ -1,10 +1,17 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-//
-// This is a placeholder Glance (Jetpack Compose) widget.
+// CUSTOMIZED NATIVE WIDGET — preserve when regenerating Dart declarations.
+// See docs/HOME_WIDGETS.md for the native rendering/data contract.
 package com.dakomn.mishkatapp
 
 import androidx.compose.runtime.Composable
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
+import androidx.glance.Image
+import androidx.glance.ImageProvider
+import androidx.glance.ColorFilter
+import androidx.glance.layout.size
 import androidx.compose.ui.graphics.Color
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
@@ -55,6 +62,7 @@ class QiblaWidgetHomeWidget : GlanceAppWidget() {
       "a546e530",
       hwLocales.joinToString(","),
       hwPreviewData.toString(),
+      HomeWidgetPlugin.getData(context).getString("widgetTheme", "system"),
     ).joinToString("|")
   }
 
@@ -64,24 +72,23 @@ class QiblaWidgetHomeWidget : GlanceAppWidget() {
     val widgetData =
         if (preview) QiblaWidgetData.previewFromPreferences(prefs)
         else QiblaWidgetData.fromPreferences(prefs)
+    val hasBearing = widgetData.qiblaBearingDegrees.isFinite() && widgetData.qiblaBearingDegrees >= 0.0
     GlanceTheme {
-            Box(modifier = GlanceModifier.background(ColorProvider(day = Color(0xFF214F44), night = Color(0xFF0E2821))).padding(16.dp).fillMaxSize().clickable(onClick = actionStartActivity<MainActivity>(context, Uri.parse("mishkat://qibla?homeWidget"))), contentAlignment = Alignment.Center) {
+            Box(modifier = GlanceModifier.background(mishkatWidgetColor(prefs, day = Color(0xFFF3F8F5), night = Color(0xFF0E2821))).padding(16.dp).fillMaxSize().clickable(onClick = actionStartActivity<MainActivity>(context, Uri.parse("mishkat://qibla?homeWidget"))), contentAlignment = Alignment.Center) {
                 Column(modifier = GlanceModifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "مِشكاة • القبلة", style = TextStyle(color = ColorProvider(day = Color(0xFFB7D0C7), night = Color(0xFFB7D0C7)), fontSize = 12.sp, fontWeight = FontWeight.Bold))
+                    Text(text = "مِشكاة • القبلة", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF526F63), night = Color(0xFFB7D0C7)), fontSize = 12.sp, fontWeight = FontWeight.Bold))
                     Spacer(modifier = GlanceModifier.defaultWeight())
-                    Box(
-                        modifier = GlanceModifier.background(ColorProvider(day = Color(0xFFF0CF82), night = Color(0xFFF0CF82))).cornerRadius(999.0.dp).padding(1.0.dp)
-                    ) {
-                        Box(
-                            modifier = GlanceModifier.background(ColorProvider(day = Color(0xFF315F54), night = Color(0xFF1B4036))).cornerRadius(998.0.dp)
-                        ) {
-                            Text(modifier = GlanceModifier.padding(start = 15.0.dp, top = 8.0.dp, end = 15.0.dp, bottom = 8.0.dp), text = widgetData.qiblaArrow ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFFF0CF82), night = Color(0xFFF0CF82)), fontSize = 42.sp, fontWeight = FontWeight.Normal))
-                        }
-                    }
+                    Image(
+                        provider = ImageProvider(qiblaCompassBitmap(widgetData.qiblaBearingDegrees)),
+                        contentDescription = if (hasBearing) "اتجاه القبلة بالنسبة للشمال" else "الشمال — حدّد موقعك لاتجاه القبلة",
+                        modifier = GlanceModifier.size(66.dp).background(mishkatWidgetColor(prefs, day = Color(0xFFE0EDE6), night = Color(0xFF1B4036))).cornerRadius(33.dp),
+                        colorFilter = ColorFilter.tint(mishkatWidgetColor(prefs, day = Color(0xFF9B742C), night = Color(0xFFF0CF82))),
+                    )
                     Spacer(modifier = GlanceModifier.defaultWeight())
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = widgetData.qiblaBearing ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFFF4FAF7), night = Color(0xFFF4FAF7)), fontSize = 13.sp, fontWeight = FontWeight.Bold))
-                        Text(modifier = GlanceModifier.padding(top = 1.0.dp), text = widgetData.qiblaDistance ?: "", style = TextStyle(color = ColorProvider(day = Color(0xFFB7D0C7), night = Color(0xFFB7D0C7)), fontSize = 10.sp))
+                        Text(text = if (hasBearing) widgetData.qiblaBearing ?: "القبلة" else "الشمال", maxLines = 1, style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF17362F), night = Color(0xFFF4FAF7)), fontSize = 12.sp, fontWeight = FontWeight.Bold))
+                        Text(text = if (hasBearing) "بالنسبة للشمال" else "حدّد موقعك للقبلة", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF526F63), night = Color(0xFFB7D0C7)), fontSize = 9.sp))
+                        Text(text = "اضغط للبوصلة الحية", style = TextStyle(color = mishkatWidgetColor(prefs, day = Color(0xFF526F63), night = Color(0xFFB7D0C7)), fontSize = 9.sp))
                     }
                 }
             }
@@ -91,6 +98,7 @@ class QiblaWidgetHomeWidget : GlanceAppWidget() {
 }
 
 data class QiblaWidgetData(
+    val qiblaBearingDegrees: Double = -1.0,
     val qiblaArrow: String? = null,
     val qiblaBearing: String? = null,
     val qiblaDistance: String? = null,
@@ -100,6 +108,7 @@ data class QiblaWidgetData(
 
         fun fromPreferences(prefs: android.content.SharedPreferences): QiblaWidgetData {
             return QiblaWidgetData(
+                qiblaBearingDegrees = mishkatWidgetDouble(prefs, "${PREFERENCES_PREFIX}.qiblaBearingDegrees", -1.0),
                 qiblaArrow = prefs.getString("${PREFERENCES_PREFIX}.qiblaArrow", "↑"),
                 qiblaBearing = prefs.getString("${PREFERENCES_PREFIX}.qiblaBearing", "حدّد موقعك"),
                 qiblaDistance = prefs.getString("${PREFERENCES_PREFIX}.qiblaDistance", "افتح مشكاة للبوصلة الحية"),
@@ -108,6 +117,7 @@ data class QiblaWidgetData(
 
         fun previewFromPreferences(prefs: android.content.SharedPreferences): QiblaWidgetData {
             return QiblaWidgetData(
+                qiblaBearingDegrees = mishkatWidgetDouble(prefs, "${PREFERENCES_PREFIX}.qiblaBearingDegrees", 277.0),
                 qiblaArrow = prefs.getString("${PREFERENCES_PREFIX}.qiblaArrow", "↗"),
                 qiblaBearing = prefs.getString("${PREFERENCES_PREFIX}.qiblaBearing", "٢٧٧° شمال غربي"),
                 qiblaDistance = prefs.getString("${PREFERENCES_PREFIX}.qiblaDistance", "٨٢٣ كم إلى الكعبة"),
@@ -131,4 +141,36 @@ private fun hwCurrentLocales(context: Context): List<String> {
         if (fallback.isNotEmpty() && fallback != "und") tags.add(fallback)
     }
     return tags
+}
+
+/** North stays at the top. A widget cannot continuously read the device compass. */
+private fun qiblaCompassBitmap(bearing: Double): Bitmap {
+    val bitmap = Bitmap.createBitmap(216, 216, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val accent = android.graphics.Color.WHITE
+    val ink = android.graphics.Color.WHITE
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    paint.color = accent
+    paint.style = Paint.Style.STROKE
+    paint.strokeWidth = 3f
+    canvas.drawCircle(108f, 108f, 100f, paint)
+    paint.style = Paint.Style.FILL
+    paint.color = ink
+    paint.textSize = 26f
+    paint.textAlign = Paint.Align.CENTER
+    canvas.drawText("N", 108f, 35f, paint)
+    val angle = if (bearing.isFinite() && bearing >= 0.0) bearing % 360 else 0.0
+        canvas.save()
+        canvas.rotate(angle.toFloat(), 108f, 108f)
+        val arrow = Path().apply {
+            moveTo(108f, 48f)
+            lineTo(139f, 136f)
+            lineTo(108f, 119f)
+            lineTo(77f, 136f)
+            close()
+        }
+        paint.color = accent
+        canvas.drawPath(arrow, paint)
+        canvas.restore()
+    return bitmap
 }

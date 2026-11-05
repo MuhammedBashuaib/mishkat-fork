@@ -1,5 +1,6 @@
 // dart format off
-// GENERATED CODE - DO NOT MODIFY BY HAND
+// CUSTOMIZED generated bridge: native progress field is maintained by hand.
+// See docs/HOME_WIDGETS.md before regenerating.
 // ignore_for_file: type=lint
 
 import 'dart:async';
@@ -20,6 +21,7 @@ class TasbihWidgetHomeWidget {
     String? tasbihCount,
     String? tasbihTarget,
     String? tasbihAction,
+    double? tasbihProgressValue,
     Map<DateTime, TasbihWidgetTimedData>? timedData,
   }) {
     return Future.wait([
@@ -27,6 +29,7 @@ class TasbihWidgetHomeWidget {
       if (tasbihCount != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.tasbihCount', tasbihCount, appGroupId: _$appGroupId),
       if (tasbihTarget != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.tasbihTarget', tasbihTarget, appGroupId: _$appGroupId),
       if (tasbihAction != null) HomeWidget.saveWidgetData<String>('${_$paramPrefix}.tasbihAction', tasbihAction, appGroupId: _$appGroupId),
+      if (tasbihProgressValue != null) HomeWidget.saveWidgetData<double>('${_$paramPrefix}.tasbihProgressValue', tasbihProgressValue, appGroupId: _$appGroupId),
       if (timedData != null) () async {
         final _timedTimes = timedData.keys.toList()..sort();
         if (_timedTimes.isEmpty) {
@@ -73,6 +76,7 @@ class TasbihWidgetHomeWidget {
     bool tasbihCount = false,
     bool tasbihTarget = false,
     bool tasbihAction = false,
+    bool tasbihProgressValue = false,
     bool timedData = false,
   }) {
     return Future.wait([
@@ -80,6 +84,7 @@ class TasbihWidgetHomeWidget {
       if (tasbihCount) HomeWidget.saveWidgetData('${_$paramPrefix}.tasbihCount', null, appGroupId: _$appGroupId),
       if (tasbihTarget) HomeWidget.saveWidgetData('${_$paramPrefix}.tasbihTarget', null, appGroupId: _$appGroupId),
       if (tasbihAction) HomeWidget.saveWidgetData('${_$paramPrefix}.tasbihAction', null, appGroupId: _$appGroupId),
+      if (tasbihProgressValue) HomeWidget.saveWidgetData('${_$paramPrefix}.tasbihProgressValue', null, appGroupId: _$appGroupId),
       if (timedData) () async {
         await HomeWidget.saveWidgetData('${_$paramPrefix}.timedData', null, appGroupId: _$appGroupId);
         try {
@@ -106,7 +111,7 @@ class TasbihWidgetHomeWidget {
   /// milliseconds: sub-millisecond precision of the saved keys is not preserved.
   /// Keys are compared by instant, so a local [DateTime] and its `toUtc()` twin
   /// denote the same entry and only one of them survives a save.
-  static Future<({String? tasbihDhikr, String? tasbihCount, String? tasbihTarget, String? tasbihAction, Map<DateTime, TasbihWidgetTimedData>? timedData})> getData() async {
+  static Future<({String? tasbihDhikr, String? tasbihCount, String? tasbihTarget, String? tasbihAction, double? tasbihProgressValue, Map<DateTime, TasbihWidgetTimedData>? timedData})> getData() async {
     final _timedDataPath = await HomeWidget.getWidgetData<String>('${_$paramPrefix}.timedData', appGroupId: _$appGroupId);
     Map<DateTime, TasbihWidgetTimedData>? timedData;
     if (_timedDataPath != null) {
@@ -132,6 +137,7 @@ class TasbihWidgetHomeWidget {
       tasbihCount: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.tasbihCount', defaultValue: '٠', appGroupId: _$appGroupId),
       tasbihTarget: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.tasbihTarget', defaultValue: 'الهدف ٣٣', appGroupId: _$appGroupId),
       tasbihAction: await HomeWidget.getWidgetData<String>('${_$paramPrefix}.tasbihAction', defaultValue: 'اضغط لفتح المسبحة', appGroupId: _$appGroupId),
+      tasbihProgressValue: await HomeWidget.getWidgetData<double>('${_$paramPrefix}.tasbihProgressValue', defaultValue: 0, appGroupId: _$appGroupId),
       timedData: timedData,
     );
   }

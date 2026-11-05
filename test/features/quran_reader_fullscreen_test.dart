@@ -1,0 +1,397 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:mishkat_app/core/theme/app_theme.dart';
+import 'package:mishkat_app/features/quran/data/repositories/mushaf_layout_repository.dart';
+import 'package:mishkat_app/features/quran/data/repositories/quran_repository.dart';
+import 'package:mishkat_app/features/quran/presentation/cubit/mushaf_interaction_cubit.dart';
+import 'package:mishkat_app/features/quran/presentation/cubit/quran_cubit.dart';
+import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.dart';
+import 'package:mishkat_app/features/quran/presentation/services/mushaf_coordinate_mapper.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/mushaf_interaction_layer.dart';
+import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
+
+import 'quran_home_hub_test.dart'
+    show
+        FakeLocationService,
+        FakeNotificationService,
+        InMemoryLocalStorage,
+        TestQuranAudioService;
+
+// Add --dart-define=CAPTURE_MUSHAF_READER=true to inspect the real SVG artwork.
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const captureEnabled = bool.fromEnvironment('CAPTURE_MUSHAF_READER');
+  final repository = QuranRepository();
+  final layoutRepository = MushafLayoutRepository.instance;
+  late InMemoryLocalStorage storage;
+  late TestQuranAudioService audio;
+  late SettingsCubit settings;
+  late QuranCubit quran;
+  final windowCalls = <MethodCall>[];
+  const windowChannel = MethodChannel('com.dakomn.mishkatapp/reader_window');
+
+  setUpAll(() async {
+    await repository.load();
+    await layoutRepository.load();
+    final cairo = FontLoader('Cairo');
+    for (final weight in ['Regular', 'SemiBold', 'Bold', 'Black']) {
+      cairo.addFont(rootBundle.load('assets/fonts/Cairo-$weight.ttf'));
+    }
+    await cairo.load();
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    if (captureEnabled) await Directory('screenshots').create(recursive: true);
+  });
+
+  setUp(() async {
+    windowCalls.clear();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(windowChannel, (call) async {
+          windowCalls.add(call);
+          return null;
+        });
+    storage = InMemoryLocalStorage();
+    audio = TestQuranAudioService();
+    settings = SettingsCubit(
+      storage: storage,
+      locationService: FakeLocationService(),
+      notifications: FakeNotificationService(),
+    );
+    await settings.load();
+    quran = QuranCubit(
+      repository: repository,
+      storage: storage,
+      audio: audio,
+      reciter: 'ar.alafasy',
+      fontSize: 32,
+    );
+    await quran.load();
+  });
+
+  tearDown(() async {
+    await quran.close();
+    await settings.close();
+    await audio.dispose();
+  });
+
+  Future<GlobalKey> openReader(
+    WidgetTester tester, {
+    int page = 562,
+    bool dark = false,
+  }) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await quran.openPage(page);
+    final boundaryKey = GlobalKey();
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: quran),
+          BlocProvider.value(value: settings),
+        ],
+        child: RepaintBoundary(
+          key: boundaryKey,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            locale: const Locale('ar'),
+            supportedLocales: const [Locale('ar')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            theme: dark ? AppTheme.dark() : AppTheme.light(),
+            builder: (context, child) {
+              final media = MediaQuery.of(context);
+              final landscape = media.size.width > media.size.height;
+              return MediaQuery(
+                data: media.copyWith(
+                  padding: landscape
+                      ? const EdgeInsets.fromLTRB(44, 0, 20, 18)
+                      : const EdgeInsets.only(top: 44, bottom: 24),
+                ),
+                child: child!,
+              );
+            },
+            home: const QuranReaderPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return boundaryKey;
+  }
+
+  Finder currentPage() => find.byWidgetPredicate(
+    (widget) => widget is MushafPage && widget.isCurrent,
+  );
+
+  InteractiveViewer viewer(WidgetTester tester) =>
+      tester.widget<InteractiveViewer>(
+        find.descendant(
+          of: currentPage(),
+          matching: find.byType(InteractiveViewer),
+        ),
+      );
+
+  Future<void> enterFullscreen(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('ملء الشاشة'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.text('حجم الصفحة'), findsNothing);
+    expect(find.byTooltip('تكبير المصحف'), findsNothing);
+    expect(find.byTooltip('تصغير المصحف'), findsNothing);
+    expect(find.byTooltip('إنهاء ملء الشاشة'), findsOneWidget);
+  }
+
+  Future<void> capture(
+    WidgetTester tester,
+    GlobalKey boundaryKey,
+    String name,
+  ) async {
+    if (!captureEnabled) return;
+    await tester.runAsync(() async {
+      final boundary =
+          boundaryKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 2);
+      try {
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('screenshots/mushaf_fullscreen_$name.png')
+            .writeAsBytes(data!.buffer.asUint8List());
+      } finally {
+        image.dispose();
+      }
+    });
+  }
+
+  test('fullscreen preserves original glyph proportions and opening-page offsets', () {
+    const mapper = MushafCoordinateMapper(contentPadding: EdgeInsets.zero);
+    const size = Size(360, 760);
+    for (final viewBox in [
+      const Rect.fromLTWH(0, 0, 345, 550),
+      const Rect.fromLTWH(-53.3109, -198.4777, 345, 550),
+    ]) {
+      final destination = mapper.getSvgDestinationRect(
+        contentSize: size,
+        viewBox: viewBox,
+      );
+      expect(destination.width, size.width);
+      expect(
+        destination.width / viewBox.width,
+        closeTo(destination.height / viewBox.height, .000001),
+        reason:
+            'The calligraphy must have the same horizontal and vertical scale',
+      );
+      for (final source in [
+        viewBox.topLeft,
+        viewBox.center,
+        viewBox.bottomRight,
+      ]) {
+        final local = mapper.viewBoxToLocal(
+          viewBoxCoordinate: source,
+          contentSize: size,
+          viewBox: viewBox,
+        );
+        final restored = mapper.localToViewBox(
+          localPosition: local,
+          contentSize: size,
+          viewBox: viewBox,
+        )!;
+        expect(restored.dx, closeTo(source.dx, .001));
+        expect(restored.dy, closeTo(source.dy, .001));
+      }
+    }
+  });
+
+  for (final (name, size, dark, page) in [
+    ('light_390', const Size(390, 844), false, 562),
+    ('dark_390', const Size(390, 844), true, 562),
+    ('narrow_320', const Size(320, 568), false, 562),
+    ('landscape', const Size(844, 390), false, 562),
+    ('short_landscape', const Size(568, 320), false, 562),
+    ('opening_page', const Size(390, 844), false, 1),
+  ]) {
+    testWidgets(
+      'fullscreen fills screen with a quiet folio at the bottom: $name',
+      (tester) async {
+        final boundary = await openReader(tester, dark: dark, page: page);
+        await enterFullscreen(tester);
+        tester.view.physicalSize = size;
+        await tester.pumpAndSettle();
+
+        final sheet = tester.getRect(
+          find.byKey(ValueKey('mushaf-paper-$page')),
+        );
+        final body = tester.getRect(
+          find.byKey(ValueKey('mushaf-paper-body-$page')),
+        );
+        final number = tester.getRect(
+          find.byKey(ValueKey('mushaf-page-number-$page')),
+        );
+        final exit = tester.getRect(find.byTooltip('إنهاء ملء الشاشة'));
+        final landscape = size.width > size.height;
+        final safeBounds = landscape
+            ? Rect.fromLTRB(44, 0, size.width - 20, size.height - 18)
+            : Rect.fromLTRB(0, 44, size.width, size.height - 24);
+        // The paper fills the screen; the artwork and folio respect the cutout.
+        expect(sheet, Offset.zero & size);
+        expect(safeBounds.inflate(.1).contains(body.topLeft), isTrue);
+        expect(safeBounds.inflate(.1).contains(body.bottomRight), isTrue);
+        expect(number.top, greaterThanOrEqualTo(body.bottom));
+        expect(number.bottom, lessThanOrEqualTo(sheet.bottom));
+        expect(number.center.dx, closeTo(safeBounds.center.dx, 1));
+        expect(safeBounds.bottom - number.bottom, inInclusiveRange(6, 14));
+        final folio = tester.widget<Text>(
+          find.byKey(ValueKey('mushaf-page-number-$page')),
+        );
+        expect(folio.style!.fontSize, lessThanOrEqualTo(11));
+        final artwork = tester.widget<SvgPicture>(
+          find.descendant(of: currentPage(), matching: find.byType(SvgPicture)),
+        );
+        expect(artwork.fit, BoxFit.contain);
+        final layer = find.descendant(
+          of: currentPage(),
+          matching: find.byType(MushafInteractionLayer),
+        );
+        final mapper = tester.widget<MushafInteractionLayer>(layer).mapper;
+        final viewBox = layoutRepository.getPageGeometry(page)!.viewBox;
+        final destination = mapper.getSvgDestinationRect(
+          contentSize: tester.getSize(layer),
+          viewBox: viewBox,
+        );
+        expect(
+          destination.width / viewBox.width,
+          closeTo(destination.height / viewBox.height, .000001),
+          reason:
+              'Text, ayah markers and touch geometry must remain undistorted',
+        );
+        expect(windowCalls.last.method, 'setFullscreen');
+        expect(windowCalls.last.arguments, true);
+        expect(exit.overlaps(body), isFalse);
+        expect(exit.overlaps(number), isFalse);
+        expect(
+          viewer(tester).transformationController!.value.getMaxScaleOnAxis(),
+          closeTo(1, .001),
+        );
+        expect(tester.takeException(), isNull);
+        await capture(tester, boundary, name);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets(
+    'fullscreen fits a zoomed page and exits with saved zoom intact',
+    (tester) async {
+      quran.setFontSize(48);
+      await settings.setQuranFont(48);
+      await openReader(tester);
+      expect(
+        viewer(tester).transformationController!.value.getMaxScaleOnAxis(),
+        closeTo(1.5, .001),
+      );
+      await enterFullscreen(tester);
+      expect(quran.state.fontSize, 48);
+      expect(
+        viewer(tester).transformationController!.value.getMaxScaleOnAxis(),
+        closeTo(1, .001),
+      );
+
+      // Model the transform produced by a pinch, then use the actual reset gesture.
+      viewer(tester).transformationController!.value = Matrix4.diagonal3Values(
+        1.5,
+        1.5,
+        1,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).physics,
+        isA<NeverScrollableScrollPhysics>(),
+      );
+      final center = tester.getCenter(currentPage());
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 80));
+      await tester.tapAt(center);
+      await tester.pumpAndSettle();
+      expect(
+        viewer(tester).transformationController!.value.getMaxScaleOnAxis(),
+        closeTo(1, .001),
+      );
+      expect(quran.state.fontSize, 48);
+      expect(settings.state.settings.quranFont, 48);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(AppBar), findsOneWidget);
+      expect(windowCalls.last.arguments, false);
+      expect(find.byType(QuranReaderPage), findsOneWidget);
+      expect(
+        viewer(tester).transformationController!.value.getMaxScaleOnAxis(),
+        closeTo(1.5, .001),
+      );
+      await enterFullscreen(tester);
+      await tester.tap(find.byTooltip('إنهاء ملء الشاشة'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AppBar), findsOneWidget);
+      expect(quran.state.currentPage, 562);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('fullscreen keeps ayah selection and RTL page swipes working', (
+    tester,
+  ) async {
+    await openReader(tester);
+    await enterFullscreen(tester);
+
+    final layer = find.descendant(
+      of: currentPage(),
+      matching: find.byType(MushafInteractionLayer),
+    );
+    final geometry = layoutRepository.getPageGeometry(562)!;
+    final ayah = geometry.ayahs.first;
+    final point = tester
+        .widget<MushafInteractionLayer>(layer)
+        .mapper
+        .viewBoxToLocal(
+          viewBoxCoordinate: ayah.segments.first.samplePoint,
+          contentSize: tester.getSize(layer),
+          viewBox: geometry.viewBox,
+        );
+    await tester.tapAt(tester.getTopLeft(layer) + point);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    final interaction = tester.element(layer).read<MushafInteractionCubit>();
+    expect(interaction.state.selectedAyah?.globalAyah, ayah.globalAyah);
+
+    await tester.drag(find.byType(PageView), const Offset(300, 0));
+    await tester.pumpAndSettle();
+    expect(quran.state.currentPage, 563);
+    expect(
+      find.byKey(const ValueKey('mushaf-page-number-563')),
+      findsOneWidget,
+    );
+    expect(interaction.state.selectedAyah, isNull);
+
+    await quran.openPage(604);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(PageView), const Offset(300, 0));
+    await tester.pumpAndSettle();
+    expect(quran.state.currentPage, 604);
+    expect(
+      find.byKey(const ValueKey('mushaf-page-number-604')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+}

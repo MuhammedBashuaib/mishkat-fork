@@ -7,6 +7,7 @@ import '../../data/models/quran_models.dart';
 import '../../domain/models/audio_repeat_config.dart';
 import '../cubit/quran_cubit.dart';
 import '../cubit/quran_state.dart';
+import 'quran_player_settings_sheet.dart';
 
 /// Persistent, lightweight Quran Mini Player widget with Tikrar & Tardid support.
 ///
@@ -32,6 +33,11 @@ class QuranMiniPlayer extends StatelessWidget {
       buildWhen: (previous, current) =>
           previous.audioStatus != current.audioStatus ||
           previous.audioGlobalAyah != current.audioGlobalAyah ||
+          previous.audioSurah != current.audioSurah ||
+          previous.audioWordIndex != current.audioWordIndex ||
+          previous.listeningMode != current.listeningMode ||
+          previous.sleepTimerRemaining != current.sleepTimerRemaining ||
+          previous.playbackSpeed != current.playbackSpeed ||
           previous.activeStation != current.activeStation ||
           previous.error != current.error ||
           previous.data != current.data ||
@@ -39,9 +45,12 @@ class QuranMiniPlayer extends StatelessWidget {
           previous.repeatState.status != current.repeatState.status,
       builder: (context, state) {
         final isStation = state.activeStation != null;
+        final isSurah = state.audioSurah != null;
+        final isWord = state.audioWordIndex != null;
+        final isListening = isSurah || isStation;
         final isAudioActive =
             state.audioStatus != QuranAudioStatus.idle &&
-            (state.audioGlobalAyah != null || isStation);
+            (state.audioGlobalAyah != null || isListening);
 
         if (!isAudioActive && state.audioStatus != QuranAudioStatus.failure) {
           return const SizedBox.shrink();
@@ -58,17 +67,25 @@ class QuranMiniPlayer extends StatelessWidget {
             ? null
             : state.data!.pointForGlobal(state.audioGlobalAyah!);
 
-        final surahName = (point != null && state.data != null)
-            ? state.data!.chapter(point.surah).name
+        final surahNumber = state.audioSurah ?? point?.surah;
+        final surahName = (surahNumber != null && state.data != null)
+            ? state.data!.chapter(surahNumber).name
             : '';
         final reciterInfo = AppConstants.findReciter(cubit.reciter);
 
-        final title = isStation ? state.activeStation!.title : reciterInfo.name;
+        final title = isStation
+            ? state.activeStation!.title
+            : isWord
+            ? 'نطق الكلمات التعليمي · Quran.com'
+            : reciterInfo.name;
         final subtitle = isStation
             ? state.activeStation!.subtitle
+            : isSurah
+            ? 'سورة $surahName · تلاوة متصلة'
             : (point == null
                   ? 'التلاوة المباركة'
-                  : 'سورة $surahName · الآية ${point.ayah}');
+                  : 'سورة $surahName · الآية ${point.ayah}'
+                        '${isWord ? ' · الكلمة ${state.audioWordIndex}' : ''}');
 
         return Directionality(
           textDirection: TextDirection.rtl,
@@ -159,7 +176,7 @@ class QuranMiniPlayer extends StatelessWidget {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                      if (!isStation) ...[
+                                      if (!isListening && !isWord) ...[
                                         const SizedBox(width: 6),
                                         _RepeatBadgeButton(
                                           config: state.repeatConfig,
@@ -181,9 +198,11 @@ class QuranMiniPlayer extends StatelessWidget {
                           ),
 
                           // Controls: Prev, Play/Pause, Next
-                          if (!isStation) ...[
+                          if (!isStation && !isWord) ...[
                             IconButton(
-                              tooltip: 'الآية السابقة',
+                              tooltip: isSurah
+                                  ? 'السورة السابقة'
+                                  : 'الآية السابقة',
                               iconSize: 22,
                               padding: const EdgeInsets.all(4),
                               constraints: const BoxConstraints(),
@@ -209,6 +228,8 @@ class QuranMiniPlayer extends StatelessWidget {
                             ),
                             onPressed: isLoading
                                 ? null
+                                : isWord
+                                ? cubit.toggleWordAudio
                                 : () => cubit.toggleAudio(
                                     continuous: continuous,
                                     autoScroll: autoScroll,
@@ -230,9 +251,11 @@ class QuranMiniPlayer extends StatelessWidget {
                                   ),
                           ),
                           const SizedBox(width: 4),
-                          if (!isStation) ...[
+                          if (!isStation && !isWord) ...[
                             IconButton(
-                              tooltip: 'الآية التالية',
+                              tooltip: isSurah
+                                  ? 'السورة التالية'
+                                  : 'الآية التالية',
                               iconSize: 22,
                               padding: const EdgeInsets.all(4),
                               constraints: const BoxConstraints(),
@@ -262,11 +285,14 @@ class QuranMiniPlayer extends StatelessWidget {
                     ),
 
                     // Delay Countdown Banner (isolated rebuilds)
-                    if (!isStation) const _DelayCountdownBanner(),
+                    if (!isListening) const _DelayCountdownBanner(),
 
                     // Scrubber / Progress Bar (isolated rebuilds)
                     if (!isFailure && !isStation)
                       _MiniPlayerProgressBar(cubit: cubit),
+
+                    if (isListening)
+                      _ListeningSettingsBar(cubit: cubit, state: state),
 
                     // Failure Banner
                     if (isFailure)
@@ -290,10 +316,9 @@ class QuranMiniPlayer extends StatelessWidget {
                               ),
                             ),
                             TextButton(
-                              onPressed: state.audioGlobalAyah == null
-                                  ? null
-                                  : () => cubit.playAyah(
-                                      state.audioGlobalAyah!,
+                              onPressed: isWord
+                                  ? cubit.toggleWordAudio
+                                  : () => cubit.toggleAudio(
                                       continuous: continuous,
                                       autoScroll: autoScroll,
                                       origin: playbackOrigin,
@@ -331,6 +356,61 @@ class QuranMiniPlayer extends StatelessWidget {
             state.data?.page(state.currentPage).first.global ??
             1,
         playbackOrigin: playbackOrigin,
+      ),
+    );
+  }
+}
+
+class _ListeningSettingsBar extends StatelessWidget {
+  const _ListeningSettingsBar({required this.cubit, required this.state});
+
+  final QuranCubit cubit;
+  final QuranState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = state.sleepTimerRemaining;
+    final isStation = state.activeStation != null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 8, 6),
+      child: Row(
+        children: [
+          Icon(
+            remaining != null
+                ? Icons.bedtime_outlined
+                : isStation
+                ? Icons.radio_rounded
+                : quranListeningModeIcon(state.listeningMode),
+            size: 16,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              remaining != null
+                  ? 'يتوقف بعد ${formatSleepTimer(remaining)}'
+                  : isStation
+                  ? 'بث مباشر'
+                  : quranListeningModeLabel(state.listeningMode),
+              style: Theme.of(context).textTheme.labelSmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (!isStation && state.playbackSpeed != 1.0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('${state.playbackSpeed}×'),
+            ),
+          IconButton(
+            key: const Key('quran-player-settings'),
+            tooltip: 'إعدادات المشغّل',
+            iconSize: 21,
+            visualDensity: VisualDensity.compact,
+            onPressed: () => showQuranPlayerSettings(context, cubit),
+            icon: const Icon(Icons.tune_rounded),
+          ),
+        ],
       ),
     );
   }

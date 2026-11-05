@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- // GENERATED CODE - DO NOT MODIFY BY HAND -->
+<!-- Wide native widget matching Prayer; see docs/HOME_WIDGETS.md before regeneration. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:minWidth="250dp"
-    android:minHeight="160dp"
+    android:minHeight="130dp"
     android:updatePeriodMillis="1800000"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:minResizeWidth="220dp"
-    android:minResizeHeight="160dp"
+    android:minResizeHeight="130dp"
     android:targetCellWidth="4"
     android:targetCellHeight="2"
     android:description="@string/home_widget_wird_widget_description"

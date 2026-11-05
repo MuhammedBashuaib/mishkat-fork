@@ -270,7 +270,7 @@ class _DailyFocusCard extends StatelessWidget {
                     icon: Icons.menu_book_outlined,
                     title: active?.name ?? 'تابع تلاوتك',
                     subtitle: active != null
-                        ? 'صفحة $page · ورد اليوم ${active.dailyPages} صفحات'
+                        ? 'صفحة $page · ورد اليوم ${active.currentWardPages} صفحات'
                         : 'أكمل من صفحة $page',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(

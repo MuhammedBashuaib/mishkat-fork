@@ -12,6 +12,8 @@ enum QuranIndexMode { surahs, juz, bookmarks }
 
 enum QuranAudioStatus { idle, loading, playing, paused, failure }
 
+enum QuranListeningMode { once, repeat, next }
+
 class QuranState extends Equatable {
   const QuranState({
     this.status = QuranStatus.initial,
@@ -25,6 +27,12 @@ class QuranState extends Equatable {
     this.fontSize = 32,
     this.audioStatus = QuranAudioStatus.idle,
     this.audioGlobalAyah,
+    this.audioSurah,
+    this.audioWordIndex,
+    this.readerSelectedAyah,
+    this.listeningMode = QuranListeningMode.once,
+    this.sleepTimerRemaining,
+    this.playbackSpeed = 1,
     this.activeStation,
     this.repeatConfig = AudioRepeatConfig.defaultConfig,
     this.repeatState = const AudioRepeatState(),
@@ -42,6 +50,12 @@ class QuranState extends Equatable {
   final double fontSize;
   final QuranAudioStatus audioStatus;
   final int? audioGlobalAyah;
+  final int? audioSurah;
+  final int? audioWordIndex;
+  final int? readerSelectedAyah;
+  final QuranListeningMode listeningMode;
+  final Duration? sleepTimerRemaining;
+  final double playbackSpeed;
   final QuranAudioStation? activeStation;
   final AudioRepeatConfig repeatConfig;
   final AudioRepeatState repeatState;
@@ -75,6 +89,12 @@ class QuranState extends Equatable {
     double? fontSize,
     QuranAudioStatus? audioStatus,
     Object? audioGlobalAyah = _unset,
+    Object? audioSurah = _unset,
+    Object? audioWordIndex = _unset,
+    Object? readerSelectedAyah = _unset,
+    QuranListeningMode? listeningMode,
+    Object? sleepTimerRemaining = _unset,
+    double? playbackSpeed,
     Object? activeStation = _unset,
     AudioRepeatConfig? repeatConfig,
     AudioRepeatState? repeatState,
@@ -94,6 +114,20 @@ class QuranState extends Equatable {
     audioGlobalAyah: identical(audioGlobalAyah, _unset)
         ? this.audioGlobalAyah
         : audioGlobalAyah as int?,
+    audioSurah: identical(audioSurah, _unset)
+        ? this.audioSurah
+        : audioSurah as int?,
+    audioWordIndex: identical(audioWordIndex, _unset)
+        ? this.audioWordIndex
+        : audioWordIndex as int?,
+    readerSelectedAyah: identical(readerSelectedAyah, _unset)
+        ? this.readerSelectedAyah
+        : readerSelectedAyah as int?,
+    listeningMode: listeningMode ?? this.listeningMode,
+    sleepTimerRemaining: identical(sleepTimerRemaining, _unset)
+        ? this.sleepTimerRemaining
+        : sleepTimerRemaining as Duration?,
+    playbackSpeed: playbackSpeed ?? this.playbackSpeed,
     activeStation: identical(activeStation, _unset)
         ? this.activeStation
         : activeStation as QuranAudioStation?,
@@ -115,6 +149,12 @@ class QuranState extends Equatable {
     fontSize,
     audioStatus,
     audioGlobalAyah,
+    audioSurah,
+    audioWordIndex,
+    readerSelectedAyah,
+    listeningMode,
+    sleepTimerRemaining,
+    playbackSpeed,
     activeStation,
     repeatConfig,
     repeatState,
