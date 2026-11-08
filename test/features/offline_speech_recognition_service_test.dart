@@ -53,7 +53,9 @@ class _OfflineHarness {
   }
 
   void utterance({bool pause = true}) {
-    for (var i = 0; i < 10; i++) packet(1000);
+    // Keep lifecycle fixtures below the 900ms continuous-preview threshold,
+    // including up to 300ms of pre-roll retained from the previous pause.
+    for (var i = 0; i < 5; i++) packet(1000);
     if (pause) for (var i = 0; i < 6; i++) packet(0);
   }
 }
@@ -112,6 +114,7 @@ void main() {
       'الرحمن الرحيم',
     ]);
     expect(results.every((result) => result.isFinal), isTrue);
+    expect(failures, isEmpty);
     expect(statuses, ['listening']);
     expect(service.isListening, isTrue);
     expect(native.calls.where((call) => call.method == 'start'), hasLength(1));
@@ -212,7 +215,7 @@ void main() {
 
   test('connected reading publishes previews before its first pause', () async {
     await service.startListening();
-    for (var i = 0; i < 19; i++) native.packet(1200);
+    for (var i = 0; i < 10; i++) native.packet(1200);
     await _settle();
     expect(results, hasLength(1));
     expect(results.single.isFinal, isFalse);
@@ -223,6 +226,7 @@ void main() {
     expect(results.last.isFinal, isTrue);
     expect(results, hasLength(2));
     expect(service.isListening, isTrue);
+    expect(failures, isEmpty);
   });
 
   test(
@@ -230,7 +234,7 @@ void main() {
     () async {
       await service.startListening();
       final pending = native.decoding = Completer<String>();
-      for (var i = 0; i < 19; i++) native.packet(1200);
+      for (var i = 0; i < 10; i++) native.packet(1200);
       await _settle();
       for (var i = 0; i < 40; i++) native.packet(1200);
       expect(
@@ -257,7 +261,7 @@ void main() {
     () async {
       await service.startListening();
       native.decoding = Completer<String>();
-      for (var i = 0; i < 19; i++) native.packet(1200);
+      for (var i = 0; i < 10; i++) native.packet(1200);
       await _settle();
       for (var i = 0; i < 30; i++) native.packet(1200);
       await service.cancelListening();

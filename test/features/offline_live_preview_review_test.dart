@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -222,9 +221,14 @@ void main() {
 
     try {
       await service.startListening();
-      for (var i = 0; i < 19; i++) packet();
+      // Reach one live snapshot, then its next cadence without queuing a third.
+      for (var i = 0; i < 9; i++) {
+        packet();
+      }
       await pumpEventQueue();
-      for (var i = 0; i < 12; i++) packet();
+      for (var i = 0; i < 6; i++) {
+        packet();
+      }
       await pumpEventQueue();
       expect(results.map((result) => result.recognizedWords), [_basmala, '']);
       expect(results.every((result) => !result.isFinal), isTrue);

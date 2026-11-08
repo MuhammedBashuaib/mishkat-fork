@@ -1,0 +1,55 @@
+{
+  "origin": "Original deterministic synthesis for Mishkat; no voice or third-party samples.",
+  "sample_rate_hz": 16000,
+  "channels": 1,
+  "sample_format": "PCM signed 16-bit little-endian",
+  "playback_gain_android": 0.6,
+  "validation_limit": "Signal checks do not prove subjective sound quality or microphone echo safety.",
+  "cues": {
+    "ready": {
+      "file": "assets/audio/recitation_ready.wav",
+      "description": "A single soft rising pulse: the microphone is ready.",
+      "duration_ms": 105.0,
+      "peak_dbfs": -13.98,
+      "rms_dbfs": -18.93,
+      "clipped_samples": 0,
+      "sha256": "9dd8ca1f0a3492f9b0ba466e606a4fa1dd8f805863686d6856ef2ee764facdc2"
+    },
+    "mistake": {
+      "file": "assets/audio/recitation_mistake.wav",
+      "description": "Two muted descending pulses: check a confirmed word.",
+      "duration_ms": 180.0,
+      "peak_dbfs": -11.8,
+      "rms_dbfs": -18.12,
+      "clipped_samples": 0,
+      "sha256": "7333682636f24bb79f9fae3e8bad205ce5da6b3b7fad2fe9930acfc556e1921a"
+    },
+    "corrected": {
+      "file": "assets/audio/recitation_corrected.wav",
+      "description": "A light upward response: a flagged word was corrected.",
+      "duration_ms": 105.0,
+      "peak_dbfs": -15.26,
+      "rms_dbfs": -20.21,
+      "clipped_samples": 0,
+      "sha256": "cbae6fb891d60b498961070df20740fca21d6976aa08606ed380bf8d88afc6dc"
+    },
+    "paused": {
+      "file": "assets/audio/recitation_paused.wav",
+      "description": "A short low settling pulse: capture has stopped.",
+      "duration_ms": 80.0,
+      "peak_dbfs": -16.22,
+      "rms_dbfs": -21.7,
+      "clipped_samples": 0,
+      "sha256": "131442de57f934f03abefeb4529b0e22d087f6ba5d3c2cd4cf6d4938b72f2ee5"
+    },
+    "complete": {
+      "file": "assets/audio/recitation_complete.wav",
+      "description": "Two gentle upward pulses: the selected passage is complete.",
+      "duration_ms": 210.0,
+      "peak_dbfs": -14.39,
+      "rms_dbfs": -19.83,
+      "clipped_samples": 0,
+      "sha256": "cc9fa6037b84135cd945e029a34cb4740cc4719dc9e4a89d65a91e60695922a1"
+    }
+  }
+}

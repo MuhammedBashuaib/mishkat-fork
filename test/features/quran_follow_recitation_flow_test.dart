@@ -108,11 +108,12 @@ void main() {
   });
 
   test(
-    'stable live words reveal only what was heard, without saved credit',
+    'context-backed live prefix reveals early without saved credit',
     () async {
       await cubit.startRecitation();
       await hear('عم يتساءلون عن', finalResult: false);
-      expect(cubit.state.visibleWordIndices, isEmpty);
+      expect(cubit.state.visibleWordIndices, {0, 1});
+      expect(cubit.state.visibleWordIndices, isNot(contains(2)));
 
       await hear('عم يتساءلون عن', finalResult: false);
       expect(cubit.state.visibleWordIndices, {0, 1, 2});
@@ -126,6 +127,27 @@ void main() {
       expect(cubit.state.summary!.matchedWords, 0);
       expect(cubit.state.summary!.matchedAyahs, 0);
       expect(cubit.state.visibleWordIndices, isEmpty);
+    },
+  );
+
+  test(
+    'an old partial correction keeps the red mistake and cannot reveal ahead',
+    () async {
+      await cubit.startRecitation();
+      await hear(throughMistake);
+      final frontier = cubit.state.committedTargetIndex;
+      await hear('مختلفون', finalResult: false);
+      expect(cubit.state.visibleWordIndices, firstWords(9));
+      expect(cubit.state.unresolvedMistakeWordIndices, {8});
+      expect(cubit.state.committedTargetIndex, frontier);
+      expect(cubit.state.mistakeWordIndices, {8});
+      expect(cubit.state.currentGlobalAyah, 5675);
+
+      await hear('كلا سيعلمون ثم', finalResult: false);
+      expect(cubit.state.visibleWordIndices, firstWords(11));
+      expect(cubit.state.visibleWordIndices, isNot(contains(11)));
+      expect(cubit.state.unresolvedMistakeWordIndices, {8});
+      expect(cubit.state.committedTargetIndex, frontier);
     },
   );
 

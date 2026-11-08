@@ -1,4 +1,8 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -51,6 +55,12 @@ void main() {
     await (FontLoader(
       'AmiriQuran',
     )..addFont(rootBundle.load('assets/fonts/AmiriQuran-Regular.ttf'))).load();
+    await (FontLoader(
+      'QpcHafs',
+    )..addFont(rootBundle.load('assets/fonts/UthmanicHafs_V22.ttf'))).load();
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
 
   setUp(() async {
@@ -236,6 +246,125 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'ayah preview and word chips preserve Quran typography and colors in $brightness',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 568);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final theme = brightness == Brightness.light
+            ? AppTheme.light()
+            : AppTheme.dark();
+        final captureKey = GlobalKey();
+        await tester.pumpWidget(
+          BlocProvider.value(
+            value: quran,
+            child: RepaintBoundary(
+              key: captureKey,
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: theme,
+                home: Scaffold(
+                  body: Builder(
+                    builder: (context) => TextButton(
+                      onPressed: () => AyahActionSheet.show(
+                        context: context,
+                        ayah: layout.getAyah(9)!,
+                        quranData: quran.state.data!,
+                      ),
+                      child: const Text('عرض الآية'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('عرض الآية'));
+        await tester.pumpAndSettle();
+        final ayahPreview = tester.widget<RichText>(
+          find.descendant(
+            of: find.text(quran.state.data!.chapter(2).ayahs[1]),
+            matching: find.byType(RichText),
+          ),
+        );
+        expect(ayahPreview.textDirection, TextDirection.rtl);
+        expect(ayahPreview.text.style!.fontFamily, 'QpcHafs');
+        expect(ayahPreview.text.style!.fontWeight, FontWeight.normal);
+        expect(ayahPreview.text.style!.letterSpacing, 0);
+        expect(ayahPreview.text.style!.wordSpacing, 0);
+        expect(ayahPreview.text.style!.color, theme.colorScheme.onSurface);
+        await tester.ensureVisible(find.text('استماع إلى كلمة'));
+        await tester.tap(find.text('استماع إلى كلمة'));
+        await tester.pumpAndSettle();
+
+        void expectReadableWord(int position, {required bool selected}) {
+          final finder = find.byKey(ValueKey('ayah-word-$position'));
+          final chip = tester.widget<ChoiceChip>(finder);
+          expect(chip.selected, selected);
+          final label = tester.widget<RichText>(
+            find.descendant(of: finder, matching: find.byType(RichText)),
+          );
+          final style = label.text.style!;
+          expect(label.textDirection, TextDirection.rtl);
+          expect(style.fontFamily, 'QpcHafs');
+          expect(style.fontWeight, FontWeight.normal);
+          expect(style.letterSpacing, 0);
+          expect(style.wordSpacing, 0);
+          expect(style.color, isNotNull);
+          final background = selected
+              ? chip.selectedColor
+              : chip.backgroundColor;
+          expect(background, isNotNull);
+          final inkLuminance = style.color!.computeLuminance();
+          final backgroundLuminance = background!.computeLuminance();
+          final contrast = inkLuminance > backgroundLuminance
+              ? (inkLuminance + 0.05) / (backgroundLuminance + 0.05)
+              : (backgroundLuminance + 0.05) / (inkLuminance + 0.05);
+          expect(contrast, greaterThanOrEqualTo(4.5));
+        }
+
+        expectReadableWord(5, selected: false);
+        final fifth = find.byKey(const ValueKey('ayah-word-5'));
+        await tester.ensureVisible(fifth);
+        await tester.tap(fifth);
+        await tester.pumpAndSettle();
+        expectReadableWord(5, selected: true);
+        expectReadableWord(4, selected: false);
+        // Selecting another word must also restore the previous word's ink.
+        final fourth = find.byKey(const ValueKey('ayah-word-4'));
+        await tester.ensureVisible(fourth);
+        await tester.tap(fourth);
+        await tester.pumpAndSettle();
+        expectReadableWord(4, selected: true);
+        expectReadableWord(5, selected: false);
+        expect(tester.takeException(), isNull);
+
+        if (const bool.fromEnvironment('CAPTURE_QURAN_TYPOGRAPHY')) {
+          // A taller capture keeps the preview and selected word visible together.
+          tester.view.physicalSize = const Size(390, 1000);
+          await tester.pumpAndSettle();
+          await tester.ensureVisible(find.text('سورة البقرة'));
+          await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            final boundary =
+                captureKey.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary;
+            final image = await boundary.toImage(pixelRatio: 2);
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await File('/tmp/mishkat-quran-typography-${brightness.name}.png')
+                .writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+      },
+    );
+  }
 
   testWidgets(
     'leaving reader stops its audio before exit animation completes',

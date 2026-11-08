@@ -1,12 +1,20 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-/// A completed piece of real microphone audio, never an ASR prediction.
+/// A copy of real microphone audio, never an ASR prediction.
 class SpeechSegment {
-  const SpeechSegment(this.samples, {required this.forced});
+  const SpeechSegment(
+    this.samples, {
+    required this.forced,
+    required this.revision,
+  });
 
   final Int16List samples;
   final bool forced;
+
+  /// Source utterance identity before a final segment advances the segmenter.
+  /// Equal revisions alone do not imply equal audio: speech may have resumed.
+  final int revision;
 }
 
 /// Tasmee's pause-aware segmentation, independent of platform and recognizer.
@@ -43,12 +51,15 @@ class SpeechSegmenter {
 
   int get _frameLength => (sampleRate * frameMs / 1000).round();
   int get _preRollFrames => (preRollMs / frameMs).ceil();
+  int get _postRollFrames => (postRollMs / frameMs).ceil();
   Int16List _pending = Int16List(0);
   List<Int16List> _pre = [];
   List<Int16List> _frames = [];
   List<double> _levels = [];
   List<bool> _voiced = [];
   bool _inSpeech = false;
+  bool _hasHeardSpeech = false;
+  int _quietFrames = 0;
   int _silence = 0;
   double _noiseFloor = -1;
   final List<double> _recentSpeechLevels = [];
@@ -60,7 +71,14 @@ class SpeechSegmenter {
   /// A possible breath is in progress; a final segment will take priority.
   bool get hasPendingPause => _silence > 0;
 
+  int get pendingPauseMs => _silence * frameMs;
+
   int get bufferedDurationMs => _frames.length * frameMs;
+
+  /// A natural boundary or idle silence, never a forced cut through speech.
+  /// Optional sounds wait here so they do not extend an unfinished utterance.
+  bool get isAtQuietBoundary =>
+      !_inSpeech && (!_hasHeardSpeech || _quietFrames * frameMs >= silenceMs);
 
   /// Copies the current audio without closing or consuming the utterance.
   SpeechSegment? snapshot() {
@@ -71,6 +89,36 @@ class SpeechSegmenter {
     return SpeechSegment(
       _concatenate([..._frames, if (_pending.isNotEmpty) _pending]),
       forced: false,
+      revision: _revision,
+    );
+  }
+
+  /// Candidate length without copying PCM, or null before enough post-roll.
+  /// Unprocessed partial frames are excluded, just as in [pauseSnapshot].
+  int? get pauseSnapshotSampleCount {
+    if (!_inSpeech ||
+        _silence == 0 ||
+        _silence < _postRollFrames ||
+        _voiced.where((value) => value).length * frameMs < minVoicedMs) {
+      return null;
+    }
+    return (_frames.length - _silence + _postRollFrames) * _frameLength;
+  }
+
+  /// Copies a possible ending as soon as its post-roll audio is available.
+  ///
+  /// This does not confirm a pause or consume audio. If the remaining frames
+  /// stay quiet, the later natural final has exactly these samples. A caller
+  /// may reuse a decode only after comparing both the final's revision and PCM;
+  /// resumed speech within the same revision invalidates the earlier candidate.
+  SpeechSegment? pauseSnapshot() {
+    final sampleCount = pauseSnapshotSampleCount;
+    if (sampleCount == null) return null;
+    final end = sampleCount ~/ _frameLength;
+    return SpeechSegment(
+      _concatenate(_frames.sublist(0, end)),
+      forced: false,
+      revision: _revision,
     );
   }
 
@@ -105,7 +153,11 @@ class SpeechSegmenter {
         final parts = [closed.samples, ..._frames];
         final joined = _concatenate(parts);
         reset();
-        return SpeechSegment(joined, forced: closed.forced);
+        return SpeechSegment(
+          joined,
+          forced: closed.forced,
+          revision: closed.revision,
+        );
       }
     }
     if (!_inSpeech) return null;
@@ -120,6 +172,8 @@ class SpeechSegmenter {
     _levels = [];
     _voiced = [];
     _inSpeech = false;
+    _hasHeardSpeech = false;
+    _quietFrames = 0;
     _silence = 0;
     _noiseFloor = -1;
     _recentSpeechLevels.clear();
@@ -145,6 +199,12 @@ class SpeechSegmenter {
     // the reference while a possible breath is being measured.
     final relativeThreshold = _relativeQuietThreshold;
     final voiced = rms >= math.max(_threshold, relativeThreshold);
+    if (voiced) {
+      _hasHeardSpeech = true;
+      _quietFrames = 0;
+    } else if (_quietFrames * frameMs < silenceMs) {
+      _quietFrames++;
+    }
     if (!_inSpeech) {
       if (!voiced) {
         _pre.add(frame);
@@ -178,7 +238,7 @@ class SpeechSegmenter {
       final quietLevels = _levels.sublist(_levels.length - _silence)..sort();
       final quietFloor = quietLevels[quietLevels.length ~/ 2];
       _noiseFloor = math.max(minNoiseFloor, quietFloor);
-      final end = _frames.length - _silence + (postRollMs / frameMs).ceil();
+      final end = _frames.length - _silence + _postRollFrames;
       return _close(end.clamp(0, _frames.length), forced: false);
     }
     if (_frames.length * frameMs >= maxSegmentMs) {
@@ -215,7 +275,7 @@ class SpeechSegmenter {
   }
 
   SpeechSegment? _close(int end, {required bool forced}) {
-    _revision++;
+    final sourceRevision = _revision++;
     final head = _frames.sublist(0, end);
     final tail = _frames.sublist(end);
     // Track actual voiced classifications, not a retrospectively higher noise
@@ -249,7 +309,11 @@ class SpeechSegmenter {
       _pre = tail.skip(math.max(0, tail.length - _preRollFrames)).toList();
     }
     if (voicedInHead * frameMs < minVoicedMs) return null;
-    return SpeechSegment(_concatenate(head), forced: forced);
+    return SpeechSegment(
+      _concatenate(head),
+      forced: forced,
+      revision: sourceRevision,
+    );
   }
 
   static Int16List _concatenate(List<Int16List> frames) {

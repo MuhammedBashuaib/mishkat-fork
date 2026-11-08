@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/theme/quran_text_style.dart';
 import '../../data/models/mushaf_layout_models.dart';
 import '../../data/models/quran_models.dart';
 import '../../data/repositories/tafsir_repository.dart';
@@ -224,9 +225,8 @@ class _TafsirKnowledgeSheetState extends State<TafsirKnowledgeSheet> {
                                 '﴿ $ayahText ﴾',
                                 textAlign: TextAlign.center,
                                 textDirection: TextDirection.rtl,
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  height: 1.85,
-                                  fontWeight: FontWeight.w600,
+                                locale: const Locale('ar'),
+                                style: QuranTextStyle.ayah(
                                   color: isDark
                                       ? const Color(0xFFE7ECE8)
                                       : const Color(0xFF1E2822),

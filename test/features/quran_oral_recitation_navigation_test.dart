@@ -19,6 +19,7 @@ import 'package:mishkat_app/features/quran/data/repositories/quran_repository.da
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_oral_recitation_cubit.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/quran_oral_recitation_page.dart';
 import 'package:mishkat_app/features/quran/presentation/services/speech_recognition_service.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/oral_recitation_info_sheet.dart';
 import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
 
@@ -223,16 +224,18 @@ void main() {
       await tester.tap(continueButton);
       await tester.pumpAndSettle();
 
-      expect(
-        find.text(
-          'سمّع على صفحات المصحف نفسها كما في الختمة، مع إخفاء الآيات وإبقاء أرقامها. تنكشف الآية بعد إتمامها، ويمكنك طلب تلميح كلمة أو الضغط مطولاً لكشفها مؤقتاً.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('متاح ومدمج'), findsNothing);
+      final infoSheet = find.byType(OralRecitationInfoSheet);
+      expect(infoSheet, findsOneWidget);
+      final selectedRange = tester.widget<OralRecitationInfoSheet>(infoSheet);
+      expect(selectedRange.surahNumber, 1);
+      expect(selectedRange.startGlobalAyah, 1);
+      expect(selectedRange.endGlobalAyah, 5);
 
       // Bottom sheet is now visible. Tap primary action to open Oral Recitation page
-      final startOralButton = find.text('بدء التسميع الشفهي الآن');
+      final startOralButton = find.descendant(
+        of: infoSheet,
+        matching: find.text('بدء التسميع الشفهي الآن'),
+      );
       expect(startOralButton, findsOneWidget);
       await tester.tap(startOralButton);
       await tester.pumpAndSettle();
@@ -255,6 +258,8 @@ void main() {
       expect(cubit.quranRepository, same(globalQuranRepo));
       expect(cubit.state.lifecycle, OralRecitationLifecycle.ready);
       expect(cubit.state.targetWords.length, 17);
+      expect(cubit.state.targetWords.first.globalAyah, 1);
+      expect(cubit.state.targetWords.last.globalAyah, 5);
       expect(cubit.state.errorMessage, isNull);
 
       // Tap back / leave page to verify clean disposal

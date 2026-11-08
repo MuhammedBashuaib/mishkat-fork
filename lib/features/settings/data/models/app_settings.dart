@@ -8,6 +8,10 @@ const _unset = Object();
 
 enum AppThemePreference { system, light, dark }
 
+enum MushafThemePreference { light, dark }
+
+enum RecitationFeedbackMode { sound, vibration, silent }
+
 class AppSettings extends Equatable {
   const AppSettings({
     this.latitude,
@@ -50,11 +54,13 @@ class AppSettings extends Equatable {
     this.reminders = const ReminderPreferences(),
     this.theme = AppThemePreference.system,
     this.widgetTheme = AppThemePreference.system,
+    this.mushafTheme = MushafThemePreference.light,
     this.uiFontScale = 1,
     this.quranFont = 32,
     this.reciter = 'ar.alafasy',
     this.quranAutoScroll = true,
     this.quranContinuous = true,
+    this.recitationFeedbackMode = RecitationFeedbackMode.sound,
     this.keepAwake = false,
     this.vibrate = true,
     this.onboardingSeen = false,
@@ -83,11 +89,15 @@ class AppSettings extends Equatable {
 
   /// Home Screen widgets follow the device by default, independently of the app.
   final AppThemePreference widgetTheme;
+
+  /// The Mushaf starts in light mode, independently of the app or device.
+  final MushafThemePreference mushafTheme;
   final double uiFontScale;
   final double quranFont;
   final String reciter;
   final bool quranAutoScroll;
   final bool quranContinuous;
+  final RecitationFeedbackMode recitationFeedbackMode;
   final bool keepAwake;
   final bool vibrate;
   final bool onboardingSeen;
@@ -173,12 +183,20 @@ class AppSettings extends Equatable {
         (item) => item.name == widgetThemeName,
         orElse: () => AppThemePreference.system,
       ),
+      mushafTheme: MushafThemePreference.values.firstWhere(
+        (item) => item.name == json['mushafTheme'],
+        orElse: () => MushafThemePreference.light,
+      ),
       uiFontScale:
           (json['uiFontScale'] as num?)?.toDouble().clamp(1, 1.25) ?? 1,
       quranFont: (json['quranFont'] as num?)?.toDouble().clamp(20, 60) ?? 32,
       reciter: json['reciter'] as String? ?? 'ar.alafasy',
       quranAutoScroll: json['quranAutoScroll'] != false,
       quranContinuous: json['quranContinuous'] != false,
+      recitationFeedbackMode: RecitationFeedbackMode.values.firstWhere(
+        (mode) => mode.name == json['recitationFeedbackMode'],
+        orElse: () => RecitationFeedbackMode.sound,
+      ),
       keepAwake: json['keepAwake'] == true,
       vibrate: json['vibrate'] != false,
       onboardingSeen: json['onboardingSeen'] == true,
@@ -207,11 +225,13 @@ class AppSettings extends Equatable {
     'reminders': reminders.toJson(),
     'theme': theme.name,
     'widgetTheme': widgetTheme.name,
+    'mushafTheme': mushafTheme.name,
     'uiFontScale': uiFontScale,
     'quranFont': quranFont,
     'reciter': reciter,
     'quranAutoScroll': quranAutoScroll,
     'quranContinuous': quranContinuous,
+    'recitationFeedbackMode': recitationFeedbackMode.name,
     'keepAwake': keepAwake,
     'vibrate': vibrate,
     'onboardingSeen': onboardingSeen,
@@ -239,11 +259,13 @@ class AppSettings extends Equatable {
     ReminderPreferences? reminders,
     AppThemePreference? theme,
     AppThemePreference? widgetTheme,
+    MushafThemePreference? mushafTheme,
     double? uiFontScale,
     double? quranFont,
     String? reciter,
     bool? quranAutoScroll,
     bool? quranContinuous,
+    RecitationFeedbackMode? recitationFeedbackMode,
     bool? keepAwake,
     bool? vibrate,
     bool? onboardingSeen,
@@ -271,11 +293,14 @@ class AppSettings extends Equatable {
     reminders: reminders ?? this.reminders,
     theme: theme ?? this.theme,
     widgetTheme: widgetTheme ?? this.widgetTheme,
+    mushafTheme: mushafTheme ?? this.mushafTheme,
     uiFontScale: uiFontScale ?? this.uiFontScale,
     quranFont: quranFont ?? this.quranFont,
     reciter: reciter ?? this.reciter,
     quranAutoScroll: quranAutoScroll ?? this.quranAutoScroll,
     quranContinuous: quranContinuous ?? this.quranContinuous,
+    recitationFeedbackMode:
+        recitationFeedbackMode ?? this.recitationFeedbackMode,
     keepAwake: keepAwake ?? this.keepAwake,
     vibrate: vibrate ?? this.vibrate,
     onboardingSeen: onboardingSeen ?? this.onboardingSeen,
@@ -304,11 +329,13 @@ class AppSettings extends Equatable {
     reminders,
     theme,
     widgetTheme,
+    mushafTheme,
     uiFontScale,
     quranFont,
     reciter,
     quranAutoScroll,
     quranContinuous,
+    recitationFeedbackMode,
     keepAwake,
     vibrate,
     onboardingSeen,

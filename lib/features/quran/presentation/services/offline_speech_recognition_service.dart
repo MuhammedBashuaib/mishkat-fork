@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart' as permissions;
 
 import 'speech_recognition_service.dart';
 import 'speech_segmenter.dart';
+import 'recitation_pause_diagnostics.dart';
 
 /// Optional microphone feedback, without making injected recognizers implement it.
 abstract interface class OfflineSpeechDiagnostics {
@@ -23,16 +24,26 @@ abstract interface class OfflineSpeechDiagnostics {
 /// are deliberately never passed to the acoustic recognizer. No recording is
 /// written to disk, uploaded, or sent to a system/cloud recognizer.
 class OfflineSpeechRecognitionService
-    implements SpeechRecognitionService, OfflineSpeechDiagnostics {
+    implements
+        SpeechRecognitionService,
+        OfflineSpeechDiagnostics,
+        RecitationPauseDiagnostics {
   OfflineSpeechRecognitionService({
     this.channel = const MethodChannel(
       'com.dakomn.mishkatapp/offline_recitation',
     ),
     Stream<Object?>? audioEvents,
     SpeechSegmenter? segmenter,
+    int Function()? clockMs,
   }) : _audioEvents = audioEvents ?? _sharedAudioEvents,
        _segmenter = segmenter ?? SpeechSegmenter(),
+       _clockMs = clockMs ?? _monotonicClock(),
        _clientId = '${DateTime.now().microsecondsSinceEpoch}-${_nextClient++}';
+
+  static int Function() _monotonicClock() {
+    final watch = Stopwatch()..start();
+    return () => watch.elapsedMilliseconds;
+  }
 
   static int _nextClient = 0;
   // Reopened pages can overlap async disposal. One native subscription prevents
@@ -44,6 +55,7 @@ class OfflineSpeechRecognitionService
   final MethodChannel channel;
   final Stream<Object?> _audioEvents;
   final SpeechSegmenter _segmenter;
+  final int Function() _clockMs;
   final String _clientId;
   final _results = StreamController<SpeechRecognitionResultData>.broadcast(
     sync: true,
@@ -54,13 +66,17 @@ class OfflineSpeechRecognitionService
   );
   final _levels = StreamController<double>.broadcast(sync: true);
   final _processing = StreamController<bool>.broadcast(sync: true);
+  final _feedbackQuiet = StreamController<bool>.broadcast(sync: true);
+  bool _quietForFeedback = false;
   final _queue = Queue<_PendingSegment>();
-  _PendingSegment? _pendingPreview;
+  _PreviewRequest? _pendingPreview;
+  _DecodedPreview? _decodedPreview;
   int _previewRevision = -1;
   int _lastPreviewMs = 0;
+  int _lastPauseSamples = -1;
   int _previewGapMs = _previewIntervalMs;
-  static const _firstPreviewMs = 1800;
-  static const _previewIntervalMs = 1200;
+  static const _firstPreviewMs = 900;
+  static const _previewIntervalMs = 600;
   StreamSubscription<Object?>? _audioSubscription;
   Future<bool>? _initialization;
   Future<bool>? _startup;
@@ -95,6 +111,16 @@ class OfflineSpeechRecognitionService
   Stream<double> get soundLevelStream => _levels.stream;
   @override
   Stream<bool> get processingStream => _processing.stream;
+  @override
+  Stream<bool> get feedbackQuietStream => _feedbackQuiet.stream;
+  @override
+  bool get isQuietForFeedback => _listening && _quietForFeedback && !_disposed;
+
+  void _setFeedbackQuiet(bool quiet) {
+    if (_quietForFeedback == quiet) return;
+    _quietForFeedback = quiet;
+    if (!_disposed) _feedbackQuiet.add(quiet);
+  }
 
   @override
   Future<bool> initialize() async {
@@ -217,9 +243,12 @@ class OfflineSpeechRecognitionService
     }
     if (!_current(generation) || _stopRequested) return false;
     _segmenter.reset();
+    _setFeedbackQuiet(false);
     _queue.clear();
     _pendingPreview = null;
+    _decodedPreview = null;
     _previewRevision = -1;
+    _lastPauseSamples = -1;
     _previewGapMs = _previewIntervalMs;
     _acceptAudio = true;
     try {
@@ -279,30 +308,44 @@ class OfflineSpeechRecognitionService
       }
       _queue.add(_PendingSegment(_generation, segment));
     }
+    // Observe the existing VAD only. Never mute, skip or alter microphone PCM
+    // for a UI cue: speech can resume at any instant during a short sound.
+    _setFeedbackQuiet(
+      !_stopRequested && _segmenter.isAtQuietBoundary,
+    );
     if (_previewRevision != _segmenter.revision) {
       _previewRevision = _segmenter.revision;
       _lastPreviewMs = 0;
+      _lastPauseSamples = -1;
       _pendingPreview = null;
     }
-    final bufferedMs = _segmenter.bufferedDurationMs;
-    if (!_stopRequested &&
-        !_segmenter.hasPendingPause &&
-        bufferedMs >= _firstPreviewMs &&
-        bufferedMs - _lastPreviewMs >= _previewGapMs) {
-      final snapshot = _segmenter.snapshot();
-      if (snapshot != null) {
-        _lastPreviewMs = bufferedMs;
-        // One replaceable preview, never a growing queue of old hypotheses.
-        _pendingPreview = _PendingSegment(
-          _generation,
-          snapshot,
-          isFinal: false,
-          revision: _previewRevision,
-        );
-      }
-    }
+    _requestPreview();
     if (_queue.isNotEmpty || _pendingPreview != null) unawaited(_pump());
   }
+
+  void _requestPreview() {
+    if (_stopRequested || _queue.isNotEmpty) return;
+    if (_segmenter.hasPendingPause) {
+      // Wait only for the same post-roll used by the eventual final. This does
+      // not close the utterance or shorten the VAD's interruption protection.
+      final sampleCount = _segmenter.pauseSnapshotSampleCount;
+      _pendingPreview = sampleCount != null && sampleCount != _lastPauseSamples
+          ? _PreviewRequest(_generation, _segmenter.revision, atPause: true)
+          : null;
+      return;
+    }
+    if (_pendingPreview?.atPause ?? false) _pendingPreview = null;
+    final bufferedMs = _segmenter.bufferedDurationMs;
+    if (_continuousPreviewDue(bufferedMs)) {
+      // Store intent, not an aging PCM copy. The decoder snapshots the freshest
+      // audio when it becomes free; at most one preview can be waiting.
+      _pendingPreview = _PreviewRequest(_generation, _segmenter.revision);
+    }
+  }
+
+  bool _continuousPreviewDue(int bufferedMs) =>
+      bufferedMs >= _firstPreviewMs &&
+      (_lastPreviewMs == 0 || bufferedMs - _lastPreviewMs >= _previewGapMs);
 
   void _captureFailed() {
     if (!_acceptAudio || _disposed) return;
@@ -333,32 +376,78 @@ class OfflineSpeechRecognitionService
       if (_queue.isNotEmpty) {
         item = _queue.removeFirst();
       } else {
-        item = _pendingPreview!;
+        final request = _pendingPreview!;
         _pendingPreview = null;
+        if (!_current(request.generation) ||
+            _stopRequested ||
+            request.revision != _segmenter.revision) {
+          continue;
+        }
+        final bufferedMs = _segmenter.bufferedDurationMs;
+        if (!request.atPause &&
+            (_segmenter.hasPendingPause ||
+                !_continuousPreviewDue(bufferedMs))) {
+          continue;
+        }
+        final snapshot = request.atPause
+            ? _segmenter.pauseSnapshot()
+            : _segmenter.snapshot();
+        if (snapshot == null ||
+            (request.atPause && snapshot.samples.length == _lastPauseSamples)) {
+          continue;
+        }
+        _lastPreviewMs = bufferedMs;
+        if (request.atPause) _lastPauseSamples = snapshot.samples.length;
+        item = _PendingSegment(request.generation, snapshot, isFinal: false);
       }
-      if (!_isUsable(item) || (!item.isFinal && _segmenter.hasPendingPause)) {
-        continue;
-      }
-      final bytes = ByteData(item.segment.samples.length * 2);
-      for (var index = 0; index < item.segment.samples.length; index++) {
-        bytes.setInt16(index * 2, item.segment.samples[index], Endian.little);
-      }
+      if (!_isUsable(item)) continue;
       try {
-        final decodingTime = Stopwatch()..start();
-        final text = await channel
-            .invokeMethod<String>('transcribe', {
-              'pcm': bytes.buffer.asUint8List(),
-              'sessionId': _session(item.generation),
-            })
-            .timeout(const Duration(seconds: 30));
+        final cached = _decodedPreview;
+        final reuse =
+            item.isFinal && cached != null && _sameAudio(cached.item, item);
+        final startedMs = _clockMs();
+        final String? text;
+        if (reuse) {
+          text = cached.text;
+        } else {
+          final bytes = ByteData(item.segment.samples.length * 2);
+          for (var index = 0; index < item.segment.samples.length; index++) {
+            bytes.setInt16(
+              index * 2,
+              item.segment.samples[index],
+              Endian.little,
+            );
+          }
+          text = await channel
+              .invokeMethod<String>('transcribe', {
+                'pcm': bytes.buffer.asUint8List(),
+                'sessionId': _session(item.generation),
+              })
+              .timeout(const Duration(seconds: 30));
+        }
+        final decodeMs = (_clockMs() - startedMs).clamp(0, 30000);
         if (!item.isFinal && _current(item.generation)) {
-          // Slow devices spend their decoder budget on completed speech first.
-          _previewGapMs = (decodingTime.elapsedMilliseconds * 2).clamp(
+          // A serial decoder already bounds work. Leave a small breathing room
+          // on slower phones without adding another full decoding-time delay.
+          _previewGapMs = (decodeMs * 1.1).round().clamp(
             _previewIntervalMs,
-            5000,
+            2400,
           );
+          // An in-flight preview may finish after VAD closes its utterance.
+          // Keep its result for the queued final only if identity AND every PCM
+          // sample match; no provisional text becomes a final by itself.
+          if (text != null) _decodedPreview = _DecodedPreview(item, text);
+        } else if (item.isFinal) {
+          _decodedPreview = null;
         }
         if (!_isUsable(item)) continue;
+        if (kDebugMode) {
+          debugPrint(
+            '[MISHKAT_ASR_TIMING] final=${item.isFinal} '
+            'audioMs=${item.segment.samples.length * 1000 ~/ 16000} '
+            'decodeMs=$decodeMs reused=$reuse',
+          );
+        }
         if (text != null) {
           _results.add(
             SpeechRecognitionResultData(
@@ -385,10 +474,17 @@ class OfflineSpeechRecognitionService
   bool _isUsable(_PendingSegment item) =>
       _current(item.generation) &&
       (item.isFinal ||
-          (!_stopRequested && item.revision == _segmenter.revision));
+          (!_stopRequested && item.segment.revision == _segmenter.revision));
+
+  bool _sameAudio(_PendingSegment previous, _PendingSegment current) =>
+      previous.generation == current.generation &&
+      previous.segment.revision == current.segment.revision &&
+      previous.segment.forced == current.segment.forced &&
+      listEquals(previous.segment.samples, current.segment.samples);
 
   @override
   Future<void> stopListening() {
+    _setFeedbackQuiet(false);
     _stopRequested = true;
     _pendingPreview = null;
     _listening = false;
@@ -420,12 +516,14 @@ class OfflineSpeechRecognitionService
 
   @override
   Future<void> cancelListening() async {
+    _setFeedbackQuiet(false);
     final generation = _generation++;
     _stopRequested = true;
     _acceptAudio = false;
     _listening = false;
     _queue.clear();
     _pendingPreview = null;
+    _decodedPreview = null;
     _segmenter.reset();
     if (!_disposed) _levels.add(0);
     final pending = _release;
@@ -481,19 +579,27 @@ class OfflineSpeechRecognitionService
       _errors.close(),
       _levels.close(),
       _processing.close(),
+      _feedbackQuiet.close(),
     ]);
   }
 }
 
 class _PendingSegment {
-  const _PendingSegment(
-    this.generation,
-    this.segment, {
-    this.isFinal = true,
-    this.revision,
-  });
+  const _PendingSegment(this.generation, this.segment, {this.isFinal = true});
   final int generation;
   final SpeechSegment segment;
   final bool isFinal;
-  final int? revision;
+}
+
+class _PreviewRequest {
+  const _PreviewRequest(this.generation, this.revision, {this.atPause = false});
+  final int generation;
+  final int revision;
+  final bool atPause;
+}
+
+class _DecodedPreview {
+  const _DecodedPreview(this.item, this.text);
+  final _PendingSegment item;
+  final String text;
 }

@@ -778,12 +778,25 @@ void main() {
           find.byKey(const ValueKey('recitation-display-options')),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('recitation-mode-reading')));
+        final readingMode = find.byKey(
+          const ValueKey('recitation-mode-reading'),
+        );
+        await tester.ensureVisible(readingMode);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('العودة إلى المصحف'));
+        await tester.tap(readingMode);
         await tester.pumpAndSettle();
+        final closeDisplaySheet = find.byKey(
+          const ValueKey('recitation-display-sheet-close'),
+        );
+        // Display preferences can extend below the viewport on shorter screens.
+        await tester.ensureVisible(closeDisplaySheet);
+        await tester.pumpAndSettle();
+        await tester.tap(closeDisplaySheet);
+        await tester.pumpAndSettle();
+        expect(closeDisplaySheet, findsNothing);
         await tester.tap(find.text('بدء التسميع'));
         await tester.pump();
+        expect(mockSpeech.isListening, isTrue);
 
         // Omit «رَبِّ» while continuing with «ٱلْعَٰلَمِينَ».
         mockSpeech.emitTranscript(
@@ -797,6 +810,16 @@ void main() {
           find.byKey(const ValueKey('recitation-correct-word')),
           findsOneWidget,
         );
+        final correctedWord = tester.widget<RichText>(
+          find.descendant(
+            of: find.byKey(const ValueKey('recitation-correct-word')),
+            matching: find.byType(RichText),
+          ),
+        );
+        expect(correctedWord.textDirection, TextDirection.rtl);
+        expect(correctedWord.text.style!.fontFamily, 'QpcHafs');
+        expect(correctedWord.text.style!.fontWeight, FontWeight.normal);
+        expect(correctedWord.text.style!.letterSpacing, 0);
         final painter =
             tester
                     .widget<CustomPaint>(

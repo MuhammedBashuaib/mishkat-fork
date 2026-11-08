@@ -8,8 +8,10 @@ import '../../../../core/services/audio_service.dart';
 import '../../data/models/oral_recitation_models.dart';
 import '../../data/models/murajaah_models.dart';
 import '../../data/models/quran_models.dart';
+import '../../data/models/recitation_feedback_event.dart';
 import '../../data/repositories/quran_repository.dart';
 import '../services/quran_alignment_engine.dart';
+import '../services/quran_recitation_text.dart';
 import '../services/speech_recognition_service.dart';
 import '../services/offline_speech_recognition_service.dart';
 import 'quran_memorization_cubit.dart';
@@ -41,6 +43,11 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   final QuranAudioService? audioService;
   final bool ownsSpeechService;
 
+  final _feedback = StreamController<RecitationFeedbackEvent>.broadcast(
+    sync: true,
+  );
+  Stream<RecitationFeedbackEvent> get feedbackStream => _feedback.stream;
+
   StreamSubscription<SpeechRecognitionResultData>? _resultSubscription;
   StreamSubscription<SpeechRecognitionFailure>? _errorSubscription;
   StreamSubscription<String>? _statusSubscription;
@@ -60,6 +67,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   bool _recoveryPending = false;
   Future<void>? _captureRelease;
   Future<void>? _drainOperation;
+  Future<void>? _finishOperation;
   bool _acceptDrainingResults = false;
   Set<int>? _selectedGlobalAyahs;
   bool get _isOffline =>
@@ -90,6 +98,20 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
   bool _isCurrentOperation(int operation) =>
       !isClosed && !_isClosing && operation == _captureOperation;
+
+  void _emitFeedback(RecitationCue cue, {Set<int> wordIndices = const {}}) {
+    final sessionId = state.sessionId;
+    if (isClosed || _isClosing || sessionId == null || _feedback.isClosed) {
+      return;
+    }
+    _feedback.add(
+      RecitationFeedbackEvent(
+        cue,
+        sessionId: sessionId,
+        wordIndices: Set<int>.unmodifiable(wordIndices),
+      ),
+    );
+  }
 
   int _committedTargetIndex = 0;
   List<RecitationWordAlignment> _committedAlignedWords = const [];
@@ -490,7 +512,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   }
 
   /// Begins capture once, including when resuming after a platform failure.
-  Future<void> startRecitation() async {
+  Future<void> startRecitation({bool notifyFeedback = true}) async {
     if (isClosed ||
         _isClosing ||
         _isStartingRecognition ||
@@ -572,6 +594,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         return;
       }
       _startDurationTimer();
+      if (notifyFeedback) _emitFeedback(RecitationCue.ready);
     } catch (_) {
       if (_isCurrentOperation(operation) && state.lifecycle.isListening) {
         _onSpeechError(
@@ -587,21 +610,31 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   }
 
   /// Pauses capture, including an in-flight native startup.
-  Future<void> pauseRecitation() async {
+  Future<void> pauseRecitation({bool notifyFeedback = true}) async {
     if (isClosed ||
         _isClosing ||
         state.lifecycle.isCompleted ||
         (!state.lifecycle.isListening && !_isStartingRecognition)) {
       return;
     }
+    final sessionId = state.sessionId;
+    final alreadyDraining = _drainOperation != null;
     await _drainCapture();
+    if (notifyFeedback &&
+        !alreadyDraining &&
+        _finishOperation == null &&
+        state.sessionId == sessionId &&
+        state.isPaused &&
+        !state.isDraining) {
+      _emitFeedback(RecitationCue.paused);
+    }
   }
 
-  Future<void> resumeRecitation() async {
+  Future<void> resumeRecitation({bool notifyFeedback = true}) async {
     if (!state.lifecycle.isPaused) return;
     await _drainOperation;
     if (isClosed || _isClosing || !state.lifecycle.isPaused) return;
-    await startRecitation();
+    await startRecitation(notifyFeedback: notifyFeedback);
   }
 
   /// Reveals the authoritative Uthmani text for a specific Ayah during the session.
@@ -673,11 +706,11 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     final index = state.correctionWordIndex;
     if (index == null || index < 0 || index >= state.targetWords.length) return;
     final wasListening = state.isListening;
-    if (wasListening) await pauseRecitation();
+    if (wasListening) await pauseRecitation(notifyFeedback: false);
     if (isClosed || _isClosing || state.lifecycle.isCompleted) return;
     // A final decode may have corrected the word while the microphone drained.
     if (state.correctionWordIndex != index) {
-      if (wasListening) await resumeRecitation();
+      if (wasListening) await resumeRecitation(notifyFeedback: false);
       return;
     }
     final word = state.targetWords[index];
@@ -712,9 +745,9 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     _restoreConfirmedAlignment();
     if (_committedTargetIndex >= state.targetWords.length &&
         state.unresolvedMistakeWordIndices.isEmpty) {
-      await finishSession();
+      await finishSession(notifyFeedback: false);
     } else if (wasListening) {
-      await resumeRecitation();
+      await resumeRecitation(notifyFeedback: false);
     }
   }
 
@@ -757,8 +790,20 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   }
 
   /// Manually finishes the oral recitation session and builds the honest summary.
-  Future<void> finishSession() async {
-    if (isClosed || _isClosing || state.lifecycle.isCompleted) return;
+  Future<void> finishSession({bool notifyFeedback = true}) {
+    if (isClosed || _isClosing || state.lifecycle.isCompleted) {
+      return Future<void>.value();
+    }
+    final pending = _finishOperation;
+    if (pending != null) return pending;
+    final operation = _finishSession(notifyFeedback: notifyFeedback);
+    _finishOperation = operation;
+    return operation.whenComplete(() {
+      if (identical(_finishOperation, operation)) _finishOperation = null;
+    });
+  }
+
+  Future<void> _finishSession({required bool notifyFeedback}) async {
     final sessionId = state.sessionId;
     await _drainCapture();
     if (isClosed ||
@@ -776,6 +821,16 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         audioLevel: 0,
       ),
     );
+    if (notifyFeedback) {
+      final completedCorrectly =
+          state.targetWords.isNotEmpty &&
+          state.alignedWords.length == state.targetWords.length &&
+          state.alignedWords.every((word) => word.status.isMatched) &&
+          state.unresolvedMistakeWordIndices.isEmpty;
+      _emitFeedback(
+        completedCorrectly ? RecitationCue.complete : RecitationCue.paused,
+      );
+    }
   }
 
   /// Preserve the final spoken phrase when stopping. Recognition stays
@@ -942,6 +997,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
             word.authoritativeWord.wordIndex,
       };
       previewWords.addAll(wordCandidates.intersection(_previousPreviewWords));
+      previewWords.addAll(_contextBackedPreviewWords(alignResult.alignedWords));
       _previousPreviewWords = wordCandidates;
       final byAyah = <int, List<RecitationWordAlignment>>{};
       for (final word in alignResult.alignedWords) {
@@ -968,6 +1024,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     final retractedWords = _exposedPreviewWords.difference(visibleWords);
     _exposedPreviewWords = result.isFinal ? const {} : Set.of(previewWords);
     final unresolvedMistakes = _confirmedMistakes(confirmedWords);
+    final previousUnresolved = state.unresolvedMistakeWordIndices;
     final mistakeHistory = {...state.mistakeWordIndices, ...unresolvedMistakes};
     final assistedWords = {
       ...state.assistedWordIndices,
@@ -1041,12 +1098,75 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       ),
     );
 
+    if (result.isFinal) {
+      final newMistakes = unresolvedMistakes.difference(previousUnresolved);
+      final corrected = {
+        for (final word in confirmedWords)
+          if (word.status.isMatched &&
+              previousUnresolved.contains(word.authoritativeWord.wordIndex) &&
+              !unresolvedMistakes.contains(word.authoritativeWord.wordIndex))
+            word.authoritativeWord.wordIndex,
+      };
+      if (newMistakes.isNotEmpty) {
+        _emitFeedback(RecitationCue.mistake, wordIndices: newMistakes);
+      } else if (corrected.isNotEmpty) {
+        _emitFeedback(RecitationCue.corrected, wordIndices: corrected);
+      }
+    }
+
     if (result.isFinal &&
         alignResult.isCompleted &&
         unresolvedMistakes.isEmpty &&
         !_acceptDrainingResults) {
       unawaited(finishSession());
     }
+  }
+
+  /// A first hypothesis can show an exact prefix once a later recognized
+  /// group supplies context. Keep its entire trailing group provisional:
+  /// one ASR token such as الحمدلله can represent two Quranic words.
+  /// This affects display only; committing, red errors and grading still use
+  /// final speech, and retracted displayed words retain assistance accounting.
+  Set<int> _contextBackedPreviewWords(List<RecitationWordAlignment> aligned) {
+    final groups = <List<int>>[];
+    var cursor = _committedTargetIndex;
+    final whitespace = RegExp(r'\s+');
+    while (cursor < aligned.length) {
+      final first = aligned[cursor];
+      final recognized = first.recognizedWord;
+      if (!first.status.isMatched || recognized == null) break;
+      var end = cursor + 1;
+      while (end < aligned.length &&
+          aligned[end].status.isMatched &&
+          aligned[end].recognizedWord == recognized) {
+        end++;
+      }
+      final actual = QuranRecitationText.normalize(recognized)
+          .replaceAll(whitespace, '');
+      var expectedForms = <String>{''};
+      for (var index = cursor; index < end; index++) {
+        final spellings = QuranRecitationText.spellings(
+          aligned[index].authoritativeWord.uthmaniText,
+        ).map((form) => form.replaceAll(whitespace, ''));
+        expectedForms = {
+          for (final prefix in expectedForms)
+            for (final form in spellings)
+              if (actual.startsWith('$prefix$form')) '$prefix$form',
+        };
+        if (expectedForms.isEmpty) break;
+      }
+      // Accept only exact documented orthographic forms, never similarity.
+      // A mismatch or uncertain gap ends this fast path rather than jumping it.
+      if (actual.isEmpty || !expectedForms.contains(actual)) break;
+      groups.add([
+        for (var index = cursor; index < end; index++)
+          aligned[index].authoritativeWord.wordIndex,
+      ]);
+      cursor = end;
+    }
+    return {
+      for (final group in groups.take(max(0, groups.length - 1))) ...group,
+    };
   }
 
   void _onSpeechError(SpeechRecognitionFailure failure) {
@@ -1456,6 +1576,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         await _releaseCapture(stop: true);
       }
     } catch (_) {}
+    await _feedback.close();
     return super.close();
   }
 }

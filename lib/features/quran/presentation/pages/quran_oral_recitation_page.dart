@@ -7,8 +7,12 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/audio_service.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../../core/theme/quran_text_style.dart';
 import '../../../../core/utils/app_formatters.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
+import '../../../settings/data/models/app_settings.dart';
+import '../../../settings/presentation/cubit/settings_cubit.dart';
+import '../../../settings/presentation/cubit/settings_state.dart';
 import '../../data/models/oral_recitation_models.dart';
 import '../../data/repositories/quran_repository.dart';
 import '../cubit/quran_memorization_cubit.dart';
@@ -18,8 +22,10 @@ import '../cubit/quran_oral_recitation_state.dart';
 import '../services/speech_recognition_service.dart';
 import '../services/offline_speech_recognition_service.dart';
 import '../services/arabic_speech_model_service.dart';
+import '../services/recitation_feedback_controller.dart';
 import '../widgets/arabic_speech_model_sheet.dart';
 import '../widgets/oral_recitation_mushaf.dart';
+import '../widgets/recitation_feedback_settings.dart';
 
 /// Production page for real microphone-based Oral Recitation, real-time Quran alignment,
 /// mistake inspection, and memorization progress recording.
@@ -33,6 +39,7 @@ class QuranOralRecitationPage extends StatelessWidget {
     this.speechService,
     this.cubit,
     this.quranRepository,
+    this.feedbackOutput,
   });
 
   final int surahNumber;
@@ -42,13 +49,14 @@ class QuranOralRecitationPage extends StatelessWidget {
   final SpeechRecognitionService? speechService;
   final QuranOralRecitationCubit? cubit;
   final QuranRepository? quranRepository;
+  final RecitationFeedbackOutput? feedbackOutput;
 
   @override
   Widget build(BuildContext context) {
     if (cubit != null) {
       return BlocProvider<QuranOralRecitationCubit>.value(
         value: cubit!,
-        child: const _QuranOralRecitationView(),
+        child: _QuranOralRecitationView(feedbackOutput: feedbackOutput),
       );
     }
     return BlocProvider<QuranOralRecitationCubit>(
@@ -90,13 +98,15 @@ class QuranOralRecitationPage extends StatelessWidget {
         }());
         return cubit;
       },
-      child: const _QuranOralRecitationView(),
+      child: _QuranOralRecitationView(feedbackOutput: feedbackOutput),
     );
   }
 }
 
 class _QuranOralRecitationView extends StatefulWidget {
-  const _QuranOralRecitationView();
+  const _QuranOralRecitationView({this.feedbackOutput});
+
+  final RecitationFeedbackOutput? feedbackOutput;
 
   @override
   State<_QuranOralRecitationView> createState() =>
@@ -107,6 +117,10 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
     with WidgetsBindingObserver {
   final _arabicModel = ArabicSpeechModelService.instance;
   QuranOralRecitationCubit? _pageCubit;
+  RecitationFeedbackController? _feedback;
+  SettingsCubit? _settingsCubit;
+  StreamSubscription<SettingsState>? _settingsSubscription;
+  final _feedbackMode = ValueNotifier(RecitationFeedbackMode.sound);
   bool? _previousWakeLock;
   bool _wantsWakeLock = false;
   Future<void> _wakeLockOperation = Future<void>.value();
@@ -141,8 +155,70 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _pageCubit = context.read<QuranOralRecitationCubit>();
+    SettingsCubit? settings;
+    try {
+      settings = context.read<SettingsCubit>();
+    } catch (_) {
+      // Standalone previews can use the same controls without persisted settings.
+    }
+    if (!identical(settings, _settingsCubit)) {
+      unawaited(_settingsSubscription?.cancel());
+      _settingsCubit = settings;
+      _settingsSubscription = settings?.stream.listen((state) {
+        if (mounted) _applyFeedbackMode(state.settings.recitationFeedbackMode);
+      });
+    }
+    if (settings != null) {
+      _applyFeedbackMode(settings.state.settings.recitationFeedbackMode);
+    }
+    final cubit = context.read<QuranOralRecitationCubit>();
+    if (!identical(cubit, _pageCubit)) {
+      _feedback?.setForeground(false);
+      unawaited(_feedback?.dispose());
+      _pageCubit = cubit;
+      _bindFeedback();
+    }
     _syncWakeLock(_pageCubit!.state.isListening);
+  }
+
+  void _applyFeedbackMode(RecitationFeedbackMode mode) {
+    _feedbackMode.value = mode;
+    _feedback?.setMode(mode);
+  }
+
+  void _changeFeedbackMode(RecitationFeedbackMode mode) {
+    _applyFeedbackMode(mode);
+    final settings = _settingsCubit;
+    if (settings != null) {
+      unawaited(settings.setRecitationFeedbackMode(mode));
+    }
+  }
+
+  void _bindFeedback() {
+    final cubit = _pageCubit;
+    if (cubit == null) return;
+    _feedback = RecitationFeedbackController(
+      cubit: cubit,
+      mode: _feedbackMode.value,
+      output: widget.feedbackOutput,
+    );
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _feedback!.setForeground(
+      lifecycle == null || lifecycle == AppLifecycleState.resumed,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _QuranOralRecitationView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final cubit = context.read<QuranOralRecitationCubit>();
+    if (!identical(cubit, _pageCubit) ||
+        !identical(oldWidget.feedbackOutput, widget.feedbackOutput)) {
+      _feedback?.setForeground(false);
+      unawaited(_feedback?.dispose());
+      _pageCubit = cubit;
+      _bindFeedback();
+    }
   }
 
   // Restore the user's existing keep-awake preference after this session.
@@ -177,6 +253,10 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _feedback?.setForeground(false);
+    unawaited(_feedback?.dispose());
+    unawaited(_settingsSubscription?.cancel());
+    _feedbackMode.dispose();
     _endPeek();
     _syncWakeLock(false);
     unawaited(_pageCubit?.pauseRecitation());
@@ -185,6 +265,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _feedback?.setForeground(state == AppLifecycleState.resumed);
     _arabicModel.setForeground(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed && mounted) {
       context.read<QuranOralRecitationCubit>().checkAndRefreshPermission();
@@ -646,6 +727,8 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
                 buildWhen: (previous, current) =>
                     previous.mode != current.mode ||
                     previous.canChangeMode != current.canChangeMode ||
+                    previous.isListening != current.isListening ||
+                    previous.isDraining != current.isDraining ||
                     previous.isOfflineEngine != current.isOfflineEngine ||
                     previous.lifecycle.isInitializingSpeechEngine !=
                         current.lifecycle.isInitializingSpeechEngine,
@@ -711,6 +794,20 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
                             ],
                           ),
                         ),
+                      const SizedBox(height: 20),
+                      Divider(height: 1, color: colors.borderSubtle),
+                      const SizedBox(height: 20),
+                      ValueListenableBuilder<RecitationFeedbackMode>(
+                        valueListenable: _feedbackMode,
+                        builder: (context, mode, _) =>
+                            RecitationFeedbackSettings(
+                              mode: mode,
+                              onChanged: _changeFeedbackMode,
+                              canPreview:
+                                  !state.isListening && !state.isDraining,
+                              onPreview: () => unawaited(_feedback?.preview()),
+                            ),
+                      ),
                       const SizedBox(height: 20),
                       _buildArabicModelButton(state),
                       const SizedBox(height: 14),
@@ -778,9 +875,10 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
                   cue.uthmaniText,
                   key: const ValueKey('recitation-word-cue'),
                   textDirection: TextDirection.rtl,
-                  style: TextStyle(
-                    fontFamily: 'AmiriQuran',
+                  locale: const Locale('ar'),
+                  style: QuranTextStyle.ayah(
                     fontSize: 21,
+                    height: 1.6,
                     color: colors.primaryStrong,
                   ),
                 ),
@@ -1026,9 +1124,10 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
               state.targetWords[index].uthmaniText,
               key: const ValueKey('recitation-correct-word'),
               textDirection: TextDirection.rtl,
-              style: TextStyle(
-                fontFamily: 'AmiriQuran',
+              locale: const Locale('ar'),
+              style: QuranTextStyle.ayah(
                 fontSize: 22,
+                height: 1.6,
                 color: color,
               ),
             ),
@@ -1842,9 +1941,9 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
           Text(
             words.map((word) => word.authoritativeWord.uthmaniText).join(' '),
             textDirection: TextDirection.rtl,
-            style: TextStyle(
+            locale: const Locale('ar'),
+            style: QuranTextStyle.ayah(
               color: colors.textPrimary,
-              fontFamily: 'Amiri',
               fontSize: 21,
               height: 1.8,
             ),

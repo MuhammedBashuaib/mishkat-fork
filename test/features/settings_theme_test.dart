@@ -67,6 +67,55 @@ class _TestSettingsApp extends StatelessWidget {
 }
 
 void main() {
+  test('Mushaf starts light for new and existing app settings', () {
+    expect(const AppSettings().mushafTheme, MushafThemePreference.light);
+    for (final appTheme in AppThemePreference.values) {
+      final settings = AppSettings.fromJson({'theme': appTheme.name});
+      expect(settings.theme, appTheme);
+      expect(settings.mushafTheme, MushafThemePreference.light);
+    }
+    for (final invalidValue in [null, 'system', 'unsupported', true, 1]) {
+      expect(
+        AppSettings.fromJson({'mushafTheme': invalidValue}).mushafTheme,
+        MushafThemePreference.light,
+      );
+    }
+  });
+
+  test('Mushaf appearance persists independently of app appearance', () async {
+    final storage = _MemoryStorage();
+    final cubit = SettingsCubit(
+      storage: storage,
+      locationService: LocationService(),
+      notifications: LocalNotificationService(),
+    );
+    addTearDown(cubit.close);
+    await cubit.load();
+    await cubit.setTheme(AppThemePreference.dark);
+    expect(cubit.state.settings.mushafTheme, MushafThemePreference.light);
+
+    final beforeToggle = cubit.state.settings;
+    await cubit.setMushafTheme(MushafThemePreference.dark);
+    expect(cubit.state.settings, isNot(beforeToggle));
+    expect(cubit.state.settings.theme, AppThemePreference.dark);
+    expect(storage.readMap('settings')['mushafTheme'], 'dark');
+    expect(
+      AppSettings.fromJson(cubit.state.settings.toJson()),
+      cubit.state.settings,
+    );
+
+    await cubit.setTheme(AppThemePreference.light);
+    expect(cubit.state.settings.mushafTheme, MushafThemePreference.dark);
+    await cubit.load();
+    expect(cubit.state.settings.theme, AppThemePreference.light);
+    expect(cubit.state.settings.mushafTheme, MushafThemePreference.dark);
+
+    await cubit.setMushafTheme(MushafThemePreference.light);
+    await cubit.load();
+    expect(cubit.state.settings.mushafTheme, MushafThemePreference.light);
+    expect(storage.readMap('settings')['mushafTheme'], 'light');
+  });
+
   test(
     'widget appearance defaults and persists independently from app theme',
     () {

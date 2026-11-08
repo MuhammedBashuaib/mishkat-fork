@@ -9,11 +9,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../khatma/data/models/khatma_plan.dart';
 import '../../../khatma/presentation/cubit/khatma_cubit.dart';
 import '../../../khatma/presentation/cubit/khatma_state.dart';
+import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
 import '../../../settings/presentation/cubit/settings_state.dart';
 import '../../data/models/mushaf_layout_models.dart';
@@ -208,7 +210,7 @@ class _QuranReaderPageState extends State<QuranReaderPage>
       }();
     }
 
-    return MultiBlocProvider(
+    final reader = MultiBlocProvider(
       providers: [
         BlocProvider<MushafInteractionCubit>.value(
           value: _scopedInteractionCubit!,
@@ -444,17 +446,27 @@ class _QuranReaderPageState extends State<QuranReaderPage>
                                   ),
                                 ),
                                 child: Center(
-                                  child: _ZoomLensControl(
-                                    scale: readerScale,
-                                    onDecrease: () => _setReaderScale(
-                                      context,
-                                      readerScale - .1,
-                                    ),
-                                    onReset: () => _setReaderScale(context, 1),
-                                    onIncrease: () => _setReaderScale(
-                                      context,
-                                      readerScale + .1,
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: _ZoomLensControl(
+                                          scale: readerScale,
+                                          onDecrease: () => _setReaderScale(
+                                            context,
+                                            readerScale - .1,
+                                          ),
+                                          onReset: () =>
+                                              _setReaderScale(context, 1),
+                                          onIncrease: () => _setReaderScale(
+                                            context,
+                                            readerScale + .1,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const _MushafThemeToggle(),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -550,6 +562,7 @@ class _QuranReaderPageState extends State<QuranReaderPage>
         },
       ),
     );
+    return _MushafReaderTheme(child: reader);
   }
 
   Widget _buildBottomBar(BuildContext context) {
@@ -660,6 +673,52 @@ class _QuranReaderPageState extends State<QuranReaderPage>
   );
 }
 
+class _MushafReaderTheme extends StatelessWidget {
+  const _MushafReaderTheme({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      BlocBuilder<SettingsCubit, SettingsState>(
+        buildWhen: (previous, current) =>
+            previous.settings.mushafTheme != current.settings.mushafTheme ||
+            previous.settings.uiFontScale != current.settings.uiFontScale,
+        builder: (context, state) => Theme(
+          data: state.settings.mushafTheme == MushafThemePreference.dark
+              ? AppTheme.dark(state.settings.uiFontScale)
+              : AppTheme.light(state.settings.uiFontScale),
+          child: child,
+        ),
+      );
+}
+
+class _MushafThemeToggle extends StatelessWidget {
+  const _MushafThemeToggle();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = context.mishkat;
+    return IconButton.filledTonal(
+      key: const ValueKey('mushaf-theme-toggle'),
+      tooltip: isDark
+          ? 'تفعيل الوضع الفاتح للمصحف'
+          : 'تفعيل الوضع الداكن للمصحف',
+      style: IconButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        backgroundColor: colors.surfaceMuted,
+        foregroundColor: colors.primary,
+        side: BorderSide(color: colors.border),
+      ),
+      onPressed: () => context.read<SettingsCubit>().setMushafTheme(
+        isDark ? MushafThemePreference.light : MushafThemePreference.dark,
+      ),
+      icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+    );
+  }
+}
+
 class _ZoomLensControl extends StatelessWidget {
   const _ZoomLensControl({
     required this.scale,
@@ -678,60 +737,74 @@ class _ZoomLensControl extends StatelessWidget {
     final colors = context.mishkat;
     final percent = (scale * 100).round();
 
-    return Material(
-      color: colors.surfaceMuted,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(MishkatRadius.pill),
-        side: BorderSide(color: colors.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Semantics(
-        label: 'حجم المصحف $percent بالمئة',
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(width: 12),
-            Icon(Icons.search_rounded, color: colors.primary, size: 19),
-            const SizedBox(width: 6),
-            Text(
-              'حجم الصفحة',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: colors.textSecondary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(width: 1, height: 22, color: colors.border),
-            IconButton(
-              tooltip: 'تصغير المصحف',
-              onPressed: scale > 1.005 ? onDecrease : null,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.remove_rounded),
-            ),
-            InkWell(
-              onTap: onReset,
-              borderRadius: BorderRadius.circular(MishkatRadius.pill),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
-                child: Text(
-                  '$percent%',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w900,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showLabel = constraints.maxWidth >= 250;
+        return Material(
+          color: colors.surfaceMuted,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(MishkatRadius.pill),
+            side: BorderSide(color: colors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Semantics(
+            label: 'حجم المصحف $percent بالمئة',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 12),
+                Icon(Icons.search_rounded, color: colors.primary, size: 19),
+                if (showLabel) ...[
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'حجم الصفحة',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: colors.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 8),
+                Container(width: 1, height: 22, color: colors.border),
+                IconButton(
+                  tooltip: 'تصغير المصحف',
+                  onPressed: scale > 1.005 ? onDecrease : null,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.remove_rounded),
+                ),
+                InkWell(
+                  onTap: onReset,
+                  borderRadius: BorderRadius.circular(MishkatRadius.pill),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 9,
+                    ),
+                    child: Text(
+                      '$percent%',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colors.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                IconButton(
+                  tooltip: 'تكبير المصحف',
+                  onPressed: scale < 1.87 ? onIncrease : null,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.add_rounded),
+                ),
+              ],
             ),
-            IconButton(
-              tooltip: 'تكبير المصحف',
-              onPressed: scale < 1.87 ? onIncrease : null,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.add_rounded),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

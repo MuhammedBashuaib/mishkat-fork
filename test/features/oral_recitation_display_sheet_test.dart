@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/oral_recitation_mushaf.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/recitation_feedback_settings.dart';
+import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
+import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
+import 'package:mishkat_app/core/services/local_notification_service.dart';
+import 'package:mishkat_app/core/services/location_service.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/core/theme/app_colors.dart';
 import 'package:mishkat_app/core/theme/app_theme.dart';
@@ -97,6 +103,7 @@ void main() {
     WidgetTester tester, {
     Brightness brightness = Brightness.light,
     bool compact = false,
+    SettingsCubit? settings,
   }) async {
     speech = _OfflineSpeech();
     memorization = QuranMemorizationCubit(
@@ -131,7 +138,12 @@ void main() {
               .copyWith(textScaler: TextScaler.linear(compact ? 1.6 : 1)),
           child: child!,
         ),
-        home: QuranOralRecitationPage(cubit: cubit),
+        home: settings == null
+            ? QuranOralRecitationPage(cubit: cubit)
+            : BlocProvider.value(
+                value: settings,
+                child: QuranOralRecitationPage(cubit: cubit),
+              ),
       ),
     );
     await tester.pumpAndSettle();
@@ -260,4 +272,95 @@ void main() {
       },
     );
   }
+
+  testWidgets('feedback choices remain live while capture keeps running', (
+    tester,
+  ) async {
+    await showPage(tester);
+    await cubit.startRecitation();
+    await tester.pumpAndSettle();
+    final stopsBefore = speech.stopCount;
+    await openSheet(tester);
+    final silent = find.byKey(const ValueKey('recitation-feedback-silent'));
+    await tester.ensureVisible(silent);
+    await tester.pumpAndSettle();
+    await tester.tap(silent);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<RecitationFeedbackSettings>(
+            find.byType(RecitationFeedbackSettings),
+          )
+          .mode,
+      RecitationFeedbackMode.silent,
+    );
+    expect(speech.isListening, isTrue);
+    expect(speech.stopCount, stopsBefore);
+    expect(
+      tester
+          .widget<TextButton>(
+            find.byKey(const ValueKey('recitation-feedback-preview')),
+          )
+          .onPressed,
+      isNull,
+    );
+    await closeSheet(tester);
+    await openSheet(tester);
+    expect(
+      tester
+          .widget<RecitationFeedbackSettings>(
+            find.byType(RecitationFeedbackSettings),
+          )
+          .mode,
+      RecitationFeedbackMode.silent,
+    );
+    await closeSheet(tester);
+    await disposePage(tester);
+  });
+
+  testWidgets('feedback sheet reads and updates the persisted preference', (
+    tester,
+  ) async {
+    final storage = _MemoryStorage();
+    final settings = SettingsCubit(
+      storage: storage,
+      locationService: LocationService(),
+      notifications: LocalNotificationService(),
+    );
+    addTearDown(settings.close);
+    await settings.load();
+    await settings.setRecitationFeedbackMode(RecitationFeedbackMode.vibration);
+    await showPage(tester, settings: settings);
+    await openSheet(tester);
+    expect(
+      tester
+          .widget<RecitationFeedbackSettings>(
+            find.byType(RecitationFeedbackSettings),
+          )
+          .mode,
+      RecitationFeedbackMode.vibration,
+    );
+    final silent = find.byKey(const ValueKey('recitation-feedback-silent'));
+    await tester.ensureVisible(silent);
+    await tester.pumpAndSettle();
+    await tester.tap(silent);
+    await tester.pumpAndSettle();
+    expect(
+      settings.state.settings.recitationFeedbackMode,
+      RecitationFeedbackMode.silent,
+    );
+    expect(storage.readMap('settings')['recitationFeedbackMode'], 'silent');
+    await settings.setRecitationFeedbackMode(RecitationFeedbackMode.sound);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<RecitationFeedbackSettings>(
+            find.byType(RecitationFeedbackSettings),
+          )
+          .mode,
+      RecitationFeedbackMode.sound,
+    );
+    await closeSheet(tester);
+    await disposePage(tester);
+  });
 }

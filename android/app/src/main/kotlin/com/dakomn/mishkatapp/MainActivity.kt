@@ -19,6 +19,8 @@ class MainActivity : AudioServiceActivity() {
     private var speechModels: ArabicSpeechModelManager? = null
     private var speechSettingsChannel: MethodChannel? = null
     private var offlineRecitation: OfflineRecitationPlugin? = null
+    private var recitationFeedback: RecitationFeedbackPlayer? = null
+    private var hostStarted = false
     private var readerWindowChannel: MethodChannel? = null
     private var readerFullscreen = false
 
@@ -59,6 +61,10 @@ class MainActivity : AudioServiceActivity() {
 
         offlineRecitation?.dispose()
         offlineRecitation = OfflineRecitationPlugin(this, flutterEngine.dartExecutor.binaryMessenger)
+
+        recitationFeedback?.dispose()
+        recitationFeedback = RecitationFeedbackPlayer(this, flutterEngine.dartExecutor.binaryMessenger)
+        if (hostStarted) recitationFeedback?.onHostStart()
 
         adhanChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.dakomn.mishkatapp/adhan").also { channel ->
             channel.setMethodCallHandler { call, result ->
@@ -113,6 +119,8 @@ class MainActivity : AudioServiceActivity() {
         }
         offlineRecitation?.dispose()
         offlineRecitation = null
+        recitationFeedback?.dispose()
+        recitationFeedback = null
         tasbihSound?.dispose()
         tasbihSound = null
         adhanChannel?.setMethodCallHandler(null)
@@ -124,7 +132,15 @@ class MainActivity : AudioServiceActivity() {
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
+    override fun onStart() {
+        super.onStart()
+        hostStarted = true
+        recitationFeedback?.onHostStart()
+    }
+
     override fun onStop() {
+        hostStarted = false
+        recitationFeedback?.onHostStop()
         offlineRecitation?.onHostStop()
         super.onStop()
     }

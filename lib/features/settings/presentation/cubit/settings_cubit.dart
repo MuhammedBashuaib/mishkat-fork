@@ -82,6 +82,8 @@ class SettingsCubit extends Cubit<SettingsState> {
       _save(state.settings.copyWith(theme: value));
   Future<void> setWidgetTheme(AppThemePreference value) =>
       _save(state.settings.copyWith(widgetTheme: value));
+  Future<void> setMushafTheme(MushafThemePreference value) =>
+      _save(state.settings.copyWith(mushafTheme: value));
   Future<void> setUiFontScale(double value) =>
       _save(state.settings.copyWith(uiFontScale: value));
   Future<void> setQuranFont(double value) =>
@@ -118,6 +120,8 @@ class SettingsCubit extends Cubit<SettingsState> {
       _save(state.settings.copyWith(quranAutoScroll: value));
   Future<void> setContinuousAudio(bool value) =>
       _save(state.settings.copyWith(quranContinuous: value));
+  Future<void> setRecitationFeedbackMode(RecitationFeedbackMode value) =>
+      _save(state.settings.copyWith(recitationFeedbackMode: value));
 
   Future<void> setKeepAwake(bool value) async {
     if (value) {

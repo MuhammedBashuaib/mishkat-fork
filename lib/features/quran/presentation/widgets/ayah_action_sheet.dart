@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/offline_audio_download_controller.dart';
+import '../../../../core/theme/quran_text_style.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
 import '../../data/models/memorization_status.dart';
 import '../../data/models/mushaf_layout_models.dart';
@@ -183,10 +184,9 @@ class AyahActionSheet extends StatelessWidget {
                           child: Text(
                             ayahText,
                             textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontFamily: 'AmiriQuran',
-                              fontSize: 20,
-                              height: 1.85,
+                            textDirection: TextDirection.rtl,
+                            locale: const Locale('ar'),
+                            style: QuranTextStyle.ayah(
                               color: theme.colorScheme.onSurface,
                             ),
                           ),
@@ -890,12 +890,20 @@ class _AyahWordPlayerState extends State<_AyahWordPlayer> {
                   key: ValueKey('ayah-word-${index + 1}'),
                   label: Text(
                     words[index],
-                    style: const TextStyle(
-                      fontFamily: 'AmiriQuran',
+                    textDirection: TextDirection.rtl,
+                    textAlign: TextAlign.center,
+                    locale: const Locale('ar'),
+                    style: QuranTextStyle.ayah(
+                      color: _selectedWord == index + 1
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.onSurface,
                       fontSize: 20,
+                      height: 1.6,
                     ),
                   ),
                   selected: _selectedWord == index + 1,
+                  backgroundColor: theme.colorScheme.surface,
+                  selectedColor: theme.colorScheme.primaryContainer,
                   showCheckmark: false,
                   onSelected: (_) => setState(() => _selectedWord = index + 1),
                 ),

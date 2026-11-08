@@ -16,7 +16,9 @@ import 'package:mishkat_app/features/quran/presentation/cubit/quran_cubit.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.dart';
 import 'package:mishkat_app/features/quran/presentation/services/mushaf_coordinate_mapper.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/mushaf_interaction_layer.dart';
+import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
+import 'package:mishkat_app/features/settings/presentation/cubit/settings_state.dart';
 
 import 'quran_home_hub_test.dart'
     show
@@ -92,6 +94,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    await settings.setTheme(
+      dark ? AppThemePreference.dark : AppThemePreference.light,
+    );
     await quran.openPage(page);
     final boundaryKey = GlobalKey();
     await tester.pumpWidget(
@@ -102,25 +107,29 @@ void main() {
         ],
         child: RepaintBoundary(
           key: boundaryKey,
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            locale: const Locale('ar'),
-            supportedLocales: const [Locale('ar')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
-            theme: dark ? AppTheme.dark() : AppTheme.light(),
-            builder: (context, child) {
-              final media = MediaQuery.of(context);
-              final landscape = media.size.width > media.size.height;
-              return MediaQuery(
-                data: media.copyWith(
-                  padding: landscape
-                      ? const EdgeInsets.fromLTRB(44, 0, 20, 18)
-                      : const EdgeInsets.only(top: 44, bottom: 24),
-                ),
-                child: child!,
-              );
-            },
-            home: const QuranReaderPage(),
+          child: BlocBuilder<SettingsCubit, SettingsState>(
+            builder: (context, state) => MaterialApp(
+              debugShowCheckedModeBanner: false,
+              locale: const Locale('ar'),
+              supportedLocales: const [Locale('ar')],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              theme: AppTheme.light(),
+              darkTheme: AppTheme.dark(),
+              themeMode: state.settings.themeMode,
+              builder: (context, child) {
+                final media = MediaQuery.of(context);
+                final landscape = media.size.width > media.size.height;
+                return MediaQuery(
+                  data: media.copyWith(
+                    padding: landscape
+                        ? const EdgeInsets.fromLTRB(44, 0, 20, 18)
+                        : const EdgeInsets.only(top: 44, bottom: 24),
+                  ),
+                  child: child!,
+                );
+              },
+              home: const QuranReaderPage(),
+            ),
           ),
         ),
       ),
@@ -140,6 +149,19 @@ void main() {
           matching: find.byType(InteractiveViewer),
         ),
       );
+
+  void expectReaderBrightness(WidgetTester tester, Brightness brightness) {
+    expect(Theme.of(tester.element(currentPage())).brightness, brightness);
+    final artwork = tester.widget<SvgPicture>(
+      find.descendant(of: currentPage(), matching: find.byType(SvgPicture)),
+    );
+    expect(
+      artwork.colorFilter,
+      brightness == Brightness.dark
+          ? const ColorFilter.mode(MushafThemeColors.darkInk, BlendMode.srcIn)
+          : null,
+    );
+  }
 
   Future<void> enterFullscreen(WidgetTester tester) async {
     await tester.tap(find.byTooltip('ملء الشاشة'));
@@ -211,6 +233,142 @@ void main() {
     }
   });
 
+  testWidgets(
+    'Mushaf defaults to light and toggles independently without losing reading state',
+    (tester) async {
+      quran.setFontSize(48);
+      await settings.setQuranFont(48);
+      final boundary = await openReader(tester, dark: true);
+      expectReaderBrightness(tester, Brightness.light);
+      expect(
+        Theme.of(tester.element(find.byType(QuranReaderPage))).brightness,
+        Brightness.dark,
+      );
+      expect(settings.state.settings.mushafTheme, MushafThemePreference.light);
+      expect(find.byTooltip('تفعيل الوضع الداكن للمصحف'), findsOneWidget);
+
+      final interaction = tester
+          .element(currentPage())
+          .read<MushafInteractionCubit>();
+      final ayah = layoutRepository.getPageGeometry(562)!.ayahs.first;
+      interaction.selectAyah(ayah);
+      await tester.pumpAndSettle();
+      final transform = viewer(tester).transformationController!;
+      final matrix = transform.value.clone();
+      await capture(tester, boundary, 'toolbar_light_in_dark_app');
+
+      await tester.tap(find.byKey(const ValueKey('mushaf-theme-toggle')));
+      await tester.pumpAndSettle();
+      expectReaderBrightness(tester, Brightness.dark);
+      expect(find.byTooltip('تفعيل الوضع الفاتح للمصحف'), findsOneWidget);
+      expect(settings.state.settings.theme, AppThemePreference.dark);
+      expect(settings.state.settings.mushafTheme, MushafThemePreference.dark);
+      expect(storage.readMap('settings')['mushafTheme'], 'dark');
+      expect(quran.state.currentPage, 562);
+      expect(quran.state.fontSize, 48);
+      expect(viewer(tester).transformationController, same(transform));
+      expect(transform.value, matrix);
+      expect(interaction.state.selectedAyah, ayah);
+
+      await settings.setTheme(AppThemePreference.light);
+      await tester.pumpAndSettle();
+      expect(
+        Theme.of(tester.element(find.byType(QuranReaderPage))).brightness,
+        Brightness.light,
+      );
+      expectReaderBrightness(tester, Brightness.dark);
+      await capture(tester, boundary, 'toolbar_dark_in_light_app');
+
+      await tester.tap(find.byKey(const ValueKey('mushaf-theme-toggle')));
+      await tester.pumpAndSettle();
+      expectReaderBrightness(tester, Brightness.light);
+      expect(settings.state.settings.theme, AppThemePreference.light);
+      expect(settings.state.settings.mushafTheme, MushafThemePreference.light);
+      expect(quran.state.currentPage, 562);
+      expect(viewer(tester).transformationController, same(transform));
+      expect(transform.value, matrix);
+      expect(interaction.state.selectedAyah, ayah);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('Mushaf appearance survives fullscreen and reopening', (
+    tester,
+  ) async {
+    await openReader(tester);
+    await tester.tap(find.byKey(const ValueKey('mushaf-theme-toggle')));
+    await tester.pumpAndSettle();
+    await enterFullscreen(tester);
+    expectReaderBrightness(tester, Brightness.dark);
+    await tester.tap(find.byTooltip('إنهاء ملء الشاشة'));
+    await tester.pumpAndSettle();
+    expectReaderBrightness(tester, Brightness.dark);
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    await settings.load();
+    await openReader(tester);
+    expectReaderBrightness(tester, Brightness.dark);
+    expect(settings.state.settings.theme, AppThemePreference.light);
+    expect(find.byTooltip('تفعيل الوضع الفاتح للمصحف'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('theme and zoom controls remain usable on a 320 pixel screen', (
+    tester,
+  ) async {
+    final boundary = await openReader(tester, dark: true);
+    tester.view.physicalSize = const Size(320, 568);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final toggle = find.byKey(const ValueKey('mushaf-theme-toggle'));
+    final zoom = find.byTooltip('تكبير المصحف');
+    final toggleRect = tester.getRect(toggle);
+    final zoomRect = tester.getRect(zoom);
+    expect(toggleRect.overlaps(zoomRect), isFalse);
+    expect(toggleRect.center.dy, closeTo(zoomRect.center.dy, 1));
+    expect(
+      (Offset.zero & const Size(320, 568)).contains(toggleRect.topLeft),
+      isTrue,
+    );
+    expect(
+      (Offset.zero & const Size(320, 568)).contains(toggleRect.bottomRight),
+      isTrue,
+    );
+    await capture(tester, boundary, 'toolbar_narrow_320_light');
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expectReaderBrightness(tester, Brightness.dark);
+    await tester.tap(zoom);
+    await tester.pumpAndSettle();
+    expect(quran.state.fontSize, greaterThan(32));
+    expect(tester.takeException(), isNull);
+    await capture(tester, boundary, 'toolbar_narrow_320_dark');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('reader toolbar fits with the largest saved font sizes', (
+    tester,
+  ) async {
+    await settings.setUiFontScale(1.25);
+    await settings.setQuranFont(60);
+    quran.setFontSize(60);
+    await openReader(tester);
+    for (final width in [320.0, 340.0, 390.0]) {
+      tester.view.physicalSize = Size(width, 844);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('188%'), findsOneWidget);
+      final toggle = find.byKey(const ValueKey('mushaf-theme-toggle'));
+      expect(tester.getSize(toggle), const Size(48, 48));
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   for (final (name, size, dark, page) in [
     ('light_390', const Size(390, 844), false, 562),
     ('dark_390', const Size(390, 844), true, 562),
@@ -222,8 +380,15 @@ void main() {
     testWidgets(
       'fullscreen fills screen with a quiet folio at the bottom: $name',
       (tester) async {
+        await settings.setMushafTheme(
+          dark ? MushafThemePreference.dark : MushafThemePreference.light,
+        );
         final boundary = await openReader(tester, dark: dark, page: page);
         await enterFullscreen(tester);
+        expectReaderBrightness(
+          tester,
+          dark ? Brightness.dark : Brightness.light,
+        );
         tester.view.physicalSize = size;
         await tester.pumpAndSettle();
 
