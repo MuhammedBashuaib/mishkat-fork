@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../core/services/audio_service.dart';
+import '../core/services/app_data_reset_service.dart';
 import '../core/services/home_widget_service.dart';
 import '../core/services/local_notification_service.dart';
 import '../core/services/local_storage_service.dart';
@@ -124,62 +125,82 @@ class MishkatApp extends StatelessWidget {
                 LibraryCubit(ctx.read<LibraryRepository>(), storage)..load(),
           ),
         ],
-        child: BlocBuilder<SettingsCubit, SettingsState>(
-          builder: (context, state) => MaterialApp(
-            title: 'مشكاة',
-            debugShowCheckedModeBanner: false,
-            locale: const Locale('ar'),
-            supportedLocales: const [Locale('ar')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
-            theme: AppTheme.light(state.settings.uiFontScale),
-            darkTheme: AppTheme.dark(state.settings.uiFontScale),
-            themeMode: state.settings.themeMode,
-            builder: (context, child) => Directionality(
-              textDirection: TextDirection.rtl,
-              child: MediaQuery(
-                data: MediaQuery.of(context)
-                    .copyWith(textScaler: TextScaler.noScaling),
-                child: child!,
+        child: ChangeNotifierProvider(
+          create: (context) => AppDataResetService(
+            settings: settingsCubit,
+            quran: context.read<QuranCubit>(),
+            memorization: context.read<QuranMemorizationCubit>(),
+            adhkar: context.read<AdhkarCubit>(),
+            tasbih: context.read<TasbihCubit>(),
+            khatma: khatmaCubit,
+            library: context.read<LibraryCubit>(),
+            shell: context.read<ShellCubit>(),
+            downloads: downloadController,
+            widgets: widgetService,
+          ),
+          child: BlocBuilder<SettingsCubit, SettingsState>(
+            builder: (context, state) => MaterialApp(
+              title: 'مشكاة',
+              debugShowCheckedModeBanner: false,
+              locale: const Locale('ar'),
+              supportedLocales: const [Locale('ar')],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              theme: AppTheme.light(state.settings.uiFontScale),
+              darkTheme: AppTheme.dark(state.settings.uiFontScale),
+              themeMode: state.settings.themeMode,
+              builder: (context, child) => Directionality(
+                textDirection: TextDirection.rtl,
+                child: MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.noScaling),
+                  child: child!,
+                ),
               ),
-            ),
-            home: MultiBlocListener(
-              listeners: [
-                BlocListener<HomeCubit, HomeState>(
-                  listenWhen: (previous, current) =>
-                      !DateUtils.isSameDay(previous.now, current.now),
-                  listener: (context, _) => unawaited(
-                    context.read<SettingsCubit>().refreshNotificationSchedule(),
+              home: MultiBlocListener(
+                listeners: [
+                  BlocListener<HomeCubit, HomeState>(
+                    listenWhen: (previous, current) =>
+                        !DateUtils.isSameDay(previous.now, current.now),
+                    listener: (context, _) => unawaited(
+                      context
+                          .read<SettingsCubit>()
+                          .refreshNotificationSchedule(),
+                    ),
                   ),
-                ),
-                BlocListener<SettingsCubit, SettingsState>(
-                  listenWhen: (previous, current) =>
-                      previous.settings != current.settings,
-                  listener: (context, value) {
-                    final settings = value.settings;
-                    context.read<HomeCubit>().updateSettings(settings);
-                    context.read<QiblaCubit>().setLocation(
-                      settings.latitude,
-                      settings.longitude,
-                    );
-                    context.read<QuranCubit>()
-                      ..updateReciter(settings.reciter)
-                      ..setFontSize(settings.quranFont);
-                    unawaited(widgetService.sync(settings));
-                  },
-                ),
-                BlocListener<KhatmaCubit, KhatmaState>(
-                  listener: (_, state) =>
-                      unawaited(widgetService.syncWird(state.active)),
-                ),
-                BlocListener<TasbihCubit, TasbihState>(
-                  listener: (_, state) =>
-                      widgetService.scheduleTasbihSync(state),
-                ),
-              ],
-              child: AppExitConfirmation(
-                child: _AppEntry(
-                  storage: storage,
-                  initiallyShowOnboarding: initiallyShowOnboarding,
+                  BlocListener<SettingsCubit, SettingsState>(
+                    listenWhen: (previous, current) =>
+                        previous.settings != current.settings,
+                    listener: (context, value) {
+                      final settings = value.settings;
+                      context.read<HomeCubit>().updateSettings(settings);
+                      context.read<QiblaCubit>().setLocation(
+                        settings.latitude,
+                        settings.longitude,
+                      );
+                      context.read<QuranCubit>()
+                        ..updateReciter(settings.reciter)
+                        ..setFontSize(settings.quranFont);
+                      unawaited(widgetService.sync(settings));
+                    },
+                  ),
+                  BlocListener<KhatmaCubit, KhatmaState>(
+                    listener: (_, state) =>
+                        unawaited(widgetService.syncWird(state.active)),
+                  ),
+                  BlocListener<TasbihCubit, TasbihState>(
+                    listener: (_, state) =>
+                        widgetService.scheduleTasbihSync(state),
+                  ),
+                ],
+                child: AppExitConfirmation(
+                  child: Consumer<AppDataResetService>(
+                    builder: (_, reset, _) => _AppEntry(
+                      key: ValueKey(reset.generation),
+                      storage: storage,
+                      initiallyShowOnboarding:
+                          reset.generation > 0 || initiallyShowOnboarding,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -192,6 +213,7 @@ class MishkatApp extends StatelessWidget {
 
 class _AppEntry extends StatefulWidget {
   const _AppEntry({
+    super.key,
     required this.storage,
     required this.initiallyShowOnboarding,
   });
@@ -223,6 +245,7 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (context.read<AppDataResetService>().isResetting) return;
     if (state == AppLifecycleState.resumed) {
       context.read<HomeCubit>().refresh();
       unawaited(context.read<SettingsCubit>().refreshNotificationSchedule());

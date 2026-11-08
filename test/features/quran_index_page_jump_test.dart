@@ -286,6 +286,27 @@ void main() {
   });
 
   for (final dark in [false, true]) {
+    testWidgets('page jump is readable at 390px (${dark ? 'dark' : 'light'})', (
+      tester,
+    ) async {
+      final boundary = GlobalKey();
+      final theme = dark ? 'dark' : 'light';
+      await mountIndex(tester, dark: dark, boundaryKey: boundary);
+      await openJump(tester);
+      expect(find.text('رقم الصفحة'), findsOneWidget);
+      expect(find.text('من ١ إلى ٦٠٤'), findsOneWidget);
+      expect(find.text('انتقال').hitTestable(), findsOneWidget);
+      expect(find.text('إلغاء').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await saveCapture(tester, boundary, 'page-jump-normal-$theme');
+
+      await tester.enterText(find.byType(TextFormField), '١٢٣');
+      await tester.pumpAndSettle();
+      expect(find.text('١٢٣'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await saveCapture(tester, boundary, 'page-jump-entered-$theme');
+    });
+
     testWidgets(
       'page jump fits 320px with keyboard (${dark ? 'dark' : 'light'})',
       (tester) async {
@@ -314,6 +335,49 @@ void main() {
         await tester.tap(find.text('إلغاء'));
         await tester.pumpAndSettle();
         expect(find.byType(AlertDialog), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'page jump stays usable with 2x text and keyboard at 320px (${dark ? 'dark' : 'light'})',
+      (tester) async {
+        final boundary = GlobalKey();
+        final theme = dark ? 'dark' : 'light';
+        await mountIndex(
+          tester,
+          size: const Size(320, 568),
+          dark: dark,
+          boundaryKey: boundary,
+        );
+        await openJump(tester);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.view.resetViewInsets);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        await tester.enterText(find.byType(TextFormField), '٦٠٥');
+        await tester.tap(find.text('انتقال'));
+        await tester.pumpAndSettle();
+        final error = find.text('أدخل رقم صفحة من ١ إلى ٦٠٤');
+        expect(error, findsOneWidget);
+        await tester.ensureVisible(error);
+        await tester.pumpAndSettle();
+        expect(error.hitTestable(), findsOneWidget);
+        expect(find.text('انتقال').hitTestable(), findsOneWidget);
+        expect(find.text('إلغاء').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await saveCapture(tester, boundary, 'page-jump-large-text-$theme');
+
+        // Restore the index scale before returning to the underlying route.
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('إلغاء'));
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(quran.state.currentPage, 107);
+        expect(tester.takeException(), isNull);
       },
     );
   }

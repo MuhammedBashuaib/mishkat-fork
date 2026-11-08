@@ -30,14 +30,43 @@ class QuranMemorizationCubit extends Cubit<QuranMemorizationState> {
   static const AdaptiveMurajaahEngine engine = AdaptiveMurajaahEngine();
   final Map<String, Completer<void>> _inFlightOperations =
       <String, Completer<void>>{};
+  final Set<Future<void>> _pendingWrites = {};
+  int _loadRevision = 0;
+  bool _resetting = false;
+
+  void invalidatePendingOperations() {
+    ++_loadRevision;
+    _resetting = true;
+  }
+
+  /// Include the legacy history write in the barrier before clearing storage.
+  Future<void> finishPendingWrites() async {
+    while (_pendingWrites.isNotEmpty || _inFlightOperations.isNotEmpty) {
+      await Future.wait(
+        [
+          ..._pendingWrites,
+          ..._inFlightOperations.values.map((operation) => operation.future),
+        ].map((future) => future.catchError((Object _) {})),
+      );
+    }
+  }
+
+  void resetLocalData() {
+    invalidatePendingOperations();
+    _resetting = false;
+    emit(const QuranMemorizationState(status: QuranMemorizationStatus.ready));
+  }
 
   /// Loads all memorization data from local-first storage.
   Future<void> load() async {
+    _resetting = false;
+    final revision = ++_loadRevision;
     emit(
       state.copyWith(status: QuranMemorizationStatus.loading, clearError: true),
     );
     try {
       final data = await repository.loadData();
+      if (isClosed || revision != _loadRevision) return;
       emit(
         state.copyWith(
           status: QuranMemorizationStatus.ready,
@@ -48,6 +77,7 @@ class QuranMemorizationCubit extends Cubit<QuranMemorizationState> {
         ),
       );
     } on Object catch (e) {
+      if (isClosed || revision != _loadRevision) return;
       emit(
         state.copyWith(
           status: QuranMemorizationStatus.failure,
@@ -661,6 +691,7 @@ class QuranMemorizationCubit extends Cubit<QuranMemorizationState> {
   }
 
   Future<void> _refreshNotificationCalendar() async {
+    if (_resetting || isClosed) return;
     final service = notificationService;
     if (service == null) return;
     final settings = AppSettings.fromJson(
@@ -675,10 +706,14 @@ class QuranMemorizationCubit extends Cubit<QuranMemorizationState> {
     );
   }
 
-  Future<void> _persist() => repository.saveData(
-    plans: state.plans,
-    items: state.items,
-    session: state.activeSession,
-    history: state.history,
-  );
+  Future<void> _persist() {
+    final write = repository.saveData(
+      plans: state.plans,
+      items: state.items,
+      session: state.activeSession,
+      history: state.history,
+    );
+    _pendingWrites.add(write);
+    return write.whenComplete(() => _pendingWrites.remove(write));
+  }
 }

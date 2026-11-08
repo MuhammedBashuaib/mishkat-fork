@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mishkat_app/core/services/app_data_reset_service.dart';
+import 'package:mishkat_app/core/services/home_widget_service.dart';
 import 'package:mishkat_app/core/services/local_notification_service.dart';
 import 'package:mishkat_app/core/services/reminder_navigation.dart';
 import 'package:mishkat_app/core/theme/app_theme.dart';
@@ -46,10 +48,36 @@ class _GatedQuranRepository extends QuranRepository {
   }
 }
 
+class _ResetState extends ChangeNotifier implements AppDataResetService {
+  @override
+  bool isResetting = false;
+  @override
+  int generation = 0;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _GatedReadingStorage extends FakeLocalStorageService {
+  Completer<void>? readingWriteGate;
+  Completer<void>? readingWriteStarted;
+
+  @override
+  Future<void> writeMap(String key, Map<String, dynamic> value) {
+    final writing = super.writeMap(key, value);
+    final gate = readingWriteGate;
+    if (key != 'quran' || gate == null) return writing;
+    return writing.then((_) {
+      readingWriteStarted?.complete();
+      return gate.future;
+    });
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final repository = QuranRepository();
-  late FakeLocalStorageService storage;
+  late _GatedReadingStorage storage;
   late SettingsCubit settings;
   late HomeCubit home;
   late AdhkarCubit adhkar;
@@ -69,7 +97,8 @@ void main() {
 
   setUp(() async {
     notificationTapPayload.value = null;
-    storage = FakeLocalStorageService();
+    homeWidgetLaunchUri.value = null;
+    storage = _GatedReadingStorage();
     await storage.writeMap(
       'settings',
       const AppSettings(onboardingSeen: true).toJson(),
@@ -103,6 +132,7 @@ void main() {
 
   tearDown(() async {
     notificationTapPayload.value = null;
+    homeWidgetLaunchUri.value = null;
     await home.close();
     await settings.close();
     await adhkar.close();
@@ -121,6 +151,7 @@ void main() {
     bool withShell = false,
     bool settle = true,
     double width = 390,
+    AppDataResetService? resetService,
   }) async {
     tester.view.physicalSize = Size(width, 900);
     tester.view.devicePixelRatio = 1;
@@ -129,6 +160,8 @@ void main() {
     await tester.pumpWidget(
       MultiBlocProvider(
         providers: [
+          if (resetService != null)
+            RepositoryProvider<AppDataResetService>.value(value: resetService),
           BlocProvider.value(value: settings),
           BlocProvider.value(value: home),
           BlocProvider.value(value: adhkar),
@@ -297,6 +330,58 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  for (final resetAlreadyCompleted in [false, true]) {
+    testWidgets(
+      'pending Kahf notification cannot restore reading data after reset, completed=$resetAlreadyCompleted',
+      (tester) async {
+        final data = await repository.load();
+        await storage.writeMap('quran', {'currentPage': 500});
+        final gated = await prepareColdQuran(tester);
+        final initialLoad = quran.load();
+        final reset = _ResetState();
+        addTearDown(reset.dispose);
+        notificationTapPayload.value = 'quran:kahf';
+        await openHome(
+          tester,
+          withShell: true,
+          settle: false,
+          resetService: reset,
+        );
+        expect(gated.loadCalls, 1);
+        expect(find.byType(QuranReaderPage), findsNothing);
+
+        // Keep the original caller mounted to exercise the reset guard itself,
+        // rather than relying on a later root-widget replacement to cancel it.
+        reset.isResetting = true;
+        quran.invalidatePendingOperations();
+        await storage.clear();
+        quran.resetLocalData(reciter: 'ar.alafasy', fontSize: 32);
+        final reload = quran.load();
+        if (resetAlreadyCompleted) {
+          reset.generation++;
+          reset.isResetting = false;
+        }
+        gated.gate.complete(data);
+        await initialLoad;
+        await reload;
+        await tester.pumpAndSettle();
+
+        expect(find.byType(QuranReaderPage), findsNothing);
+        expect(quran.state.currentPage, 1);
+        expect(quran.state.lastRead, isNull);
+        expect(
+          storage.readMap('quran'),
+          isEmpty,
+          reason:
+              'The cancelled notification must not write the Kahf position.',
+        );
+        expect(notificationTapPayload.value, isNull);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   testWidgets('Kahf wait does not navigate after the caller is unmounted', (
     tester,
   ) async {
@@ -314,6 +399,43 @@ void main() {
     expect(gated.loadCalls, 1);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'pending wird widget cannot open its old plan after reset completes',
+    (tester) async {
+      await khatma.create(name: 'ختمتي', durationDays: 30, startPage: 1);
+      await khatma.recordProgress(1);
+      await quran.openPage(500);
+      final reset = _ResetState();
+      addTearDown(reset.dispose);
+      await openHome(tester, withShell: true, resetService: reset);
+
+      storage.readingWriteGate = Completer<void>();
+      storage.readingWriteStarted = Completer<void>();
+      homeWidgetLaunchUri.value = Uri.parse('mishkat://wird');
+      await tester.pump();
+      await storage.readingWriteStarted!.future;
+      expect(quran.state.currentPage, 2);
+      expect(find.byType(QuranReaderPage), findsNothing);
+
+      reset.isResetting = true;
+      await storage.clear();
+      quran.resetLocalData(reciter: 'ar.alafasy', fontSize: 32);
+      khatma.resetLocalData();
+      reset.generation++;
+      reset.isResetting = false;
+      storage.readingWriteGate!.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuranReaderPage), findsNothing);
+      expect(quran.state.currentPage, 1);
+      expect(quran.state.lastRead, isNull);
+      expect(storage.readMap('quran'), isEmpty);
+      expect(homeWidgetLaunchUri.value, isNull);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets('Friday dua and salawat notifications open relevant content', (
     tester,

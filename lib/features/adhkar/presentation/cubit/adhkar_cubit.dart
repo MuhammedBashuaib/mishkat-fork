@@ -10,11 +10,28 @@ class AdhkarCubit extends Cubit<AdhkarState> {
   AdhkarCubit(this._repository, this._storage) : super(const AdhkarState());
   final AdhkarRepository _repository;
   final LocalStorageService _storage;
+  int _loadRevision = 0;
+
+  void invalidatePendingOperations() => ++_loadRevision;
+
+  void resetLocalData() {
+    invalidatePendingOperations();
+    emit(
+      AdhkarState(
+        status: state.categories.isEmpty
+            ? AdhkarStatus.initial
+            : AdhkarStatus.ready,
+        categories: state.categories,
+      ),
+    );
+  }
 
   Future<void> load() async {
+    final revision = ++_loadRevision;
     emit(state.copyWith(status: AdhkarStatus.loading));
     try {
       final categories = await _repository.load();
+      if (isClosed || revision != _loadRevision) return;
       final saved = _storage.readMap('adhkar');
       final custom = <DhikrItem>[
         if (saved['custom'] is List)
@@ -80,6 +97,7 @@ class AdhkarCubit extends Cubit<AdhkarState> {
       );
       if (shouldResetDailyWirds || needsMigration) await _persist();
     } on Object catch (error) {
+      if (isClosed || revision != _loadRevision) return;
       emit(
         state.copyWith(
           status: AdhkarStatus.failure,

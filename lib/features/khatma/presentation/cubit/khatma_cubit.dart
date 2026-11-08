@@ -21,8 +21,22 @@ class KhatmaCubit extends Cubit<KhatmaState> {
   }
   final LocalStorageService _storage;
   final LocalNotificationService? _notifications;
+  int _dataGeneration = 0;
+  bool _resetting = false;
+
+  void invalidatePendingOperations() {
+    _dataGeneration++;
+    _resetting = true;
+  }
+
+  void resetLocalData() {
+    invalidatePendingOperations();
+    emit(const KhatmaState());
+    _resetting = false;
+  }
 
   void load() {
+    _resetting = false;
     final saved = _storage.readMap('khatma');
     final plans = <KhatmaPlan>[
       if (saved['plans'] is List)
@@ -49,6 +63,7 @@ class KhatmaCubit extends Cubit<KhatmaState> {
     KhatmaPlanningMode planningMode = KhatmaPlanningMode.duration,
     int? dailyPages,
   }) async {
+    final generation = _dataGeneration;
     final schedule = planningMode == KhatmaPlanningMode.pages
         ? KhatmaSchedule.fromDailyPages(
             startPage: startPage,
@@ -90,6 +105,7 @@ class KhatmaCubit extends Cubit<KhatmaState> {
       'activeId': updated.activeId,
       'plans': updated.plans.map((item) => item.toJson()).toList(),
     });
+    if (isClosed || generation != _dataGeneration) return;
     emit(updated);
     await _refreshNotificationCalendar();
   }
@@ -118,12 +134,17 @@ class KhatmaCubit extends Cubit<KhatmaState> {
     required String planId,
     required int currentPage,
     int? completedThrough,
+    bool requireContiguousProgress = false,
   }) async {
     final plan = state.plans.where((item) => item.id == planId).firstOrNull;
     if (plan == null || plan.status != KhatmaStatus.active) return;
 
     final safeCurrent = currentPage.clamp(plan.startPage, 604);
-    final safeCompleted = completedThrough == null
+    // Automatic page turns may complete only the next unread page. Explicit
+    // completion actions can still confirm an entire portion at once.
+    final safeCompleted =
+        completedThrough == null ||
+            (requireContiguousProgress && completedThrough != plan.nextPage)
         ? plan.progressPage
         : completedThrough.clamp(plan.startPage - 1, 604);
     final progress = math.max(plan.progressPage, safeCompleted);
@@ -222,6 +243,7 @@ class KhatmaCubit extends Cubit<KhatmaState> {
   });
 
   Future<void> _refreshNotificationCalendar() async {
+    if (_resetting || isClosed) return;
     final service = _notifications;
     if (service == null) return;
     final settings = AppSettings.fromJson(_storage.readMap('settings'));

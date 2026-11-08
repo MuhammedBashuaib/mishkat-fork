@@ -1,3 +1,6 @@
+// Screenshot evidence paths are intentional test-run output.
+// ignore_for_file: avoid_print
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -18,7 +21,6 @@ import 'package:mishkat_app/features/quran/data/repositories/quran_repository.da
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_cubit.dart';
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_memorization_cubit.dart';
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_visual_recall_cubit.dart';
-import 'package:mishkat_app/features/quran/presentation/cubit/quran_visual_recall_state.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/visual_recall_bottom_bar.dart';
 
@@ -130,7 +132,6 @@ class FakeQuranAudioService implements QuranAudioService {
     required int globalAyah,
   }) async {}
 
-  @override
   Future<void> playAyahFromUrl(String url) async {}
 
   @override

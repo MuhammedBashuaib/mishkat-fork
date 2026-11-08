@@ -71,6 +71,37 @@ class QuranCubit extends Cubit<QuranState> {
   int? _completedRequestId;
   bool _readerSelectionPending = false;
   int? _readerConsumedSelection;
+  int _loadRevision = 0;
+  int _dataRevision = 0;
+
+  void invalidatePendingOperations() {
+    ++_loadRevision;
+    ++_playbackRequestId;
+    ++_dataRevision;
+  }
+
+  /// Called after audio has stopped and the shared store has been cleared.
+  void resetLocalData({required String reciter, required double fontSize}) {
+    invalidatePendingOperations();
+    _cancelSleepTimer();
+    _repeatController.stop();
+    _repeatController.updateConfig(AudioRepeatConfig.defaultConfig);
+    _repeatController.setContinuous(true);
+    this.reciter = reciter;
+    autoScroll = true;
+    _continuous = true;
+    _playbackOrigin = null;
+    _readerSelectionPending = false;
+    _readerConsumedSelection = null;
+    _completedRequestId = null;
+    emit(
+      QuranState(
+        status: state.data == null ? QuranStatus.initial : QuranStatus.ready,
+        data: state.data,
+        fontSize: fontSize,
+      ),
+    );
+  }
 
   QuranRepository get repository => _repository;
   QuranAudioService get audioService => _audio;
@@ -86,9 +117,11 @@ class QuranCubit extends Cubit<QuranState> {
   void setAutoScroll(bool value) => autoScroll = value;
 
   Future<void> load() async {
+    final revision = ++_loadRevision;
     emit(state.copyWith(status: QuranStatus.loading, clearError: true));
     try {
       final data = await _repository.load();
+      if (isClosed || revision != _loadRevision) return;
       final saved = _storage.readMap('quran');
       final currentPage = ((saved['currentPage'] as num?)?.toInt() ?? 1).clamp(
         1,
@@ -164,6 +197,7 @@ class QuranCubit extends Cubit<QuranState> {
         ),
       );
     } on Object catch (error) {
+      if (isClosed || revision != _loadRevision) return;
       emit(
         state.copyWith(
           status: QuranStatus.failure,
@@ -446,15 +480,18 @@ class QuranCubit extends Cubit<QuranState> {
   }
 
   Future<void> setPlaybackSpeed(double speed) async {
+    final revision = _dataRevision;
     if (!speed.isFinite || state.activeStation != null) return;
     final safe = speed.clamp(0.5, 2.0);
     try {
       if (state.audioSurah != null) await _audio.setPlaybackSpeed(safe);
-      if (isClosed) return;
+      if (isClosed || revision != _dataRevision) return;
       emit(state.copyWith(playbackSpeed: safe));
       await _persistListeningSettings();
     } on Object {
-      if (!isClosed) emit(state.copyWith(error: 'تعذّر تغيير سرعة التشغيل.'));
+      if (!isClosed && revision == _dataRevision) {
+        emit(state.copyWith(error: 'تعذّر تغيير سرعة التشغيل.'));
+      }
     }
   }
 

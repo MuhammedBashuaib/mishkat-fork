@@ -15,7 +15,9 @@ dependencies:
   connectivity_plus: ^7.0.0
   equatable: ^2.0.7
   flutter_bloc: ^8.1.6
-  flutter_compass: ^0.8.1
+  # Local 0.8.1 patch scopes iOS true-north updates to the compass subscription.
+  flutter_compass:
+    path: packages/flutter_compass
   flutter_local_notifications: ^18.0.1
   flutter_timezone: ^5.1.1
   flutter_svg: ^2.2.3

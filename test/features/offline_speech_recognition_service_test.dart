@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -55,8 +54,14 @@ class _OfflineHarness {
   void utterance({bool pause = true}) {
     // Keep lifecycle fixtures below the 900ms continuous-preview threshold,
     // including up to 300ms of pre-roll retained from the previous pause.
-    for (var i = 0; i < 5; i++) packet(1000);
-    if (pause) for (var i = 0; i < 6; i++) packet(0);
+    for (var i = 0; i < 5; i++) {
+      packet(1000);
+    }
+    if (pause) {
+      for (var i = 0; i < 6; i++) {
+        packet(0);
+      }
+    }
   }
 }
 
@@ -203,9 +208,15 @@ void main() {
     'room-noise pause publishes a final while microphone stays open',
     () async {
       await service.startListening();
-      for (var i = 0; i < 5; i++) native.packet(100);
-      for (var i = 0; i < 10; i++) native.packet(1600);
-      for (var i = 0; i < 9; i++) native.packet(100);
+      for (var i = 0; i < 5; i++) {
+        native.packet(100);
+      }
+      for (var i = 0; i < 10; i++) {
+        native.packet(1600);
+      }
+      for (var i = 0; i < 9; i++) {
+        native.packet(100);
+      }
       await _settle();
       expect(results.where((value) => value.isFinal), hasLength(1));
       expect(service.isListening, isTrue);
@@ -215,13 +226,17 @@ void main() {
 
   test('connected reading publishes previews before its first pause', () async {
     await service.startListening();
-    for (var i = 0; i < 10; i++) native.packet(1200);
+    for (var i = 0; i < 10; i++) {
+      native.packet(1200);
+    }
     await _settle();
     expect(results, hasLength(1));
     expect(results.single.isFinal, isFalse);
     expect(service.isListening, isTrue);
     expect(native.calls.where((call) => call.method == 'stop'), isEmpty);
-    for (var i = 0; i < 6; i++) native.packet(0);
+    for (var i = 0; i < 6; i++) {
+      native.packet(0);
+    }
     await _settle();
     expect(results.last.isFinal, isTrue);
     expect(results, hasLength(2));
@@ -234,14 +249,20 @@ void main() {
     () async {
       await service.startListening();
       final pending = native.decoding = Completer<String>();
-      for (var i = 0; i < 10; i++) native.packet(1200);
+      for (var i = 0; i < 10; i++) {
+        native.packet(1200);
+      }
       await _settle();
-      for (var i = 0; i < 40; i++) native.packet(1200);
+      for (var i = 0; i < 40; i++) {
+        native.packet(1200);
+      }
       expect(
         native.calls.where((call) => call.method == 'transcribe'),
         hasLength(1),
       );
-      for (var i = 0; i < 6; i++) native.packet(0);
+      for (var i = 0; i < 6; i++) {
+        native.packet(0);
+      }
       native.decoding = null;
       pending.complete('معاينة قديمة');
       await _settle();
@@ -261,9 +282,13 @@ void main() {
     () async {
       await service.startListening();
       native.decoding = Completer<String>();
-      for (var i = 0; i < 10; i++) native.packet(1200);
+      for (var i = 0; i < 10; i++) {
+        native.packet(1200);
+      }
       await _settle();
-      for (var i = 0; i < 30; i++) native.packet(1200);
+      for (var i = 0; i < 30; i++) {
+        native.packet(1200);
+      }
       await service.cancelListening();
       native.decoding!.complete('نتيجة جلسة ملغاة');
       await _settle();
@@ -277,7 +302,9 @@ void main() {
 
   test('silence never invokes decoding or creates a transcript', () async {
     await service.startListening();
-    for (var i = 0; i < 80; i++) native.packet(0);
+    for (var i = 0; i < 80; i++) {
+      native.packet(0);
+    }
     await service.stopListening();
     expect(results, isEmpty);
     expect(native.calls.where((call) => call.method == 'transcribe'), isEmpty);
@@ -290,7 +317,9 @@ void main() {
       native.decoding = Completer<String>();
       native.utterance();
       await _settle();
-      for (var i = 0; i < 6; i++) native.utterance();
+      for (var i = 0; i < 6; i++) {
+        native.utterance();
+      }
       await _settle();
       expect(service.isListening, isFalse);
       expect(failures.single.message, contains('آخر كلمة مؤكدة'));

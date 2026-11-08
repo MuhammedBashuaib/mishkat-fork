@@ -56,7 +56,7 @@ class SpeechToTextProvider extends ChangeNotifier {
   /// Returns true if [SpeechToText] was initialized successful and can now
   /// be used, false otherwise.
   Future<bool> initialize(
-      {debugLogging = false,
+      {bool debugLogging = false,
       Duration finalTimeout = SpeechToText.defaultFinalTimeout,
       List<SpeechConfigOption>? options}) async {
     if (isAvailable) {

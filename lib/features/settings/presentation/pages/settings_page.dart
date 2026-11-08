@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/location_service.dart';
-import '../../../../core/services/offline_audio_download_controller.dart';
+import '../../../../core/services/app_data_reset_service.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/navigation_icons.dart';
@@ -19,6 +19,7 @@ import '../widgets/about_mishkat_dialog.dart';
 import '../cubit/settings_state.dart';
 import '../../data/models/adhan_preferences.dart';
 import '../../data/models/app_settings.dart';
+import 'privacy_policy_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key, this.openPrayerSettings = false});
@@ -157,6 +158,18 @@ class SettingsPage extends StatelessWidget {
                       title: 'التنزيل والبيانات',
                       description: 'المصحف والأذكار مرفقان بالتطبيق. أدِر التلاوات التي نزّلتها للاستماع دون إنترنت.',
                       content: (_, _) => [_DataSettings()],
+                    ),
+                  ),
+                  _SettingsRow(
+                    key: const ValueKey('settings-privacy'),
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'سياسة الخصوصية',
+                    subtitle: 'بياناتك والأذونات وطريقة حذفها',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const PrivacyPolicyPage(),
+                      ),
                     ),
                   ),
                   _SettingsRow(
@@ -1178,13 +1191,45 @@ class _DataSettings extends StatelessWidget {
               ),
             );
             if (confirmed == true && context.mounted) {
-              final settingsCubit = context.read<SettingsCubit>();
-              final downloads = context.read<OfflineAudioDownloadController>();
-              await settingsCubit.clearAllData();
-              await downloads.cache.clearCache();
-              if (context.mounted) {
-                context.showMessage(
-                  'تم مسح البيانات المحلية والتلاوات المحفوظة.',
+              final reset = context.read<AppDataResetService>();
+              final navigator = Navigator.of(context, rootNavigator: true);
+              final messenger = ScaffoldMessenger.of(context);
+              // Keep every feature behind a barrier until producers, disk,
+              // state and widgets have all completed the reset.
+              showDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const PopScope(
+                  canPop: false,
+                  child: AlertDialog(
+                    content: Row(
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(width: 20),
+                        Expanded(child: Text('جارٍ مسح البيانات…')),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+              try {
+                await reset.clearAllData();
+                if (!navigator.mounted) return;
+                navigator.popUntil((route) => route.isFirst);
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'تم مسح البيانات المحلية والتلاوات المحفوظة.',
+                    ),
+                  ),
+                );
+              } on Object {
+                if (!navigator.mounted) return;
+                navigator.pop();
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('تعذّر إكمال مسح البيانات. حاول مرة أخرى.'),
+                  ),
                 );
               }
             }

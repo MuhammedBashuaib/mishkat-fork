@@ -64,6 +64,7 @@ class _ReaderOnlyService implements QuranAudioService {
 
 class _Cache implements QuranAudioCacheService {
   Future<bool> Function() checkConnection = () async => true;
+  bool failStorage = false;
 
   @override
   Future<bool> isNetworkAvailable() => checkConnection();
@@ -73,7 +74,10 @@ class _Cache implements QuranAudioCacheService {
     required String reciter,
     required int globalAyah,
     bool updateAccessTime = true,
-  }) async => null;
+  }) async {
+    if (failStorage) throw const FileSystemException('Cache is unwritable');
+    return null;
+  }
 
   @override
   Future<File?> cacheAyah({
@@ -81,7 +85,10 @@ class _Cache implements QuranAudioCacheService {
     required int globalAyah,
     Set<int> pinnedAyahs = const {},
     bool pin = false,
-  }) async => null;
+  }) async {
+    if (failStorage) throw const FileSystemException('Cache is unwritable');
+    return null;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -260,6 +267,17 @@ void main() {
     expect(player.speeds, [0.75, 1.0]);
     expect(player.playCalls, 1);
   });
+
+  test(
+    'unwritable optional cache does not prevent online Ayah playback',
+    () async {
+      cache.failStorage = true;
+      await service.playAyah(reciter: 'ar.alafasy', globalAyah: 262);
+      await Future<void>.delayed(Duration.zero);
+      expect((player.sources.single as UriAudioSource).uri.scheme, 'https');
+      expect(player.playCalls, 1);
+    },
+  );
 
   test('invalid addresses and speed fail before touching playback', () async {
     await expectLater(

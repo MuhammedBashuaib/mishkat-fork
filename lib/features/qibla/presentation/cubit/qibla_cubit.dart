@@ -13,17 +13,21 @@ class QiblaCubit extends Cubit<QiblaState> {
     this.calculator = const PrayerCalculator(),
     TargetPlatform? platform,
     this.geoMag,
+    this.compassEvents,
   }) : platform = platform ?? defaultTargetPlatform,
        super(const QiblaState());
 
   final PrayerCalculator calculator;
   final TargetPlatform platform;
   final GeoMag? geoMag;
+  final Stream<CompassEvent>? compassEvents;
   StreamSubscription<CompassEvent>? _subscription;
   double? _smoothed;
+  int _subscriptionRevision = 0;
 
   void setLocation(double? latitude, double? longitude) {
     if (latitude == null || longitude == null) {
+      _subscriptionRevision++;
       _subscription?.cancel();
       _subscription = null;
       _smoothed = null;
@@ -86,19 +90,33 @@ class QiblaCubit extends Cubit<QiblaState> {
   }
 
   Future<void> start() async {
-    if (state.bearing == null) return;
-    final stream = FlutterCompass.events;
+    if (isClosed || state.bearing == null || _subscription != null) return;
+    final revision = ++_subscriptionRevision;
+    final stream = compassEvents ?? FlutterCompass.events;
     if (stream == null) {
       emit(state.copyWith(status: QiblaStatus.unavailable));
       return;
     }
     await _subscription?.cancel();
+    if (isClosed || revision != _subscriptionRevision) return;
     emit(state.copyWith(status: QiblaStatus.listening));
     _subscription = stream.listen(
       (event) {
+        if (isClosed || revision != _subscriptionRevision) return;
         final rawHeading = event.heading;
-        if (rawHeading == null) {
-          emit(state.copyWith(status: QiblaStatus.unavailable, heading: null));
+        if (rawHeading == null ||
+            !rawHeading.isFinite ||
+            (platform == TargetPlatform.iOS && rawHeading < 0)) {
+          // iOS uses a negative trueHeading when true north is unavailable;
+          // Android legitimately reports negative magnetic headings.
+          _smoothed = null;
+          emit(
+            state.copyWith(
+              status: QiblaStatus.unavailable,
+              heading: null,
+              accuracy: null,
+            ),
+          );
           return;
         }
 
@@ -129,19 +147,28 @@ class QiblaCubit extends Cubit<QiblaState> {
           ),
         );
       },
-      onError: (_) => emit(
-        state.copyWith(
-          status: QiblaStatus.failure,
-          error: 'تعذّر قراءة مستشعر البوصلة.',
-        ),
-      ),
+      onError: (_) {
+        if (isClosed || revision != _subscriptionRevision) return;
+        _smoothed = null;
+        emit(
+          state.copyWith(
+            status: QiblaStatus.failure,
+            heading: null,
+            accuracy: null,
+            error: 'تعذّر قراءة مستشعر البوصلة.',
+          ),
+        );
+      },
     );
   }
 
   Future<void> stop() async {
-    await _subscription?.cancel();
+    final revision = ++_subscriptionRevision;
+    final subscription = _subscription;
     _subscription = null;
     _smoothed = null;
+    await subscription?.cancel();
+    if (isClosed || revision != _subscriptionRevision) return;
     if (state.bearing != null) {
       emit(
         state.copyWith(
@@ -155,6 +182,7 @@ class QiblaCubit extends Cubit<QiblaState> {
 
   @override
   Future<void> close() async {
+    _subscriptionRevision++;
     await _subscription?.cancel();
     return super.close();
   }

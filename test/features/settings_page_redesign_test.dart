@@ -224,4 +224,73 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'privacy opens offline, scrolls at 320px and returns to settings',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _mount(tester, scale: 2);
+      await _openRow(tester, 'سياسة الخصوصية');
+
+      // Flutter widget tests have no working HTTP service. All privacy content
+      // must still be available from the bundled page, including its last section.
+      expect(find.text('خصوصيتك في مشكاة'), findsOneWidget);
+      expect(find.textContaining('آخر تحديث:'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      final privacyScroll = find
+          .descendant(
+            of: find.byType(ListView).last,
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      for (final heading in [
+        'الموقع والقبلة',
+        'الميكروفون والتسميع',
+        'الاتصال وخدمات التلاوة',
+        'التنبيهات والودجت',
+        'الاحتفاظ والحذف',
+        'الأذونات والتواصل',
+      ]) {
+        await tester.scrollUntilVisible(
+          find.text(heading),
+          220,
+          scrollable: privacyScroll,
+          maxScrolls: 40,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(heading).hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+      await tester.scrollUntilVisible(
+        find.textContaining('developer@dakomn.com'),
+        220,
+        scrollable: privacyScroll,
+      );
+      await tester.pumpAndSettle();
+      final scrollPosition = tester
+          .state<ScrollableState>(privacyScroll)
+          .position;
+      scrollPosition.jumpTo(scrollPosition.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final contact = find.textContaining('developer@dakomn.com');
+      expect(contact, findsOneWidget);
+      // At 2x text the final paragraph can exceed the viewport height. Its
+      // bottom (including the contact address) must remain reachable by scroll.
+      expect(tester.getRect(contact).bottom, lessThanOrEqualTo(568));
+      expect(tester.getRect(contact).left, greaterThanOrEqualTo(0));
+      expect(tester.getRect(contact).right, lessThanOrEqualTo(320));
+      expect(scrollPosition.pixels, greaterThan(0));
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.byTooltip('رجوع'));
+      await tester.pumpAndSettle();
+      expect(find.text('الإعدادات'), findsOneWidget);
+      expect(find.byKey(const ValueKey('settings-privacy')), findsOneWidget);
+      expect(find.text('خصوصيتك في مشكاة'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

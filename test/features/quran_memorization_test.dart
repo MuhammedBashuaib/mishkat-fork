@@ -748,7 +748,7 @@ void main() {
       expect(find.text('خطة حفظ جديدة'), findsOneWidget);
       expect(find.text('اسم الخطة'), findsOneWidget);
       expect(find.text('اختر السورة'), findsOneWidget);
-      expect(find.text('الورد اليومي للآيات الجديد'), findsOneWidget);
+      expect(find.text('الورد اليومي للآيات الجديدة'), findsOneWidget);
       expect(find.text('بدء وتثبيت خطة الحفظ'), findsOneWidget);
     });
 

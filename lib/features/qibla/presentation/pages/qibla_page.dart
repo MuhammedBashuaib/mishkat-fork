@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,7 +24,9 @@ import '../widgets/mishkat_compass_widget.dart';
 /// - Comprehensive handling for missing location, loading, missing sensor, and calibration.
 /// - Lifecycle-aware sensor management to prevent battery drain and memory leaks.
 class QiblaPage extends StatefulWidget {
-  const QiblaPage({super.key});
+  const QiblaPage({super.key, this.isActive = true});
+
+  final bool isActive;
 
   @override
   State<QiblaPage> createState() => _QiblaPageState();
@@ -30,40 +34,64 @@ class QiblaPage extends StatefulWidget {
 
 class _QiblaPageState extends State<QiblaPage> with WidgetsBindingObserver {
   bool _wasAligned = false;
+  late final QiblaCubit _cubit;
+  bool _isResumed = true;
+  bool _isCurrentRoute = true;
+  bool _compassSuspended = false;
 
   @override
   void initState() {
     super.initState();
+    _cubit = context.read<QiblaCubit>();
+    _isResumed =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
 
     // Auto-start compass on page load if location is already set
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final qiblaState = context.read<QiblaCubit>().state;
-        if (qiblaState.bearing != null &&
-            qiblaState.status == QiblaStatus.ready) {
-          context.read<QiblaCubit>().start();
-        }
-      }
+      if (mounted) _syncCompass();
     });
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
-    if (lifecycleState == AppLifecycleState.paused ||
-        lifecycleState == AppLifecycleState.inactive) {
-      context.read<QiblaCubit>().stop();
-    } else if (lifecycleState == AppLifecycleState.resumed) {
-      final qiblaState = context.read<QiblaCubit>().state;
-      if (qiblaState.bearing != null) {
-        context.read<QiblaCubit>().start();
-      }
+  void didUpdateWidget(covariant QiblaPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) _syncCompass();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.isCurrentOf(context) ?? true;
+    if (current != _isCurrentRoute) {
+      _isCurrentRoute = current;
+      _syncCompass();
     }
+  }
+
+  void _syncCompass() {
+    if (!widget.isActive || !_isResumed || !_isCurrentRoute) {
+      _wasAligned = false;
+      _compassSuspended = true;
+      unawaited(_cubit.stop());
+    } else if (_cubit.state.bearing != null &&
+        (_compassSuspended || _cubit.state.status == QiblaStatus.ready)) {
+      _compassSuspended = false;
+      unawaited(_cubit.start());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    _isResumed = lifecycleState == AppLifecycleState.resumed;
+    _syncCompass();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_cubit.stop());
     super.dispose();
   }
 
@@ -71,6 +99,7 @@ class _QiblaPageState extends State<QiblaPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return BlocConsumer<QiblaCubit, QiblaState>(
       listener: (context, state) {
+        if (!widget.isActive || !_isResumed || !_isCurrentRoute) return;
         // Haptic feedback once upon entering alignment
         if (state.aligned && !_wasAligned) {
           HapticFeedback.mediumImpact();

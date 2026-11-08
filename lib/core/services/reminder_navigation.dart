@@ -16,7 +16,15 @@ import '../../features/tasbih/presentation/pages/tasbih_page.dart';
 class ReminderNavigation {
   const ReminderNavigation._();
 
-  static Future<void> open(BuildContext context, String payload) async {
+  static Future<void> open(
+    BuildContext context,
+    String payload, {
+    bool Function()? canNavigate,
+  }) async {
+    // A reset can begin while a cold-start load or persistence operation is
+    // pending. Check again before issuing another mutation or opening a route.
+    bool canProceed() => context.mounted && (canNavigate?.call() ?? true);
+    if (!canProceed()) return;
     final destination = payload.split(':').first;
     final navigator = Navigator.of(context);
     switch (destination) {
@@ -34,7 +42,7 @@ class ReminderNavigation {
         } else if (quran.state.data == null) {
           await quran.load();
         }
-        if (!context.mounted || quran.isClosed) return;
+        if (!context.mounted || !canProceed() || quran.isClosed) return;
         final data = quran.state.data;
         if (data == null) {
           context.showMessage('تعذّر فتح سورة الكهف الآن. حاول مجددًا.');
@@ -42,7 +50,7 @@ class ReminderNavigation {
         }
         final firstAyah = data.globalFor(18, 1);
         await quran.openSurah(18);
-        if (!context.mounted) return;
+        if (!context.mounted || !canProceed()) return;
         navigator.push(
           MaterialPageRoute<void>(
             builder: (_) => QuranReaderPage(initialGlobalAyah: firstAyah),
@@ -67,7 +75,7 @@ class ReminderNavigation {
         if (parts.length > 1) {
           await context.read<TasbihCubit>().selectDhikr(parts[1]);
         }
-        if (!context.mounted) return;
+        if (!context.mounted || !canProceed()) return;
         navigator.push(
           MaterialPageRoute<void>(builder: (_) => const TasbihPage()),
         );
@@ -78,14 +86,14 @@ class ReminderNavigation {
           final parts = payload.split(':');
           if (parts.length > 1) {
             await context.read<KhatmaCubit>().setActive(parts[1]);
-            if (!context.mounted) return;
+            if (!context.mounted || !canProceed()) return;
           }
         }
         final plan = context.read<KhatmaCubit>().state.active;
         if (plan != null && plan.status == KhatmaStatus.active) {
           final page = plan.resumePage.clamp(plan.nextPage, plan.todayEnd);
           await context.read<QuranCubit>().openPage(page);
-          if (!context.mounted) return;
+          if (!context.mounted || !canProceed()) return;
           navigator.push(
             MaterialPageRoute<void>(
               builder: (_) => QuranReaderPage(

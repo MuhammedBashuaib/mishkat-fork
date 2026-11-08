@@ -57,7 +57,18 @@ Future<void> main() async {
   );
   await homeWidgetService.initialize(settingsCubit.state.settings);
   final audioCache = QuranAudioCacheService();
-  await audioCache.init();
+  try {
+    await audioCache.init();
+  } on Object catch (error, stackTrace) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'audio cache',
+        context: ErrorDescription('while initializing optional offline audio'),
+      ),
+    );
+  }
   final offlineDownloads = OfflineAudioDownloadController(audioCache);
 
   runApp(

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/services/local_notification_service.dart';
 import '../../../../core/services/home_widget_service.dart';
+import '../../../../core/services/app_data_reset_service.dart';
 import '../../../../core/services/reminder_navigation.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../adhkar/presentation/cubit/adhkar_cubit.dart';
@@ -41,6 +42,9 @@ class _AppShellState extends State<AppShell> {
   bool _routingNotification = false;
   bool _routingHomeWidget = false;
 
+  bool get _resetting =>
+      context.read<AppDataResetService?>()?.isResetting ?? false;
+
   @override
   void initState() {
     super.initState();
@@ -76,15 +80,25 @@ class _AppShellState extends State<AppShell> {
   void _onNotificationTap() {
     final payload = notificationTapPayload.value;
     if (!mounted ||
+        _resetting ||
         payload == null ||
         payload.isEmpty ||
         _routingNotification) {
       return;
     }
+    final reset = context.read<AppDataResetService?>();
+    final resetGeneration = reset?.generation;
+    bool canNavigate() =>
+        mounted &&
+        !(reset?.isResetting ?? false) &&
+        reset?.generation == resetGeneration;
     _routingNotification = true;
     notificationTapPayload.value = null;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+      if (!canNavigate()) {
+        _routingNotification = false;
+        return;
+      }
       final navigator = Navigator.of(context);
       navigator.popUntil((route) => route.isFirst);
       final parts = payload.split(':');
@@ -97,7 +111,11 @@ class _AppShellState extends State<AppShell> {
           case 'charity':
           case 'wird':
           case 'khatma':
-            await ReminderNavigation.open(context, payload);
+            await ReminderNavigation.open(
+              context,
+              payload,
+              canNavigate: canNavigate,
+            );
             break;
           case 'adhkar':
             final route = parts.length > 1 ? parts[1] : '1';
@@ -130,11 +148,20 @@ class _AppShellState extends State<AppShell> {
 
   void _onHomeWidgetTap() {
     final uri = homeWidgetLaunchUri.value;
-    if (!mounted || uri == null || _routingHomeWidget) return;
+    if (!mounted || _resetting || uri == null || _routingHomeWidget) return;
+    final reset = context.read<AppDataResetService?>();
+    final resetGeneration = reset?.generation;
+    bool canNavigate() =>
+        mounted &&
+        !(reset?.isResetting ?? false) &&
+        reset?.generation == resetGeneration;
     _routingHomeWidget = true;
     homeWidgetLaunchUri.value = null;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+      if (!canNavigate()) {
+        _routingHomeWidget = false;
+        return;
+      }
       final navigator = Navigator.of(context);
       navigator.popUntil((route) => route.isFirst);
       try {
@@ -151,7 +178,7 @@ class _AppShellState extends State<AppShell> {
             if (plan != null && plan.status == KhatmaStatus.active) {
               final page = plan.resumePage.clamp(plan.nextPage, plan.todayEnd);
               await context.read<QuranCubit>().openPage(page);
-              if (!mounted) return;
+              if (!canNavigate()) return;
               navigator.push(
                 MaterialPageRoute<void>(
                   builder: (_) => QuranReaderPage(
@@ -196,12 +223,12 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) => BlocBuilder<ShellCubit, ShellState>(
     builder: (context, state) {
-      const pages = [
-        HomePage(),
-        QuranPage(),
-        QiblaPage(),
-        AdhkarPage(),
-        LibraryPage(),
+      final pages = [
+        const HomePage(),
+        const QuranPage(),
+        QiblaPage(isActive: state.index == 2),
+        const AdhkarPage(),
+        const LibraryPage(),
       ];
       const titles = [
         'مِشكاة',

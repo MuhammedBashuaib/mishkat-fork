@@ -10,11 +10,28 @@ class LibraryCubit extends Cubit<LibraryState> {
   LibraryCubit(this._repository, this._storage) : super(const LibraryState());
   final LibraryRepository _repository;
   final LocalStorageService _storage;
+  int _dataRevision = 0;
+
+  void invalidatePendingOperations() => ++_dataRevision;
+
+  void resetLocalData() {
+    invalidatePendingOperations();
+    emit(
+      LibraryState(
+        status: state.books.isEmpty
+            ? LibraryStatus.initial
+            : LibraryStatus.ready,
+        books: state.books,
+      ),
+    );
+  }
 
   Future<void> load() async {
+    final revision = _dataRevision;
     emit(state.copyWith(status: LibraryStatus.loading));
     try {
       final books = await _repository.loadCatalog();
+      if (isClosed || revision != _dataRevision) return;
       final saved = _storage.readMap('library');
       emit(
         state.copyWith(
@@ -39,6 +56,7 @@ class LibraryCubit extends Cubit<LibraryState> {
         ),
       );
     } on Object catch (error) {
+      if (isClosed || revision != _dataRevision) return;
       emit(
         state.copyWith(
           status: LibraryStatus.failure,
@@ -68,9 +86,11 @@ class LibraryCubit extends Cubit<LibraryState> {
   }
 
   Future<void> openBook(LibraryBook book) async {
+    final revision = _dataRevision;
     emit(state.copyWith(status: LibraryStatus.loading, selectedBook: book));
     try {
       final entries = await _repository.loadBook(book);
+      if (isClosed || revision != _dataRevision) return;
       final history = [
         book.id,
         ...state.history.where((id) => id != book.id),
@@ -85,6 +105,7 @@ class LibraryCubit extends Cubit<LibraryState> {
       );
       await _persist();
     } on Object catch (error) {
+      if (isClosed || revision != _dataRevision) return;
       emit(
         state.copyWith(
           status: LibraryStatus.failure,

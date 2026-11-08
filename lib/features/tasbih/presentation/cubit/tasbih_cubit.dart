@@ -12,6 +12,10 @@ class TasbihCubit extends Cubit<TasbihState> {
   final LocalStorageService _storage;
   final DateTime Function() _now;
 
+  /// Reset the complete session, including custom entries and lifetime totals.
+  /// Persistence is cleared by the application-wide reset coordinator.
+  void resetLocalData() => emit(TasbihState(sessionDate: _dateKey(_now())));
+
   Future<void> increment() async {
     final current = _withCurrentDay(state);
     emit(

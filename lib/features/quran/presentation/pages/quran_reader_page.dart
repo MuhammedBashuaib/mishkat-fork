@@ -133,6 +133,24 @@ class _QuranReaderPageState extends State<QuranReaderPage>
     }
   }
 
+  void _moveToPage(int target) {
+    if (!_controller.hasClients) return;
+    final current = _controller.page?.round() ?? target;
+    if (current == target) return;
+    if ((target - current).abs() > 1) {
+      // Direct jumps must not generate intermediate page-turn progress or
+      // briefly replace the destination with a page crossed by an animation.
+      _lastKhatmaPage = null;
+      _controller.jumpToPage(target);
+    } else {
+      _controller.animateToPage(
+        target,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_focus && state == AppLifecycleState.resumed) {
@@ -306,16 +324,7 @@ class _QuranReaderPageState extends State<QuranReaderPage>
                         layoutRepo.pageForAyah(nextAyah) ??
                         _quranCubit.state.data?.pageForGlobal(nextAyah);
                     if (targetPage != null) {
-                      final targetIndex = targetPage - 1;
-                      if (_controller.hasClients &&
-                          (_controller.page?.round() ?? targetIndex) !=
-                              targetIndex) {
-                        _controller.animateToPage(
-                          targetIndex,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOutCubic,
-                        );
-                      }
+                      _moveToPage(targetPage - 1);
                     }
                   },
                 ),
@@ -340,15 +349,7 @@ class _QuranReaderPageState extends State<QuranReaderPage>
               listenWhen: (previous, current) =>
                   previous.currentPage != current.currentPage,
               listener: (context, state) {
-                final target = state.currentPage - 1;
-                if (_controller.hasClients &&
-                    (_controller.page?.round() ?? target) != target) {
-                  _controller.animateToPage(
-                    target,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOutCubic,
-                  );
-                }
+                _moveToPage(state.currentPage - 1);
               },
               buildWhen: (previous, current) =>
                   previous.currentPage != current.currentPage ||
@@ -648,6 +649,7 @@ class _QuranReaderPageState extends State<QuranReaderPage>
         planId: planId,
         currentPage: savedPage,
         completedThrough: isSequentialForward ? previousPage : null,
+        requireContiguousProgress: true,
       ),
     );
   }

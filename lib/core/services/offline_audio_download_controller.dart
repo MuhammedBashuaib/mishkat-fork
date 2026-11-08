@@ -51,6 +51,7 @@ class OfflineAudioDownloadController extends ChangeNotifier {
   final QuranAudioCacheService _cache;
   OfflineDownloadState _state = const OfflineDownloadState();
   int _operationId = 0;
+  bool _clearing = false;
 
   OfflineDownloadState get state => _state;
   QuranAudioCacheService get cache => _cache;
@@ -113,7 +114,7 @@ class OfflineAudioDownloadController extends ChangeNotifier {
     required int endAyah,
     required String label,
   }) async {
-    if (_state.isRunning) return;
+    if (_clearing || _state.isRunning) return;
     if (reciter.source == ReciterAudioSource.segmentedSurah) {
       _setState(
         OfflineDownloadState(
@@ -193,6 +194,7 @@ class OfflineAudioDownloadController extends ChangeNotifier {
       startAyah: startAyah,
       endAyah: endAyah,
     );
+    if (operationId != _operationId) return;
     _setState(
       OfflineDownloadState(
         status: saved == total
@@ -225,6 +227,19 @@ class OfflineAudioDownloadController extends ChangeNotifier {
         total: _state.total,
       ),
     );
+  }
+
+  /// Invalidates the queue before clearing its files. In-flight completion
+  /// cannot start another Ayah or restore progress after a user data reset.
+  Future<void> clearAllDownloads() async {
+    _clearing = true;
+    _operationId++;
+    _setState(const OfflineDownloadState());
+    try {
+      await _cache.clearCache();
+    } finally {
+      _clearing = false;
+    }
   }
 
   Future<void> removeRange({

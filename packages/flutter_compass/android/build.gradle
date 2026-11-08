@@ -1,0 +1,38 @@
+group 'com.hemanthraj.fluttercompass'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:4.1.1'
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 34
+
+    if (project.android.hasProperty("namespace")) {
+        namespace 'com.hemanthraj.fluttercompass'
+    }
+
+    defaultConfig {
+        minSdkVersion 20
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    lintOptions {
+        disable 'InvalidPackage'
+    }
+}

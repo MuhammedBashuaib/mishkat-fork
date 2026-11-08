@@ -48,6 +48,7 @@ class HomeWidgetService {
   Timer? _tasbihDebounce;
   Future<void> _tasbihWrites = Future.value();
   Future<void> _settingsWrites = Future.value();
+  Future<void> _wirdWrites = Future.value();
 
   bool get isSupportedPlatform =>
       !kIsWeb &&
@@ -151,22 +152,25 @@ class HomeWidgetService {
     }
   }
 
-  Future<void> syncWird(KhatmaPlan? plan) async {
-    if (!isSupportedPlatform) return;
-    await _guarded('while syncing daily wird', () async {
-      final content = WirdWidgetContent(plan);
-      await WirdWidgetHomeWidget.saveData(
-        wirdName: content.name,
-        wirdPages: content.pages,
-        wirdDetail: content.detail,
-        wirdProgress: content.progressLabel,
-        wirdProgressValue: content.progress,
-        wirdCompletedPages: content.completedLabel,
-        wirdRemainingPages: content.remainingLabel,
-        wirdAction: content.action,
-      );
-      await WirdWidgetHomeWidget.updateWidget();
-    });
+  Future<void> syncWird(KhatmaPlan? plan) {
+    if (!isSupportedPlatform) return Future.value();
+    _wirdWrites = _wirdWrites.then(
+      (_) => _guarded('while syncing daily wird', () async {
+        final content = WirdWidgetContent(plan);
+        await WirdWidgetHomeWidget.saveData(
+          wirdName: content.name,
+          wirdPages: content.pages,
+          wirdDetail: content.detail,
+          wirdProgress: content.progressLabel,
+          wirdProgressValue: content.progress,
+          wirdCompletedPages: content.completedLabel,
+          wirdRemainingPages: content.remainingLabel,
+          wirdAction: content.action,
+        );
+        await WirdWidgetHomeWidget.updateWidget();
+      }),
+    );
+    return _wirdWrites;
   }
 
   /// Coalesce fast taps; the application remains the source of the counter.

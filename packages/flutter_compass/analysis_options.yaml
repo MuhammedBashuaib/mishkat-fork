@@ -1,0 +1,8 @@
+include: ../../analysis_options.yaml
+
+# Keep the published 0.8.1 Dart implementation byte-identical. These two
+# cosmetic upstream conventions do not affect the native lifecycle patch.
+linter:
+  rules:
+    unnecessary_null_in_if_null_operators: false
+    unnecessary_const: false

@@ -23,8 +23,17 @@ class SettingsCubit extends Cubit<SettingsState> {
   final LocationService _locationService;
   final LocalNotificationService _notifications;
   int _notificationToggleRevision = 0;
+  int _dataRevision = 0;
+  bool _resetting = false;
+
+  void invalidatePendingOperations() {
+    ++_dataRevision;
+    ++_notificationToggleRevision;
+    _resetting = true;
+  }
 
   Future<void> load() async {
+    _resetting = false;
     final settings = AppSettings.fromJson(_storage.readMap('settings'));
     emit(SettingsState(status: SettingsStatus.ready, settings: settings));
     if (settings.keepAwake) unawaited(WakelockPlus.enable());
@@ -34,9 +43,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<void> useCurrentLocation() async {
+    final revision = _dataRevision;
     emit(state.copyWith(status: SettingsStatus.locating, clearMessage: true));
     try {
       final position = await _locationService.currentPosition();
+      if (isClosed || revision != _dataRevision) return;
       final current = state.settings;
       await _save(
         current.copyWith(
@@ -50,10 +61,12 @@ class SettingsCubit extends Cubit<SettingsState> {
         reschedule: true,
       );
     } on LocationFailure catch (error) {
+      if (isClosed || revision != _dataRevision) return;
       emit(
         state.copyWith(status: SettingsStatus.failure, message: error.message),
       );
     } on Object {
+      if (isClosed || revision != _dataRevision) return;
       emit(
         state.copyWith(
           status: SettingsStatus.failure,
@@ -124,10 +137,15 @@ class SettingsCubit extends Cubit<SettingsState> {
       _save(state.settings.copyWith(recitationFeedbackMode: value));
 
   Future<void> setKeepAwake(bool value) async {
+    final revision = _dataRevision;
     if (value) {
       await WakelockPlus.enable();
     } else {
       await WakelockPlus.disable();
+    }
+    if (isClosed || revision != _dataRevision) {
+      await WakelockPlus.disable();
+      return;
     }
     await _save(state.settings.copyWith(keepAwake: value));
   }
@@ -201,10 +219,12 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<void> testNotification() async {
+    final revision = _dataRevision;
     try {
       if (!await _notifications.requestPermission()) {
         throw StateError('notifications denied');
       }
+      if (isClosed || revision != _dataRevision) return;
       await _notifications.showTest(
         sound: state.settings.adhanSound,
         vibrate: state.settings.vibrate,
@@ -214,7 +234,7 @@ class SettingsCubit extends Cubit<SettingsState> {
             : null,
       );
     } on Object {
-      if (!isClosed) {
+      if (!isClosed && revision == _dataRevision) {
         emit(
           state.copyWith(
             status: SettingsStatus.failure,
@@ -231,6 +251,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       rescheduleNotifications(state.settings);
 
   Future<void> clearAllData() async {
+    invalidatePendingOperations();
     await _notifications.cancelAll();
     await _storage.clear();
     emit(
@@ -239,9 +260,18 @@ class SettingsCubit extends Cubit<SettingsState> {
         settings: AppSettings(),
       ),
     );
+    // Wakelock is optional (and absent on some test/desktop platforms).
+    try {
+      await WakelockPlus.disable();
+    } on Object {
+      // Stored settings and in-memory state have already been reset.
+    }
+    _resetting = false;
   }
 
   Future<void> _save(AppSettings settings, {bool reschedule = false}) async {
+    if (_resetting) return;
+    final revision = _dataRevision;
     emit(
       state.copyWith(
         status: SettingsStatus.saving,
@@ -252,7 +282,9 @@ class SettingsCubit extends Cubit<SettingsState> {
     await _storage.writeMap('settings', settings.toJson());
     // A later toggle may have arrived while the write was pending. Do not
     // restore or schedule that older snapshot over the user's latest choice.
-    if (isClosed || state.settings != settings) return;
+    if (isClosed || revision != _dataRevision || state.settings != settings) {
+      return;
+    }
     emit(
       state.copyWith(
         status: SettingsStatus.ready,
@@ -266,10 +298,13 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<void> rescheduleNotifications(AppSettings settings) async {
-    if (!settings.notificationsEnabled) return;
+    final revision = _dataRevision;
+    if (_resetting || !settings.notificationsEnabled) return;
     try {
       final precise = await _notifications.canSchedulePrecisely();
-      if (isClosed || state.settings != settings) return;
+      if (isClosed || revision != _dataRevision || state.settings != settings) {
+        return;
+      }
       emit(state.copyWith(preciseAlarmsAllowed: precise));
       await _notifications.scheduleAll(
         NotificationSchedulePlanner.build(
@@ -278,7 +313,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         ),
       );
     } on Object {
-      if (!isClosed) {
+      if (!isClosed && revision == _dataRevision) {
         emit(
           state.copyWith(
             status: SettingsStatus.failure,

@@ -13,11 +13,6 @@ import 'package:mishkat_app/core/services/local_notification_service.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/core/services/location_service.dart';
 import 'package:mishkat_app/core/theme/app_theme.dart';
-import 'package:mishkat_app/features/quran/data/models/memorization_item.dart';
-import 'package:mishkat_app/features/quran/data/models/memorization_plan.dart';
-import 'package:mishkat_app/features/quran/data/models/memorization_status.dart';
-import 'package:mishkat_app/features/quran/data/models/murajaah_models.dart';
-import 'package:mishkat_app/features/quran/data/models/quran_models.dart';
 import 'package:mishkat_app/features/quran/data/repositories/mushaf_layout_repository.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_memorization_repository.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_repository.dart';
@@ -25,12 +20,9 @@ import 'package:mishkat_app/features/quran/presentation/cubit/mushaf_interaction
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_cubit.dart';
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_memorization_cubit.dart';
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_visual_recall_cubit.dart';
-import 'package:mishkat_app/features/quran/presentation/cubit/quran_visual_recall_state.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/memorization_session_page.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/quran_memorization_page.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.dart';
-import 'package:mishkat_app/features/quran/presentation/widgets/ayah_action_sheet.dart';
-import 'package:mishkat_app/features/quran/presentation/widgets/mushaf_visual_mask_overlay.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/visual_recall_bottom_bar.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
 
@@ -195,7 +187,6 @@ class FakeQuranAudioService implements QuranAudioService {
     emitState(PlayerState(true, ProcessingState.ready));
   }
 
-  @override
   Future<void> playAyahFromUrl(String url) async {}
 
   @override

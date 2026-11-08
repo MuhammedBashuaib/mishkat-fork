@@ -313,10 +313,16 @@ class QuranAudioService {
     }
 
     // 1. Try local cache
-    final localFile = await _cache.getCachedFile(
-      reciter: reciter,
-      globalAyah: safeAyah,
-    );
+    File? localFile;
+    try {
+      localFile = await _cache.getCachedFile(
+        reciter: reciter,
+        globalAyah: safeAyah,
+      );
+    } on FileSystemException {
+      // Optional caching may be unavailable on a full/unwritable device.
+      // Online playback can still use the original source.
+    }
 
     if (requestId != _activeRequestId) return;
 
@@ -364,11 +370,13 @@ class QuranAudioService {
 
     // 4. Trigger background cache download
     unawaited(
-      _cache.cacheAyah(
-        reciter: reciter,
-        globalAyah: safeAyah,
-        pinnedAyahs: {safeAyah},
-      ),
+      _cache
+          .cacheAyah(
+            reciter: reciter,
+            globalAyah: safeAyah,
+            pinnedAyahs: {safeAyah},
+          )
+          .then<void>((_) {}, onError: (Object _, StackTrace _) {}),
     );
   }
 

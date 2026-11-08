@@ -1,3 +1,6 @@
+// Screenshot evidence paths are intentional test-run output.
+// ignore_for_file: avoid_print
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -684,7 +687,7 @@ void main() {
     );
 
     // 14. Oral Recitation Completed Session Summary (390x844)
-    await activeOralCubit.finishSession();
+    await tester.runAsync(() => activeOralCubit.finishSession());
     await tester.pump(const Duration(milliseconds: 50));
 
     await captureScreen(
@@ -699,7 +702,9 @@ void main() {
       size: const Size(390, 844),
     );
 
-    await activeOralCubit.close();
+    // Dispose the page's feedback listeners before closing their source.
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(activeOralCubit.close);
 
     // 15. Oral Recitation Permission Gate (Initial Prompt)
     final gateSpeech = MockSpeechRecognitionService(initialPermission: false);
@@ -743,7 +748,8 @@ void main() {
       size: const Size(390, 844),
     );
 
-    await gateCubit.close();
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(gateCubit.close);
 
     // Tear down clean
     await tester.pumpWidget(const SizedBox());

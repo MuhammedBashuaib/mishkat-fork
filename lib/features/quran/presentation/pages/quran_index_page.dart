@@ -552,36 +552,157 @@ class _PageJumpDialogState extends State<_PageJumpDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('الانتقال إلى صفحة'),
-    scrollable: true,
-    content: Form(
-      key: _formKey,
-      child: TextFormField(
-        controller: _controller,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        textInputAction: TextInputAction.go,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        decoration: const InputDecoration(
-          labelText: 'رقم الصفحة',
-          helperText: 'من ١ إلى ٦٠٤',
-          errorMaxLines: 2,
+  Widget build(BuildContext context) {
+    final colors = context.mishkat;
+    final text = Theme.of(context).textTheme;
+    final availableHeight =
+        MediaQuery.sizeOf(context).height -
+        MediaQuery.viewInsetsOf(context).bottom -
+        MediaQuery.paddingOf(context).vertical;
+    final compact = availableHeight < 360;
+    final verticalPadding = compact ? MishkatSpacing.md : MishkatSpacing.lg;
+    final errorBorder = OutlineInputBorder(
+      borderRadius: MishkatRadius.brMd,
+      borderSide: BorderSide(color: colors.error, width: 1.5),
+    );
+
+    return AlertDialog(
+      backgroundColor: colors.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: MishkatRadius.brXl,
+        side: BorderSide(color: colors.borderSubtle),
+      ),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: MishkatSpacing.lg,
+        vertical: MishkatSpacing.base,
+      ),
+      constraints: const BoxConstraints(maxWidth: 400),
+      clipBehavior: Clip.antiAlias,
+      titlePadding: EdgeInsets.fromLTRB(20, verticalPadding, 20, 0),
+      title: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colors.primarySoft,
+              borderRadius: MishkatRadius.brMd,
+            ),
+            child: Icon(
+              Icons.find_in_page_outlined,
+              color: colors.primary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: MishkatSpacing.md),
+          Expanded(child: Text('الانتقال إلى صفحة', style: text.titleLarge)),
+        ],
+      ),
+      scrollable: true,
+      contentPadding: EdgeInsets.fromLTRB(
+        20,
+        compact ? MishkatSpacing.md : MishkatSpacing.base,
+        20,
+        verticalPadding,
+      ),
+      content: SizedBox(
+        width: 360,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: MishkatSpacing.md,
+                runSpacing: MishkatSpacing.xs,
+                children: [
+                  Text('رقم الصفحة', style: text.labelLarge),
+                  Text(
+                    'من ١ إلى ٦٠٤',
+                    style: text.bodySmall?.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: MishkatSpacing.sm),
+              Semantics(
+                label: 'رقم الصفحة',
+                child: TextFormField(
+                  controller: _controller,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.go,
+                  textAlign: TextAlign.center,
+                  style: text.headlineMedium?.copyWith(
+                    fontSize: 26,
+                    color: colors.textPrimary,
+                  ),
+                  cursorColor: colors.primary,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  decoration: InputDecoration(
+                    hintText: 'مثال: ١٢٣',
+                    hintStyle: text.bodyMedium?.copyWith(
+                      color: colors.textMuted,
+                    ),
+                    filled: true,
+                    fillColor: colors.surfaceVariant,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: MishkatSpacing.base,
+                      vertical: MishkatSpacing.md,
+                    ),
+                    errorMaxLines: 2,
+                    errorStyle: text.bodySmall?.copyWith(color: colors.error),
+                    errorBorder: errorBorder,
+                    focusedErrorBorder: errorBorder,
+                  ),
+                  validator: (value) => _parsePage(value ?? '') == null
+                      ? 'أدخل رقم صفحة من ١ إلى ٦٠٤'
+                      : null,
+                  onFieldSubmitted: (_) => _submit(),
+                ),
+              ),
+            ],
+          ),
         ),
-        validator: (value) => _parsePage(value ?? '') == null
-            ? 'أدخل رقم صفحة من ١ إلى ٦٠٤'
-            : null,
-        onFieldSubmitted: (_) => _submit(),
       ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('إلغاء'),
-      ),
-      FilledButton(onPressed: _submit, child: const Text('انتقال')),
-    ],
-  );
+      actionsPadding: EdgeInsets.fromLTRB(20, 0, 20, verticalPadding),
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: FilledButton(
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+                onPressed: _submit,
+                child: const Text('انتقال'),
+              ),
+            ),
+            const SizedBox(width: MishkatSpacing.md),
+            Expanded(
+              flex: 2,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: MishkatSpacing.sm,
+                  ),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إلغاء'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _IndexTile extends StatelessWidget {
