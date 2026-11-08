@@ -28,10 +28,11 @@ class _Storage extends LocalStorageService {
 class _Notifications extends LocalNotificationService {
   List<ScheduledAppNotification> latest = [];
   bool cancelled = false;
+  bool permissionAllowed = true;
   @override
   Future<bool> canSchedulePrecisely() async => true;
   @override
-  Future<bool> requestPermission() async => true;
+  Future<bool> requestPermission() async => permissionAllowed;
   @override
   Future<void> scheduleAll(List<ScheduledAppNotification> notifications) async {
     latest = notifications;
@@ -125,7 +126,7 @@ void main() {
     );
     expect(
       notifications.latest.where(
-        (item) => item.payload?.startsWith('tasbih:') == true,
+        (item) => item.kind == AppNotificationKind.dhikr,
       ),
       hasLength(5),
     );
@@ -137,5 +138,62 @@ void main() {
       23,
     );
     expect(AppSettings.fromJson(storage.settings), cubit.state.settings);
+  });
+
+  test(
+    'Friday toggle replaces only Friday reminders and survives reload',
+    () async {
+      expect(
+        notifications.latest.where(
+          (item) => item.kind == AppNotificationKind.friday,
+        ),
+        hasLength(9),
+      );
+      await cubit.setReminders(
+        cubit.state.settings.reminders.copyWith(fridayEnabled: false),
+      );
+      expect(
+        notifications.latest.where(
+          (item) => item.kind == AppNotificationKind.friday,
+        ),
+        isEmpty,
+      );
+      expect(
+        notifications.latest.where(
+          (item) => item.kind == AppNotificationKind.adhkar,
+        ),
+        hasLength(4),
+      );
+      expect(
+        notifications.latest.where(
+          (item) => item.kind == AppNotificationKind.adhan,
+        ),
+        isNotEmpty,
+      );
+      await cubit.load();
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.settings.reminders.fridayEnabled, isFalse);
+      await cubit.setReminders(
+        cubit.state.settings.reminders.copyWith(fridayEnabled: true),
+      );
+      expect(
+        notifications.latest.where(
+          (item) => item.kind == AppNotificationKind.friday,
+        ),
+        hasLength(9),
+      );
+      await cubit.setNotificationsEnabled(false);
+      expect(notifications.cancelled, isTrue);
+      expect(cubit.state.settings.notificationsEnabled, isFalse);
+    },
+  );
+
+  test('denied notification permission leaves the system disabled', () async {
+    await cubit.setNotificationsEnabled(false);
+    notifications.permissionAllowed = false;
+    expect(await cubit.setNotificationsEnabled(true), isFalse);
+    expect(cubit.state.settings.notificationsEnabled, isFalse);
+    expect(notifications.cancelled, isTrue);
+    expect(cubit.state.message, contains('لم يُمنح إذن التنبيهات'));
   });
 }

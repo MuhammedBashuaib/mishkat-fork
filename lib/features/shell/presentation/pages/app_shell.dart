@@ -91,6 +91,8 @@ class _AppShellState extends State<AppShell> {
       final destination = parts.first;
       try {
         switch (destination) {
+          case 'quran':
+          case 'friday':
           case 'tasbih':
           case 'charity':
           case 'wird':

@@ -179,6 +179,7 @@ void main() {
           charityEnabled: false,
           dhikrEnabled: false,
           dailyWirdEnabled: false,
+          fridayEnabled: false,
         ),
         prayerNotifications: {
           'fajr': false,
@@ -246,7 +247,11 @@ void main() {
       final now = DateTime(2026, 10, 31);
       final result = NotificationSchedulePlanner.build(
         storage: _MemoryStorage({}),
-        settings: const AppSettings(notificationsEnabled: true, vibrate: false),
+        settings: const AppSettings(
+          notificationsEnabled: true,
+          vibrate: false,
+          reminders: ReminderPreferences(fridayEnabled: false),
+        ),
         now: now,
       ).where((item) => item.at.isAfter(now)).toList();
       final charity = result
@@ -306,6 +311,7 @@ void main() {
           charityEnabled: false,
           dhikrEnabled: false,
           dailyWirdEnabled: false,
+          fridayEnabled: false,
         ),
       ),
     );
@@ -375,7 +381,10 @@ void main() {
       now: now,
       settings: const AppSettings(
         notificationsEnabled: true,
-        reminders: ReminderPreferences(sleepMinute: 23 * 60),
+        reminders: ReminderPreferences(
+          sleepMinute: 23 * 60,
+          fridayEnabled: false,
+        ),
       ),
     ).where((item) => item.at.isAfter(now));
     expect(result, isNotEmpty);
@@ -625,16 +634,19 @@ void main() {
     });
     expect(old.adhkarNotifications, false);
     expect(old.reminders.charityEnabled, true);
+    expect(old.reminders.fridayEnabled, true);
     final preferences = ReminderPreferences.fromJson({
       'charityEnabled': false,
       'dhikrEnabled': false,
       'dailyWirdEnabled': false,
+      'fridayEnabled': false,
       'dhikrPerDay': 999,
       'dailyWirdMinute': -5,
       'sleepMinute': 9999,
       'charityMorningMinute': 3 * 60,
     });
     expect(preferences.dhikrPerDay, 3);
+    expect(preferences.fridayEnabled, false);
     expect(preferences.dailyWirdMinute, 20 * 60 + 30);
     expect(preferences.sleepMinute, 22 * 60);
     expect(preferences.charityMorningMinute, 9 * 60);

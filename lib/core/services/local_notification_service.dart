@@ -116,8 +116,10 @@ class LocalNotificationService {
     return false;
   }
 
-  Future<void> scheduleAll(List<ScheduledAppNotification> notifications) =>
-      _serialize(() => _scheduleAll(List.of(notifications)));
+  Future<void> scheduleAll(List<ScheduledAppNotification> notifications) {
+    final snapshot = List<ScheduledAppNotification>.of(notifications);
+    return _serialize(() => _scheduleAll(snapshot));
+  }
 
   Future<void> _scheduleAll(
     List<ScheduledAppNotification> notifications,
@@ -127,8 +129,8 @@ class LocalNotificationService {
     await canSchedulePrecisely();
     final groups = notifications.map((item) => _groupFor(item.id)).toSet();
     // The unified calendar also clears disabled good-deed reminders.
-    if (groups.any((group) => group >= 1 && group <= 4)) {
-      groups.addAll(const [1, 2, 3, 4]);
+    if (groups.any((group) => group >= 1 && group <= 5)) {
+      groups.addAll(const [1, 2, 3, 4, 5]);
     }
     final pending = await _plugin.pendingNotificationRequests();
     for (final request in pending) {
@@ -137,35 +139,69 @@ class LocalNotificationService {
       }
     }
 
+    // The OS replaces requests by ID. Deduplicate before applying its capacity
+    // limit so an updated request cannot occupy two slots in our selection.
+    final byId = {for (final item in notifications) item.id: item};
     final future =
-        notifications.where((item) => item.at.isAfter(DateTime.now())).toList()
+        byId.values
+            .where(
+              (item) =>
+                  item.repeatsDaily ||
+                  item.repeatsWeekly ||
+                  item.at.isAfter(DateTime.now()),
+            )
+            .toList()
           ..sort((a, b) => a.at.compareTo(b.at));
     final android = defaultTargetPlatform == TargetPlatform.android;
-    if (android && groups.contains(1)) {
-      await _adhan.invokeMethod<void>('replace', [
-        for (final item in future.where(_usesNativeAdhan)) _nativeAdhan(item),
-      ]);
-    }
     // Keep recurring reminders before filling the remaining iOS slots with
     // dated prayers. Otherwise a late bedtime/reading reminder can be dropped.
     final retained = pending
         .where((item) => !groups.contains(_groupFor(item.id)))
         .length;
+    // Native adhan and plugin alerts share Android's per-app AlarmManager
+    // allowance. Reserve recurring reminders first, then fit dated adhan and
+    // other alerts within one conservative budget.
+    final pluginNotifications = future.where(
+      (item) => !android || !_usesNativeAdhan(item),
+    );
+    final recurring = pluginNotifications
+        .where((item) => item.repeatsDaily || item.repeatsWeekly)
+        .toList();
+    final androidBudget = (450 - retained).clamp(0, 450);
+    final nativeAdhan = android
+        ? future
+              .where(_usesNativeAdhan)
+              .take((androidBudget - recurring.length).clamp(0, androidBudget))
+              .toList()
+        : const <ScheduledAppNotification>[];
+    if (android && groups.contains(1)) {
+      await _adhan.invokeMethod<void>('replace', [
+        for (final item in nativeAdhan) _nativeAdhan(item),
+      ]);
+    }
     final limit = defaultTargetPlatform == TargetPlatform.iOS
         ? (63 - retained).clamp(0, 58)
-        : (450 - retained).clamp(0, 450);
+        : androidBudget - nativeAdhan.length;
     final selected = [
-      ...future.where((item) => item.repeatsDaily),
-      ...future.where((item) => !item.repeatsDaily),
+      ...recurring,
+      ...pluginNotifications.where(
+        (item) => !item.repeatsDaily && !item.repeatsWeekly,
+      ),
     ].take(limit);
     for (final item in selected) {
-      if (!item.at.isAfter(DateTime.now())) continue;
-      if (android && _usesNativeAdhan(item)) continue;
-      await _plugin.zonedSchedule(
+      await _scheduleNotification(item);
+    }
+  }
+
+  Future<void> _scheduleNotification(ScheduledAppNotification item) async {
+    Future<void> schedule() {
+      final at = _nextOccurrence(item);
+      if (at == null) return Future.value();
+      return _plugin.zonedSchedule(
         item.id,
         item.title,
         item.body,
-        tz.TZDateTime.from(item.at, tz.local),
+        at,
         _detailsFor(item),
         payload: item.payload,
         androidScheduleMode: _canUseExactAlarms
@@ -173,17 +209,68 @@ class LocalNotificationService {
             : AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: item.repeatsDaily
+        matchDateTimeComponents: item.repeatsWeekly
+            ? DateTimeComponents.dayOfWeekAndTime
+            : item.repeatsDaily
             ? DateTimeComponents.time
             : null,
       );
+    }
+
+    try {
+      await schedule();
+    } on PlatformException catch (error) {
+      if (defaultTargetPlatform != TargetPlatform.android ||
+          !_canUseExactAlarms ||
+          error.code != 'exact_alarms_not_permitted') {
+        rethrow;
+      }
+      // Permission can be revoked after the initial capability check. Keep
+      // this reminder and the remaining calendar using Android's fallback.
+      _canUseExactAlarms = false;
+      await schedule();
+    }
+  }
+
+  tz.TZDateTime? _nextOccurrence(ScheduledAppNotification item) {
+    final now = tz.TZDateTime.now(tz.local);
+    final source = tz.TZDateTime.from(item.at, tz.local);
+    if (source.isAfter(now)) return source;
+    if (!item.repeatsDaily && !item.repeatsWeekly) return null;
+
+    // Calendar replacement can cross a reminder's first due time. Keep its
+    // next occurrence instead of losing the recurrence or sending a late burst.
+    // Calendar dates preserve wall-clock time across daylight-saving changes.
+    final period = item.repeatsWeekly ? 7 : 1;
+    final elapsedDays = DateTime.utc(
+      now.year,
+      now.month,
+      now.day,
+    ).difference(DateTime.utc(source.year, source.month, source.day)).inDays;
+    var days = elapsedDays ~/ period * period;
+    while (true) {
+      final candidate = tz.TZDateTime(
+        tz.local,
+        source.year,
+        source.month,
+        source.day + days,
+        source.hour,
+        source.minute,
+        source.second,
+        source.millisecond,
+        source.microsecond,
+      );
+      if (candidate.isAfter(now)) return candidate;
+      days += period;
     }
   }
 
   bool _usesNativeAdhan(ScheduledAppNotification item) =>
       item.kind == AppNotificationKind.adhan &&
       item.sound &&
-      item.soundName != null;
+      item.soundName != null &&
+      !item.repeatsDaily &&
+      !item.repeatsWeekly;
 
   Map<String, Object?> _nativeAdhan(ScheduledAppNotification item) => {
     'id': item.id,
@@ -197,7 +284,7 @@ class LocalNotificationService {
 
   int _groupFor(int id) {
     if (id == 800001 || id == 800002) return id;
-    if (id >= 100000 && id < 500000) return id ~/ 100000;
+    if (id >= 100000 && id < 600000) return id ~/ 100000;
     return id;
   }
 
@@ -276,10 +363,13 @@ class LocalNotificationService {
 
   Future<void> cancelAll() => _serialize(() async {
     if (kIsWeb) return;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      await _adhan.invokeMethod<void>('cancelAll');
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        await _adhan.invokeMethod<void>('cancelAll');
+      }
+    } finally {
+      await _plugin.cancelAll();
     }
-    await _plugin.cancelAll();
   });
 }
 
@@ -294,8 +384,9 @@ class ScheduledAppNotification {
     this.vibrate = true,
     this.soundName,
     this.repeatsDaily = false,
+    this.repeatsWeekly = false,
     this.kind = AppNotificationKind.general,
-  });
+  }) : assert(!repeatsDaily || !repeatsWeekly);
   final int id;
   final String title;
   final String body;
@@ -305,6 +396,7 @@ class ScheduledAppNotification {
   final bool vibrate;
   final String? soundName;
   final bool repeatsDaily;
+  final bool repeatsWeekly;
   final AppNotificationKind kind;
 }
 
@@ -314,6 +406,7 @@ enum AppNotificationKind {
   adhkar('الأذكار اليومية', 'تذكير أذكار الصباح والمساء والنوم'),
   charity('التذكير بالصدقة', 'تذكير لطيف بالعطاء صباحًا ومساءً'),
   dhikr('ذكر الله', 'تسبيح واستغفار وصلاة على النبي خلال اليوم'),
+  friday('تذكيرات الجمعة', 'سورة الكهف والصلاة على النبي والدعاء يوم الجمعة'),
   khatma('ورد الختمة', 'تذكير الورد اليومي لختمة القرآن'),
   memorization('الحفظ والمراجعة', 'تذكير خطة الحفظ والمراجعة اليومية'),
   general('تنبيهات مشكاة', 'تنبيهات تطبيق مشكاة');

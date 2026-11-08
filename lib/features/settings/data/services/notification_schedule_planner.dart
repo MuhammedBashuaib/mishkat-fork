@@ -8,6 +8,7 @@ import '../models/reminder_preferences.dart';
 import '../models/app_settings.dart';
 import '../models/adhan_preferences.dart';
 import '../../../../core/services/local_storage_service.dart';
+import 'friday_reminder_planner.dart';
 
 /// Builds one coherent notification calendar from the user's local data.
 ///
@@ -53,14 +54,20 @@ class NotificationSchedulePlanner {
 
     _addKhatmaReminders(items, storage, settings, current);
     _addTimedAdhkar(items, settings, current);
-    _addGoodDeedReminders(items, settings, current);
-
     _addMemorizationReminder(
       items: items,
       storage: storage,
       settings: settings,
       now: current,
     );
+    items.addAll(
+      FridayReminderPlanner.build(
+        settings: settings,
+        now: current,
+        existing: items,
+      ),
+    );
+    _addGoodDeedReminders(items, settings, current);
 
     items.sort((a, b) => a.at.compareTo(b.at));
     return items;

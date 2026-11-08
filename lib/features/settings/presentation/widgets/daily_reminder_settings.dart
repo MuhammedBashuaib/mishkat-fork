@@ -44,6 +44,27 @@ class DailyReminderSettings extends StatelessWidget {
           ),
         const Divider(),
         SwitchListTile(
+          key: const ValueKey('friday-reminders-toggle'),
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.wb_sunny_outlined),
+          title: const Text('تذكيرات يوم الجمعة'),
+          subtitle: const Text(
+            'الكهف صباحًا وظهرًا وبعد المغرب، و٣ تذكيرات للصلاة على النبي ﷺ، و٣ للدعاء قبل الغروب',
+          ),
+          value: preferences.fridayEnabled,
+          onChanged: (value) => update((p) => p.copyWith(fridayEnabled: value)),
+        ),
+        if (preferences.fridayEnabled)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              settings.hasLocation
+                  ? 'تذكير الدعاء بعد العصر، وآخر قبل أذان المغرب بنصف ساعة بحسب مواقيت مدينتك. تُحدّث المواعيد عند فتح التطبيق.'
+                  : 'حدّد مدينتك لربط التذكيرات بالعصر والمغرب. حتى ذلك الحين تصلك تذكيرات الجمعة في أوقات عامة، دون تقدير وقت الغروب.',
+            ),
+          ),
+        const Divider(),
+        SwitchListTile(
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Icons.volunteer_activism_outlined),
           title: const Text('التذكير بالصدقة'),

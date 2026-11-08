@@ -165,14 +165,14 @@ void main() {
   });
 
   test(
-    'calendar replacement clears disabled charity and keeps unrelated alarms',
+    'calendar replacement clears disabled charity and Friday reminders',
     () async {
       messenger.setMockMethodCallHandler(plugin, (call) async {
         pluginCalls.add(call);
         if (call.method == 'canScheduleExactNotifications') return true;
         if (call.method == 'pendingNotificationRequests') {
           return [
-            for (final id in [200010, 300010, 400010, 800001, 800002])
+            for (final id in [200010, 300010, 400010, 500008, 800001, 800002])
               {'id': id, 'title': '', 'body': '', 'payload': ''},
           ];
         }
@@ -190,7 +190,7 @@ void main() {
           .where((call) => call.method == 'cancel')
           .map((call) => call.arguments['id'])
           .toList();
-      expect(cancelled, containsAll([200010, 300010, 400010]));
+      expect(cancelled, containsAll([200010, 300010, 400010, 500008]));
       expect(cancelled, isNot(contains(800001)));
       expect(cancelled, isNot(contains(800002)));
       expect(calls.single.arguments, isEmpty);
@@ -240,6 +240,16 @@ void main() {
           payload: 'adhkar:2',
           kind: AppNotificationKind.adhkar,
         ),
+        for (var slot = 0; slot < 9; slot++)
+          ScheduledAppNotification(
+            id: 500000 + slot,
+            title: 'الجمعة',
+            body: '',
+            at: now.add(Duration(days: 6, hours: slot)),
+            repeatsWeekly: true,
+            payload: 'friday:$slot',
+            kind: AppNotificationKind.friday,
+          ),
       ]);
       final scheduled = pluginCalls
           .where((call) => call.method == 'zonedSchedule')
@@ -247,7 +257,12 @@ void main() {
       expect(scheduled, hasLength(51));
       expect(
         scheduled.map((call) => call.arguments['payload']),
-        containsAll(['charity', 'adhkar:2', 'prayer:0']),
+        containsAll([
+          'charity',
+          'adhkar:2',
+          'prayer:0',
+          for (var slot = 0; slot < 9; slot++) 'friday:$slot',
+        ]),
       );
       expect(
         scheduled.map((call) => call.arguments['payload']),

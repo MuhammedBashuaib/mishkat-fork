@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/services/reminder_navigation.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
@@ -66,6 +67,10 @@ class HomePage extends StatelessWidget {
                 else
                   _NextPrayerHero(schedule: state.schedule!),
                 const SizedBox(height: MishkatSpacing.lg),
+                if (now.weekday == DateTime.friday) ...[
+                  const _FridayKahfCard(),
+                  const SizedBox(height: MishkatSpacing.lg),
+                ],
                 _DailyFocusCard(now: now),
                 const SizedBox(height: MishkatSpacing.xl),
                 if (state.schedule != null) ...[
@@ -82,6 +87,46 @@ class HomePage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _FridayKahfCard extends StatelessWidget {
+  const _FridayKahfCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.mishkat;
+    return Container(
+      key: const ValueKey('friday-kahf-card'),
+      padding: const EdgeInsets.all(MishkatSpacing.lg),
+      decoration: BoxDecoration(
+        color: colors.primarySoft,
+        borderRadius: MishkatRadius.brLg,
+        border: Border.all(color: colors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'ورد الجمعة',
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(color: colors.primary, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: MishkatSpacing.xs),
+          Text(
+            'اجعل لسورة الكهف نصيبًا من يومك.',
+            style: TextStyle(color: colors.textSecondary),
+          ),
+          const SizedBox(height: MishkatSpacing.md),
+          FilledButton.icon(
+            key: const ValueKey('friday-kahf-button'),
+            onPressed: () => ReminderNavigation.open(context, 'quran:kahf'),
+            icon: const Icon(Icons.menu_book_outlined),
+            label: const Text('اقرأ سورة الكهف'),
+          ),
+        ],
+      ),
     );
   }
 }

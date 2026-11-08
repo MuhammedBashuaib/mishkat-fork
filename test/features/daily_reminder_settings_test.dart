@@ -59,6 +59,15 @@ void main() {
       find.text('اختر تذكيراتك، ثم فعّل «نظام التنبيهات» لتصلك.'),
       findsOneWidget,
     );
+    final friday = find.byKey(const ValueKey('friday-reminders-toggle'));
+    expect(cubit.state.settings.reminders.fridayEnabled, true);
+    await tester.ensureVisible(friday);
+    await tester.tap(friday);
+    await tester.pumpAndSettle();
+    expect(cubit.state.settings.reminders.fridayEnabled, false);
+    expect(storage.saved['reminders']['fridayEnabled'], false);
+    expect(cubit.state.settings.reminders.dhikrEnabled, true);
+    expect(cubit.state.settings.adhkarNotifications, true);
     final charity = find.text('التذكير بالصدقة');
     await tester.ensureVisible(charity);
     await tester.tap(charity);

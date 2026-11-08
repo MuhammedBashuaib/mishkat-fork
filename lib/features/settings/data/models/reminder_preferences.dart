@@ -6,6 +6,7 @@ class ReminderPreferences extends Equatable {
     this.charityEnabled = true,
     this.dhikrEnabled = true,
     this.dailyWirdEnabled = true,
+    this.fridayEnabled = true,
     this.dhikrPerDay = 3,
     this.sound = false,
     this.charityMorningMinute = 9 * 60,
@@ -17,6 +18,7 @@ class ReminderPreferences extends Equatable {
   final bool charityEnabled;
   final bool dhikrEnabled;
   final bool dailyWirdEnabled;
+  final bool fridayEnabled;
   final int dhikrPerDay;
   final bool sound;
   final int charityMorningMinute;
@@ -41,6 +43,7 @@ class ReminderPreferences extends Equatable {
       charityEnabled: json['charityEnabled'] != false,
       dhikrEnabled: json['dhikrEnabled'] != false,
       dailyWirdEnabled: json['dailyWirdEnabled'] != false,
+      fridayEnabled: json['fridayEnabled'] != false,
       dhikrPerDay: [1, 3, 5].contains(frequency) ? frequency! : 3,
       sound: json['sound'] == true,
       charityMorningMinute: minute('charityMorningMinute', 9 * 60),
@@ -54,6 +57,7 @@ class ReminderPreferences extends Equatable {
     'charityEnabled': charityEnabled,
     'dhikrEnabled': dhikrEnabled,
     'dailyWirdEnabled': dailyWirdEnabled,
+    'fridayEnabled': fridayEnabled,
     'dhikrPerDay': dhikrPerDay,
     'sound': sound,
     'charityMorningMinute': charityMorningMinute,
@@ -66,6 +70,7 @@ class ReminderPreferences extends Equatable {
     bool? charityEnabled,
     bool? dhikrEnabled,
     bool? dailyWirdEnabled,
+    bool? fridayEnabled,
     int? dhikrPerDay,
     bool? sound,
     int? charityMorningMinute,
@@ -76,6 +81,7 @@ class ReminderPreferences extends Equatable {
     'charityEnabled': charityEnabled ?? this.charityEnabled,
     'dhikrEnabled': dhikrEnabled ?? this.dhikrEnabled,
     'dailyWirdEnabled': dailyWirdEnabled ?? this.dailyWirdEnabled,
+    'fridayEnabled': fridayEnabled ?? this.fridayEnabled,
     'dhikrPerDay': dhikrPerDay ?? this.dhikrPerDay,
     'sound': sound ?? this.sound,
     'charityMorningMinute': charityMorningMinute ?? this.charityMorningMinute,
@@ -89,6 +95,7 @@ class ReminderPreferences extends Equatable {
     charityEnabled,
     dhikrEnabled,
     dailyWirdEnabled,
+    fridayEnabled,
     dhikrPerDay,
     sound,
     charityMorningMinute,
