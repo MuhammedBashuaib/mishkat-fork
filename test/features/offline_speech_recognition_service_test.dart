@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/features/quran/presentation/services/offline_speech_recognition_service.dart';
 import 'package:mishkat_app/features/quran/presentation/services/speech_recognition_service.dart';
+import 'package:permission_handler/permission_handler.dart' as permissions;
 
 class _OfflineHarness {
   final audio = StreamController<Object?>.broadcast(sync: true);
@@ -372,11 +373,133 @@ void main() {
     expect(native.calls.where((call) => call.method == 'start'), isEmpty);
   });
 
+  group('iOS bundled recognizer', () {
+    setUp(() {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    });
+
+    test(
+      'captures PCM, transcribes locally and drains before releasing',
+      () async {
+        expect(service.supportsPlatform, isTrue);
+        expect(
+          await service.startListening(
+            contextualPhrases: ['expected Quran text'],
+          ),
+          isTrue,
+        );
+        final session = native.session;
+        native.utterance();
+        await _settle();
+        native.utterance(pause: false);
+        await service.stopListening();
+
+        expect(results.map((result) => result.recognizedWords), [
+          'الحمد لله رب العالمين',
+          'الرحمن الرحيم',
+        ]);
+        expect(results.every((result) => result.isFinal), isTrue);
+        expect(statuses, ['listening', 'done']);
+        expect(failures, isEmpty);
+        final requests = native.calls.where(
+          (call) => call.method == 'transcribe',
+        );
+        expect(requests, hasLength(2));
+        for (final call in requests) {
+          final arguments = call.arguments as Map;
+          expect(arguments.keys, unorderedEquals(['pcm', 'sessionId']));
+          expect(arguments['sessionId'], session);
+          expect(arguments['pcm'], isA<Uint8List>());
+        }
+        await service.dispose();
+        final lease =
+            native.calls
+                    .singleWhere((call) => call.method == 'initialize')
+                    .arguments
+                as Map;
+        expect(
+          native.calls
+              .singleWhere((call) => call.method == 'release')
+              .arguments,
+          lease,
+        );
+        expect(service.isListening, isFalse);
+        expect(service.isAvailable, isFalse);
+      },
+    );
+
+    test(
+      'requests only microphone permission for the bundled engine',
+      () async {
+        const permissionChannel = MethodChannel(
+          'flutter.baseflow.com/permissions/methods',
+        );
+        final requested = <int>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(permissionChannel, (call) async {
+              expect(call.method, 'requestPermissions');
+              requested.addAll((call.arguments as List).cast<int>());
+              return {permissions.Permission.microphone.value: 1};
+            });
+        try {
+          expect(
+            await service.requestPermission(),
+            SpeechPermissionState.granted,
+          );
+          expect(requested, [permissions.Permission.microphone.value]);
+          expect(native.calls, isEmpty);
+        } finally {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(permissionChannel, null);
+        }
+      },
+    );
+
+    test('denied microphone never starts native capture', () async {
+      native.permission = false;
+      expect(await service.startListening(), isFalse);
+      expect(
+        failures.single.type,
+        SpeechRecognitionFailureType.permissionDenied,
+      );
+      expect(native.calls.where((call) => call.method == 'start'), isEmpty);
+    });
+
+    test(
+      'interruption discards old PCM and a decode still in flight',
+      () async {
+        await service.startListening();
+        final session = native.session;
+        native.decoding = Completer<String>();
+        native.utterance();
+        await _settle();
+        native.audio.add({'type': 'interrupted', 'sessionId': session});
+        await _settle();
+        native.packet(1000, sessionId: session);
+        native.decoding!.complete('late transcript');
+        await _settle();
+
+        expect(service.isListening, isFalse);
+        expect(results, isEmpty);
+        expect(failures.single.type, SpeechRecognitionFailureType.audio);
+        expect(
+          native.calls.where((call) => call.method == 'stop').single.arguments,
+          {'sessionId': session},
+        );
+      },
+    );
+  });
+
   test(
     'unsupported platforms remain explicitly unavailable without fallback',
     () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       expect(await service.initialize(), isFalse);
+      expect(await service.hasPermission(), isFalse);
+      expect(
+        await service.requestPermission(),
+        SpeechPermissionState.restricted,
+      );
       expect(
         failures.single.type,
         SpeechRecognitionFailureType.languageUnavailable,

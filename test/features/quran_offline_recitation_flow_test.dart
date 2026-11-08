@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/features/quran/data/models/oral_recitation_models.dart';
@@ -96,7 +97,41 @@ void main() {
     await speech.dispose();
     await memory.close();
     await temp.delete(recursive: true);
+    debugDefaultTargetPlatformOverride = null;
   });
+
+  test(
+    'iOS permission action enables the bundled recitation session',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      speech.setPermission(false);
+      speech.autoGrantOnRequest = true;
+      final initializations = speech.initializeCount;
+
+      await cubit.requestPermissionAndInitialize();
+
+      expect(speech.permissionRequestCount, 1);
+      expect(speech.initializeCount, initializations + 1);
+      expect(cubit.state.lifecycle, OralRecitationLifecycle.ready);
+      await cubit.startRecitation();
+      expect(speech.isListening, isTrue);
+      expect(speech.lastContextualPhrases, isEmpty);
+    },
+  );
+
+  test(
+    'iOS denied permission stays actionable without claiming no support',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      speech.setPermission(false);
+
+      await cubit.requestPermissionAndInitialize();
+
+      expect(speech.permissionRequestCount, 1);
+      expect(cubit.state.lifecycle, OralRecitationLifecycle.permissionDenied);
+      expect(speech.isListening, isFalse);
+    },
+  );
 
   test(
     'offline capture never sends expected Quran words as recognition prompts',

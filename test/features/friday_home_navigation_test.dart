@@ -28,6 +28,7 @@ import 'package:mishkat_app/features/shell/presentation/cubit/shell_cubit.dart';
 import 'package:mishkat_app/features/shell/presentation/pages/app_shell.dart';
 import 'package:mishkat_app/features/tasbih/presentation/cubit/tasbih_cubit.dart';
 import 'package:mishkat_app/features/tasbih/presentation/pages/tasbih_page.dart';
+import 'package:provider/provider.dart';
 
 import 'home_my_duas_test.dart'
     show
@@ -161,7 +162,9 @@ void main() {
       MultiBlocProvider(
         providers: [
           if (resetService != null)
-            RepositoryProvider<AppDataResetService>.value(value: resetService),
+            ChangeNotifierProvider<AppDataResetService>.value(
+              value: resetService,
+            ),
           BlocProvider.value(value: settings),
           BlocProvider.value(value: home),
           BlocProvider.value(value: adhkar),
@@ -413,8 +416,27 @@ void main() {
       storage.readingWriteGate = Completer<void>();
       storage.readingWriteStarted = Completer<void>();
       homeWidgetLaunchUri.value = Uri.parse('mishkat://wird');
-      await tester.pump();
-      await storage.readingWriteStarted!.future;
+      expect(
+        tester.binding.hasScheduledFrame,
+        isTrue,
+        reason:
+            'A widget tap must schedule navigation even when the UI is idle.',
+      );
+      // Advance the real callback and its persistence work without an unbounded
+      // wait on a future whose fake-clock microtasks may still need pumping.
+      for (
+        var frame = 0;
+        frame < 5 && !storage.readingWriteStarted!.isCompleted;
+        frame++
+      ) {
+        await tester.pump();
+      }
+      expect(
+        storage.readingWriteStarted!.isCompleted,
+        isTrue,
+        reason:
+            'The widget must reach its real persisted reading-position write.',
+      );
       expect(quran.state.currentPage, 2);
       expect(find.byType(QuranReaderPage), findsNothing);
 

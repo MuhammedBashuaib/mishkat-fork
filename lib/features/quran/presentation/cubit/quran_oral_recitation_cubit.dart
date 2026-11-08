@@ -75,9 +75,9 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       (speechService as OfflineSpeechDiagnostics).isOffline;
 
   String get _engineUnavailableMessage => _isOffline
-      ? (kIsWeb || defaultTargetPlatform != TargetPlatform.android
-            ? 'التسميع بالنموذج المضمّن متاح على Android في هذه النسخة.'
-            : 'تعذّر تجهيز نموذج التسميع المضمّن. أعد فتح الجلسة، وتأكد من تثبيت نسخة Android الكاملة من مشكاة.')
+      ? (!OfflineSpeechRecognitionService.supportsCurrentPlatform
+            ? 'التسميع بالنموذج المضمّن متاح على أجهزة Android وiPhone في هذه النسخة.'
+            : 'تعذّر تجهيز نموذج التسميع المضمّن. أعد فتح الجلسة، وتأكد من تثبيت النسخة الكاملة من مشكاة.')
       : 'خدمة التعرف الصوتي غير جاهزة على هذا الجهاز. فعّل خدمة التعرف على الكلام أو نزّل حزمة اللغة العربية ثم أعد المحاولة.';
 
   Future<void> _releaseCapture({bool stop = false}) {
@@ -287,7 +287,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   Future<void> requestPermissionAndInitialize() async {
     if (_isProcessingPermission || isClosed || _isClosing) return;
     if (_isOffline &&
-        (kIsWeb || defaultTargetPlatform != TargetPlatform.android)) {
+        !OfflineSpeechRecognitionService.supportsCurrentPlatform) {
       emit(
         state.copyWith(
           lifecycle: OralRecitationLifecycle.recognizerUnavailable,

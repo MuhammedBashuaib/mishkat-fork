@@ -31,34 +31,56 @@ class NativeRecitationFeedbackOutput implements RecitationFeedbackOutput {
   final String _owner =
       '${DateTime.now().microsecondsSinceEpoch}:${_nextOwner++}';
   Future<void>? _ready;
+  Future<void>? _loading;
+  bool _prepared = false;
   bool _disposed = false;
+
+  bool get _supportsSound =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   @override
   Future<void> prepare() async {
-    if (_disposed ||
-        kIsWeb ||
-        defaultTargetPlatform != TargetPlatform.android) {
-      return;
-    }
-    final pending = _ready ??= channel.invokeMethod<void>('prepare', {
+    if (_disposed || !_supportsSound) return;
+    // Native audio can be disarmed by an interruption without a page change.
+    // Refresh arming on each explicit prepare; native players cache the assets.
+    // Only concurrent preparations share a call.
+    final pending = _loading ??= channel.invokeMethod<void>('prepare', {
       'ownerId': _owner,
     });
+    _ready = pending;
+    _prepared = false;
     try {
       await pending;
+      // Stopping, replacing or disposing a preparation must not let its late
+      // completion re-arm sound for a session that has already moved on.
+      if (!_disposed && identical(_ready, pending)) _prepared = true;
     } on Object {
-      if (identical(_ready, pending)) _ready = null;
+      if (identical(_ready, pending)) {
+        _ready = null;
+        _prepared = false;
+      }
+    } finally {
+      if (identical(_loading, pending)) _loading = null;
     }
   }
 
   @override
   Future<bool> play(RecitationCue cue) async {
-    if (_disposed || _ready == null) return false;
+    // Never queue playback behind asset loading. The controller rechecks the
+    // speech pause, cue expiry and session after awaiting prepare itself.
+    if (_disposed || !_supportsSound || !_prepared) return false;
+    final preparation = _ready;
     try {
-      return await channel.invokeMethod<bool>('play', {
-            'ownerId': _owner,
-            'cue': cue.name,
-          }) ==
-          true;
+      final played = await channel.invokeMethod<bool>('play', {
+        'ownerId': _owner,
+        'cue': cue.name,
+      });
+      return played == true &&
+          !_disposed &&
+          _prepared &&
+          identical(_ready, preparation);
     } on Object {
       return false;
     }
@@ -81,7 +103,9 @@ class NativeRecitationFeedbackOutput implements RecitationFeedbackOutput {
   @override
   Future<void> stop() async {
     _ready = null;
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    _loading = null;
+    _prepared = false;
+    if (_disposed || !_supportsSound) return;
     try {
       await channel.invokeMethod<void>('stop', {'ownerId': _owner});
     } on Object {
@@ -94,7 +118,9 @@ class NativeRecitationFeedbackOutput implements RecitationFeedbackOutput {
     if (_disposed) return;
     _disposed = true;
     _ready = null;
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    _loading = null;
+    _prepared = false;
+    if (!_supportsSound) return;
     try {
       await channel.invokeMethod<void>('dispose', {'ownerId': _owner});
     } on Object {

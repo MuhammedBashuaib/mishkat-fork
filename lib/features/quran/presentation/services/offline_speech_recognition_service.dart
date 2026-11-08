@@ -17,7 +17,7 @@ abstract interface class OfflineSpeechDiagnostics {
   bool get isOffline;
 }
 
-/// Arabic FastConformer CTC bundled with Android, running entirely on the device.
+/// Arabic FastConformer CTC bundled with Android and iOS, running on the device.
 ///
 /// Finals contain completed VAD segments; previews are replaceable snapshots of
 /// the active segment. Expected Quran words
@@ -91,9 +91,11 @@ class OfflineSpeechRecognitionService
   bool _disposed = false;
   int _generation = 0;
 
-  bool get _supported =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-  bool get supportsPlatform => _supported;
+  static bool get supportsCurrentPlatform =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+  bool get supportsPlatform => supportsCurrentPlatform;
   String _session(int generation) => '$_clientId:$generation';
   bool _current(int generation) => !_disposed && generation == _generation;
 
@@ -140,10 +142,10 @@ class OfflineSpeechRecognitionService
   }
 
   Future<bool> _initialize() async {
-    if (!_supported) {
+    if (!supportsPlatform) {
       _fail(
         SpeechRecognitionFailureType.languageUnavailable,
-        'التسميع بدون إنترنت متاح على أجهزة Android في هذه النسخة.',
+        'التسميع بالنموذج المضمّن متاح على أجهزة Android وiPhone في هذه النسخة.',
         permanent: true,
       );
       return false;
@@ -183,7 +185,7 @@ class OfflineSpeechRecognitionService
 
   @override
   Future<bool> hasPermission() async {
-    if (!_supported || _disposed) return false;
+    if (!supportsPlatform || _disposed) return false;
     try {
       return await channel.invokeMethod<bool>('hasPermission') == true;
     } catch (_) {
@@ -193,7 +195,7 @@ class OfflineSpeechRecognitionService
 
   @override
   Future<SpeechPermissionState> requestPermission() async {
-    if (!_supported) return SpeechPermissionState.restricted;
+    if (!supportsPlatform || _disposed) return SpeechPermissionState.restricted;
     final status = await permissions.Permission.microphone.request();
     if (status.isGranted) return SpeechPermissionState.granted;
     if (status.isPermanentlyDenied) {
@@ -538,7 +540,7 @@ class OfflineSpeechRecognitionService
   }
 
   Future<void> _stopNative(int generation) async {
-    if (!_supported) return;
+    if (!supportsPlatform) return;
     try {
       await channel
           .invokeMethod<void>('stop', {'sessionId': _session(generation)})

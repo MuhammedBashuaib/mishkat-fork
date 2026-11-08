@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		027B93E38CB3EE213835CC20 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DFAA09A621C1DAC1FC731892 /* PrivacyInfo.xcprivacy */; };
 		0C2AB1200C9300E711368628 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DFAA09A621C1DAC1FC731892 /* PrivacyInfo.xcprivacy */; };
+		0C5E184E32EDA754C7E04DA7 /* MishkatOfflineRecognizer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 91AEFF5916C23F06EE117E0D /* MishkatOfflineRecognizer.mm */; };
 		0C798989DB90ECE07960030F /* QiblaWidgetHomeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 96C3FD76B60EEA8701C324E8 /* QiblaWidgetHomeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		153B0F77F8DAB3A453D032F5 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04737CF0864B578F9F22F122 /* SwiftUI.framework */; };
@@ -27,6 +28,8 @@
 		49B31ED5CCD137FAA09084B3 /* Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFEB62CE4153B51D3C822588 /* Widget.swift */; };
 		5667C3FCF4E84F8197AA0802 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E56BDD6DBF5EBFC4EB3E8F87 /* WidgetKit.framework */; };
 		663261DF7BF7B716B705114D /* Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90CFB6A2D62E33B7866B2EB4 /* Widget.swift */; };
+		6A61E9CE7703989B16134800 /* OfflineRecitationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE09FC78C0ABF8806EEAB25 /* OfflineRecitationPlugin.swift */; };
+		6B521F961AFA476588D86FB2 /* RecitationFeedbackPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605A39CED0DD4CBF9B27F851 /* RecitationFeedbackPlayer.swift */; };
 		6D92C371D7D79858A553C13F /* PrayerTimesWidgetHomeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E1767CEEDB1CB36778E502B0 /* PrayerTimesWidgetHomeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
@@ -181,12 +184,15 @@
 		184CCE9C6A2C018F737CFD2E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		22980528A35877FA5B70D516 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		24C669AAB1137B57FDACE0EC /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
+		24EDDC3A606B12DC112978BD /* MishkatOfflineRecognizer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = MishkatOfflineRecognizer.h; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		37F2CCD73002C5987DF71229 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
 		4A6DD8009390C32510A56C42 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		56B27AC9AE4C0AF2780F6C37 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		5FE09FC78C0ABF8806EEAB25 /* OfflineRecitationPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OfflineRecitationPlugin.swift; sourceTree = "<group>"; };
+		605A39CED0DD4CBF9B27F851 /* RecitationFeedbackPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecitationFeedbackPlayer.swift; sourceTree = "<group>"; };
 		61A07FC3227B57D4D2EAC731 /* PrayerTimesWidgetHomeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PrayerTimesWidgetHomeWidget.entitlements; sourceTree = "<group>"; };
 		68EC8D0B1D2F26069F27AD05 /* HomeWidget.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = HomeWidget.xcconfig; path = Flutter/HomeWidget.xcconfig; sourceTree = "<group>"; };
 		6C591F736DAF5DD690A820ED /* Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widget.swift; sourceTree = "<group>"; };
@@ -203,6 +209,7 @@
 		8E89AC1AE72A88C93024C694 /* AdhkarWidgetHomeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AdhkarWidgetHomeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		902E89EB62D39554628EBC49 /* QiblaWidgetHomeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = QiblaWidgetHomeWidget.entitlements; sourceTree = "<group>"; };
 		90CFB6A2D62E33B7866B2EB4 /* Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widget.swift; sourceTree = "<group>"; };
+		91AEFF5916C23F06EE117E0D /* MishkatOfflineRecognizer.mm */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.cpp.objcpp; path = MishkatOfflineRecognizer.mm; sourceTree = "<group>"; };
 		96C3FD76B60EEA8701C324E8 /* QiblaWidgetHomeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QiblaWidgetHomeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
@@ -419,6 +426,10 @@
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				A507980FCCCCC2E73B431513 /* PrivacyInfo.xcprivacy */,
+				5FE09FC78C0ABF8806EEAB25 /* OfflineRecitationPlugin.swift */,
+				605A39CED0DD4CBF9B27F851 /* RecitationFeedbackPlayer.swift */,
+				91AEFF5916C23F06EE117E0D /* MishkatOfflineRecognizer.mm */,
+				24EDDC3A606B12DC112978BD /* MishkatOfflineRecognizer.h */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -585,6 +596,7 @@
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
+				E8B7047140729D30D1EE83E2 /* Bundle Verified Offline Recitation Model */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				F32D61E68EFF6DCD059333C0 /* Embed Foundation Extensions */,
 				80AAF9F234F517775D302B64 /* Embed Foundation Extensions */,
@@ -826,6 +838,39 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
 		};
+		E8B7047140729D30D1EE83E2 /* Bundle Verified Offline Recitation Model */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../tools/prepare_ios_asr_assets.py",
+				"$(SRCROOT)/OfflineASR/IOS_ENGINE_NOTICE.txt",
+				"$(SRCROOT)/../android/app/model/asr/model.int8.onnx.part00",
+				"$(SRCROOT)/../android/app/model/asr/model.int8.onnx.part01",
+				"$(SRCROOT)/../android/app/model/asr/model.int8.onnx.part02",
+				"$(SRCROOT)/../android/app/src/main/assets/asr/tokens.txt",
+				"$(SRCROOT)/../android/app/src/main/assets/asr/NOTICE.txt",
+				"$(SRCROOT)/../android/app/src/main/assets/asr/SHERPA_ONNX_LICENSE.txt",
+				"$(SRCROOT)/../android/app/src/main/assets/asr/ONNX_RUNTIME_LICENSE.txt",
+			);
+			name = "Bundle Verified Offline Recitation Model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/asr/model.int8.onnx",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/asr/tokens.txt",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/asr/NOTICE.txt",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/asr/SHERPA_ONNX_LICENSE.txt",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/asr/ONNX_RUNTIME_LICENSE.txt",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/asr/IOS_ENGINE_NOTICE.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\npython3 \"$SRCROOT/../tools/prepare_ios_asr_assets.py\" --app-bundle \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n";
+		};
 		F29D45237B40077B380D1E3C /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -919,6 +964,9 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
+				6A61E9CE7703989B16134800 /* OfflineRecitationPlugin.swift in Sources */,
+				6B521F961AFA476588D86FB2 /* RecitationFeedbackPlayer.swift in Sources */,
+				0C5E184E32EDA754C7E04DA7 /* MishkatOfflineRecognizer.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

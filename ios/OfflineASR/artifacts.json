@@ -1,0 +1,18 @@
+{
+  "sherpa-onnx": {
+    "version": "1.13.8",
+    "framework_name": "SherpaOnnxC",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/xcframework/sherpa-onnx-v1.13.8-ios-static.xcframework.zip",
+    "api_url": "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets/554819482",
+    "sha256": "6b8e769cb153343270fdccbe92e3b3db0d1c421d67fa0989ab01fdf5b2fcf2de",
+    "reference": "https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.8/Package.swift"
+  },
+  "onnxruntime": {
+    "version": "1.28.2",
+    "framework_name": "onnxruntime",
+    "url": "https://github.com/csukuangfj/onnxruntime-libs/releases/download/v1.28.2/onnxruntime-ios-static-xcframework-1.28.2.xcframework.zip",
+    "api_url": "https://api.github.com/repos/csukuangfj/onnxruntime-libs/releases/assets/570524459",
+    "sha256": "2c2299acbb461d26d4bac4bc85985d40e7c7177ed6072703ae0846d88b0b4599",
+    "reference": "https://github.com/csukuangfj/onnxruntime-libs/blob/1.28.2/Package.swift"
+  }
+}

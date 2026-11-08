@@ -27,9 +27,15 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
+# Reuse the Android model with native iOS inference. No speech/model download
+# occurs at runtime; these exact libraries are acquired only on the build host.
+asr_setup = File.expand_path('../tools/prepare_ios_asr_libraries.py', __dir__)
+raise 'Unable to prepare verified iOS speech libraries' unless system('python3', asr_setup)
+
 target 'Runner' do
   use_frameworks!
 
+  pod 'MishkatOfflineASR', :path => 'OfflineASR'
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths

@@ -180,7 +180,7 @@ class OralRecitationInfoSheet extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'نموذج التسميع مضمّن في نسخة Android: يعمل دون إنترنت ودون تنزيل حزمة صوتية من إعدادات الجهاز.',
+                      'نموذج التسميع مضمّن في نسختي Android وiPhone: يعمل دون إنترنت ودون تنزيل حزمة صوتية من إعدادات الجهاز.',
                       style: TextStyle(
                         color: colors.textSecondary,
                         fontSize: 11,

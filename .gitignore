@@ -57,3 +57,6 @@ app.*.map.json
 
 # The offline model is assembled from tracked parts into generated Android assets.
 /android/app/src/main/assets/asr/model.int8.onnx
+
+# Checksum-verified iOS speech libraries are prepared before pod install.
+/ios/OfflineASR/Vendor/

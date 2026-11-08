@@ -84,9 +84,14 @@ void main() {
     },
   );
 
-  for (final dark in [false, true]) {
+  for (final (platform, dark) in [
+    (TargetPlatform.android, false),
+    (TargetPlatform.android, true),
+    (TargetPlatform.iOS, false),
+    (TargetPlatform.iOS, true),
+  ]) {
     testWidgets(
-      'feedback options remain clear at 320dp and large text, dark=$dark',
+      'feedback options remain clear at 320dp and large text, $platform, dark=$dark',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(320, 500));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -150,6 +155,7 @@ void main() {
         expect(tester.widget<TextButton>(preview).onPressed, isNull);
         expect(tester.takeException(), isNull);
       },
+      variant: TargetPlatformVariant({platform}),
     );
   }
 

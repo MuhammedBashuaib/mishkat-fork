@@ -218,6 +218,7 @@ class _AppShellState extends State<AppShell> {
         if (mounted && homeWidgetLaunchUri.value != null) _onHomeWidgetTap();
       }
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override

@@ -1,0 +1,17 @@
+Mishkat offline recitation for iOS
+
+The bundled NVIDIA Arabic FastConformer CTC model and vocabulary are identical
+to the Android assets. See NOTICE.txt for model provenance and CC-BY-4.0
+attribution, SHERPA_ONNX_LICENSE.txt (Apache-2.0), and ONNX_RUNTIME_LICENSE.txt
+(MIT). These files are distributed with the model in the application's asr/.
+
+iOS inference libraries:
+- Sherpa ONNX 1.13.8, official static iOS XCFramework
+  https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.8
+  Archive SHA-256: 6b8e769cb153343270fdccbe92e3b3db0d1c421d67fa0989ab01fdf5b2fcf2de
+- ONNX Runtime 1.28.2, the iOS dependency pinned by Sherpa ONNX 1.13.8
+  https://github.com/csukuangfj/onnxruntime-libs/releases/tag/v1.28.2
+  Archive SHA-256: 2c2299acbb461d26d4bac4bc85985d40e7c7177ed6072703ae0846d88b0b4599
+
+Recognition runs locally on the CPU. No model download, account, or remote
+speech service is required at runtime.

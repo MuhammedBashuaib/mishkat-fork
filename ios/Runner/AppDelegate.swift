@@ -9,6 +9,8 @@ import UserNotifications
   private var speechSettingsChannel: FlutterMethodChannel?
   private var tasbihSoundChannel: FlutterMethodChannel?
   private var tasbihSoundPlayer: AVAudioPlayer?
+  private var offlineRecitationPlugin: OfflineRecitationPlugin?
+  private var recitationFeedbackPlayer: RecitationFeedbackPlayer?
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -21,6 +23,14 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MishkatOfflineRecitation") {
+      offlineRecitationPlugin?.dispose()
+      offlineRecitationPlugin = OfflineRecitationPlugin(messenger: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MishkatRecitationFeedback") {
+      recitationFeedbackPlayer?.dispose()
+      recitationFeedbackPlayer = RecitationFeedbackPlayer(messenger: registrar.messenger())
+    }
     guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MishkatSpeechModels") else {
       return
     }

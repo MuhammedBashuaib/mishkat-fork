@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -95,6 +96,17 @@ class RecitationFeedbackSettings extends StatelessWidget {
               height: 1.6,
             ),
           ),
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
+          const SizedBox(height: 4),
+          Text(
+            'على iPhone، تتبع التنبيهات أثناء التسميع مستوى صوت الوسائط حتى مع تفعيل مفتاح الصامت. لإيقاف صوتها اختر «اهتزاز» أو «صامت».',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 12,
+              height: 1.6,
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -24,6 +24,7 @@ PODS:
   - just_audio (0.0.1):
     - Flutter
     - FlutterMacOS
+  - MishkatOfflineASR (1.13.8)
   - package_info_plus (0.4.5):
     - Flutter
   - permission_handler_apple (9.4.8):
@@ -54,6 +55,7 @@ DEPENDENCIES:
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
   - home_widget (from `.symlinks/plugins/home_widget/ios`)
   - just_audio (from `.symlinks/plugins/just_audio/darwin`)
+  - MishkatOfflineASR (from `OfflineASR`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - speech_to_text (from `.symlinks/plugins/speech_to_text/darwin`)
@@ -88,6 +90,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/home_widget/ios"
   just_audio:
     :path: ".symlinks/plugins/just_audio/darwin"
+  MishkatOfflineASR:
+    :path: OfflineASR
   package_info_plus:
     :path: ".symlinks/plugins/package_info_plus/ios"
   permission_handler_apple:
@@ -116,6 +120,7 @@ SPEC CHECKSUMS:
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
   home_widget: 54b4f6b36ed8d64cfee594a476225c35c3e45091
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
+  MishkatOfflineASR: 4c553bffeb26a20d0d6eadfe1f66212c080797b2
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
   speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
@@ -124,6 +129,6 @@ SPEC CHECKSUMS:
   wakelock_plus: d4ca1e4e4bc9de42cb55d57b5bdc158af318e3c6
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
-PODFILE CHECKSUM: 4b08c755b89eaa745076202ed441d42b12eacf30
+PODFILE CHECKSUM: c2b61712f6591a3646c58f3ae1cac6e46dd5c5b9
 
 COCOAPODS: 1.16.2
