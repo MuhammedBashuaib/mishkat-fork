@@ -252,7 +252,15 @@ class SpeechSegmenter {
   double get _relativeQuietThreshold {
     if (_recentSpeechLevels.length * frameMs < minVoicedMs) return 0;
     final sorted = List<double>.of(_recentSpeechLevels)..sort();
-    return sorted[((sorted.length - 1) * .75).floor()] * .18;
+    // A short loud sound must not set the level of the reader's voice. With
+    // only 300ms collected, an upper quartile can consist entirely of a cue
+    // or a click: subsequent quiet speech then looks like a breath and even
+    // gets learned as background. Require at least minVoicedMs of support
+    // at or above the reference level. The usual upper quartile takes over
+    // once enough speech has been observed; no PCM is discarded or muted.
+    final supportedIndex = sorted.length - (minVoicedMs / frameMs).ceil();
+    final quartileIndex = ((sorted.length - 1) * .75).floor();
+    return sorted[math.min(quartileIndex, supportedIndex)] * .18;
   }
 
   int _quietestCut() {

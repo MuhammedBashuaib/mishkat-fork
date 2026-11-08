@@ -52,6 +52,8 @@ class OfflineSpeechRecognitionService
     'com.dakomn.mishkatapp/offline_recitation/audio',
   ).receiveBroadcastStream();
   static const _maxQueuedSegments = 4;
+  // Opt-in numeric timing for physical-device profiling; never logs audio/text.
+  static const _traceTiming = bool.fromEnvironment('MISHKAT_ASR_TIMING');
   final MethodChannel channel;
   final Stream<Object?> _audioEvents;
   final SpeechSegmenter _segmenter;
@@ -310,9 +312,7 @@ class OfflineSpeechRecognitionService
     }
     // Observe the existing VAD only. Never mute, skip or alter microphone PCM
     // for a UI cue: speech can resume at any instant during a short sound.
-    _setFeedbackQuiet(
-      !_stopRequested && _segmenter.isAtQuietBoundary,
-    );
+    _setFeedbackQuiet(!_stopRequested && _segmenter.isAtQuietBoundary);
     if (_previewRevision != _segmenter.revision) {
       _previewRevision = _segmenter.revision;
       _lastPreviewMs = 0;
@@ -441,7 +441,7 @@ class OfflineSpeechRecognitionService
           _decodedPreview = null;
         }
         if (!_isUsable(item)) continue;
-        if (kDebugMode) {
+        if (kDebugMode || _traceTiming) {
           debugPrint(
             '[MISHKAT_ASR_TIMING] final=${item.isFinal} '
             'audioMs=${item.segment.samples.length * 1000 ~/ 16000} '

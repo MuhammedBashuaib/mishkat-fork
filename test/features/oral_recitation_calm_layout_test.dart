@@ -96,6 +96,102 @@ void main() {
     await OralRecitationMushaf.preloadCanonicalText();
   });
 
+  testWidgets(
+    'repeat prompt waits for final uncertainty while confirmed mistakes stay visible',
+    (tester) async {
+      final speech = _OfflineSpeech();
+      final memorization = QuranMemorizationCubit(
+        repository: QuranMemorizationRepository(storage: _MemoryStorage()),
+      );
+      await memorization.load();
+      final cubit = QuranOralRecitationCubit(
+        speechService: speech,
+        quranRepository: _QuranRepository(),
+        memorizationCubit: memorization,
+      );
+      await cubit.prepareSession(
+        surahNumber: 1,
+        startGlobalAyah: 1,
+        endGlobalAyah: 2,
+      );
+      tester.view.physicalSize = const Size(780, 1688);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          locale: const Locale('ar'),
+          supportedLocales: const [Locale('ar')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: QuranOralRecitationPage(cubit: cubit),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('بدء التسميع'));
+      await tester.pumpAndSettle();
+
+      // A changing word ending is normal while the reader is still speaking.
+      speech.emitTranscript('بسم الله الرحمن الرحي');
+      await tester.pumpAndSettle();
+      expect(cubit.state.correctionWordIndex, 3);
+      expect(cubit.state.isCorrectionProvisional, isTrue);
+      expect(find.byKey(const ValueKey('recitation-correction')), findsNothing);
+      expect(find.text('أعد آخر كلمة بوضوح'), findsNothing);
+
+      speech.emitTranscript('بسم الله الرحمن الرحيم', isFinal: true);
+      await tester.pumpAndSettle();
+      expect(cubit.state.committedTargetIndex, 4);
+      speech.emitTranscript('الحمد لله ر');
+      await tester.pumpAndSettle();
+      expect(cubit.state.correctionWordIndex, 6);
+      expect(cubit.state.isCorrectionProvisional, isTrue);
+      expect(find.byKey(const ValueKey('recitation-correction')), findsNothing);
+
+      // An unanchored final result can ask for help without declaring a mistake.
+      speech.emitTranscript('كلام بعيد', isFinal: true);
+      await tester.pumpAndSettle();
+      expect(cubit.state.correctionWordIndex, 4);
+      expect(cubit.state.isCorrectionProvisional, isFalse);
+      expect(cubit.state.unresolvedMistakeWordIndices, isEmpty);
+      expect(find.text('لم تتضح كلمة في المقطع الأخير'), findsOneWidget);
+      expect(find.text('تلميح الكلمة').hitTestable(), findsOneWidget);
+
+      speech.emitTranscript('الحمد لله');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('recitation-correction')), findsNothing);
+      expect(speech.isListening, isTrue);
+      expect(speech.stopCount, 0);
+
+      // A confirmed omission is still actionable while its retry is provisional.
+      speech.emitTranscript('الحمد لله العالمين', isFinal: true);
+      await tester.pumpAndSettle();
+      expect(cubit.state.unresolvedMistakeWordIndices, {6});
+      expect(find.text('الصحيح:'), findsOneWidget);
+      speech.emitTranscript('رب العالمين');
+      await tester.pumpAndSettle();
+      expect(cubit.state.isCorrectionProvisional, isFalse);
+      expect(cubit.state.unresolvedMistakeWordIndices, {6});
+      expect(find.text('الصحيح:'), findsOneWidget);
+
+      speech.emitTranscript('رب العالمين', isFinal: true);
+      await tester.pumpAndSettle();
+      expect(cubit.state.unresolvedMistakeWordIndices, isEmpty);
+      expect(cubit.state.mistakeWordIndices, {6});
+      expect(find.byKey(const ValueKey('recitation-correction')), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+      await cubit.close();
+      await speech.dispose();
+      await memorization.close();
+      await tester.pump(const Duration(milliseconds: 100));
+    },
+  );
+
   for (final viewport in [
     (name: 'Short enlarged-text', size: const Size(320, 520), scale: 1.6),
     (name: 'Landscape', size: const Size(640, 360), scale: 1.0),

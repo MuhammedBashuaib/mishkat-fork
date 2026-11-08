@@ -160,6 +160,65 @@ void main() {
     },
   );
 
+  test('a short loud burst cannot train following quiet speech as noise', () {
+    for (final amplitude in [45, 100, 400]) {
+      final vad = SpeechSegmenter();
+      final segments = <SpeechSegment>[
+        ...vad.push(_audio(180, 12000)),
+        ...vad.push(_audio(90, 0)),
+        ...vad.push(_audio(1800, amplitude)),
+      ];
+      expect(segments, isEmpty, reason: 'RMS $amplitude is ongoing speech');
+      segments.addAll(vad.push(_audio(600, 5)));
+      expect(segments, hasLength(1));
+      expect(
+        segments.single.samples.where((sample) => sample.abs() == amplitude),
+        hasLength(1800 * 16),
+      );
+      // The reader must still be recognized after that actual pause too.
+      expect(vad.push(_audio(900, amplitude)), isEmpty);
+      final next = vad.push(_audio(600, 5));
+      expect(next, hasLength(1));
+      expect(
+        next.single.samples.where((sample) => sample.abs() == amplitude),
+        hasLength(900 * 16),
+      );
+    }
+  });
+
+  test('short speech still closes at a breath over room noise', () {
+    final vad = SpeechSegmenter();
+    expect(vad.push(_audio(300, 1600)), isEmpty);
+    expect(vad.push(_audio(390, 100)), isEmpty);
+    final segment = vad.push(_audio(30, 100)).single;
+    expect(segment.forced, isFalse);
+    expect(
+      segment.samples.where((sample) => sample.abs() == 1600),
+      hasLength(300 * 16),
+    );
+    expect(vad.push(_audio(900, 100)), isEmpty);
+    expect(vad.flush(), isNull);
+  });
+
+  test('quiet continuous speech after a burst survives forced cuts', () {
+    final vad = SpeechSegmenter();
+    final segments = <SpeechSegment>[
+      ...vad.push(_audio(180, 12000)),
+      ...vad.push(_audio(90, 0)),
+      ...vad.push(_audio(14000, 45)),
+    ];
+    expect(segments, hasLength(1));
+    expect(segments.single.forced, isTrue);
+    final last = vad.flush();
+    if (last != null) segments.add(last);
+    expect(
+      segments
+          .expand((segment) => segment.samples)
+          .where((value) => value.abs() == 45),
+      hasLength(14000 * 16),
+    );
+  });
+
   test('snapshots preserve pending PCM and never consume or mutate audio', () {
     final vad = SpeechSegmenter();
     final initialRevision = vad.revision;

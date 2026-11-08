@@ -11,7 +11,7 @@ import '../../data/models/quran_models.dart';
 import '../cubit/quran_oral_recitation_state.dart';
 import '../services/quran_recitation_text.dart';
 
-/// Canonical text is shaped once per paragraph; colors never alter its layout.
+/// Printed glyphs are shaped once per page size; live feedback changes paint.
 /// Hidden words keep their real width and are excluded from accessibility text.
 class OralRecitationWordPage extends StatefulWidget {
   const OralRecitationWordPage({
@@ -39,6 +39,8 @@ class _OralRecitationWordPageState extends State<OralRecitationWordPage> {
   final _scroll = ScrollController();
   _PageLayout? _layout;
   Object? _layoutSignature;
+  QuranOralRecitationState? _appearanceState;
+  List<OralMushafPaintedWord> _paintedWords = const [];
   bool _followPending = true;
   double? _viewportHeight;
 
@@ -58,16 +60,14 @@ class _OralRecitationWordPageState extends State<OralRecitationWordPage> {
   void _followWord() {
     if (!_followPending || !widget.isCurrent || !widget.scrollEnabled) return;
     _followPending = false;
-    final visibleWords = _layout?.words
+    final visibleWords = _paintedWords
         .where(
           (word) =>
               word.targetIndex != null &&
               widget.state.visibleWordIndices.contains(word.targetIndex),
         )
         .toList();
-    final word = visibleWords == null || visibleWords.isEmpty
-        ? null
-        : visibleWords.last;
+    final word = visibleWords.isEmpty ? null : visibleWords.last;
     if (word == null || word.boxes.isEmpty) return;
     final top = word.boxes.map((box) => box.top).reduce(math.min);
     final bottom = word.boxes.map((box) => box.bottom).reduce(math.max);
@@ -124,13 +124,6 @@ class _OralRecitationWordPageState extends State<OralRecitationWordPage> {
           widget.printedPage,
           widget.quran,
           widget.state.targetWords,
-          widget.state.mode,
-          widget.state.visibleWordIndices,
-          widget.state.mistakeWordIndices,
-          widget.state.unresolvedMistakeWordIndices,
-          widget.state.hintedWordIndices,
-          widget.state.revealedGlobals,
-          widget.state.currentGlobalAyah,
           width,
           dark,
           context.mishkat.primary,
@@ -155,15 +148,20 @@ class _OralRecitationWordPageState extends State<OralRecitationWordPage> {
                 )
                 .join(' '),
             ink: ink,
-            error: error,
             ornament: ornament,
-            current: context.mishkat.primary,
           );
           _layout?.dispose();
           _layout = measured;
           _layoutSignature = signature;
+          _appearanceState = null;
         }
         final layout = _layout!;
+        // Recognition emits new sets even when their contents are unchanged.
+        // Keep shaping and geometry independent of those live hypotheses.
+        if (!_sameAppearance(_appearanceState, widget.state)) {
+          _paintedWords = layout.displayWords(widget.state);
+          _appearanceState = widget.state;
+        }
         _followWord();
         // If every printed line fits, bring the bottom paper edge into view
         // without moving or resizing any word. Short viewports still scroll.
@@ -177,7 +175,7 @@ class _OralRecitationWordPageState extends State<OralRecitationWordPage> {
         final location =
             'صفحة ${_arabic(widget.geometry.page)} من المصحف'
             '${currentAyah == null ? '' : '، موضع التسميع الآية ${_arabic(currentAyah.ayah)}'}';
-        final visibleText = layout.words
+        final visibleText = _paintedWords
             .where((token) => token.visible)
             .map(
               (token) =>
@@ -202,6 +200,9 @@ class _OralRecitationWordPageState extends State<OralRecitationWordPage> {
                     size: Size(width, height),
                     painter: OralRecitationWordsPainter._(
                       layout,
+                      words: _paintedWords,
+                      currentGlobalAyah: widget.state.currentGlobalAyah,
+                      currentColor: context.mishkat.primary,
                       hiddenColor: ink.withValues(alpha: dark ? .13 : .1),
                       errorColor: error,
                       paperColor: paper,
@@ -219,23 +220,40 @@ class _OralRecitationWordPageState extends State<OralRecitationWordPage> {
   }
 }
 
+bool _sameAppearance(
+  QuranOralRecitationState? previous,
+  QuranOralRecitationState current,
+) =>
+    previous != null &&
+    previous.mode == current.mode &&
+    setEquals(previous.visibleWordIndices, current.visibleWordIndices) &&
+    setEquals(previous.mistakeWordIndices, current.mistakeWordIndices) &&
+    setEquals(
+      previous.unresolvedMistakeWordIndices,
+      current.unresolvedMistakeWordIndices,
+    ) &&
+    setEquals(previous.hintedWordIndices, current.hintedWordIndices) &&
+    setEquals(previous.revealedGlobals, current.revealedGlobals);
+
 class _PageWord {
   const _PageWord({
     required this.source,
     required this.canonicalText,
     required this.targetIndex,
-    required this.visible,
-    required this.mistake,
-    required this.unresolved,
-    required this.current,
   });
   final PrintedMushafWord source;
   final String canonicalText;
   final int? targetIndex;
-  final bool visible;
-  final bool mistake;
-  final bool unresolved;
-  final bool current;
+
+  bool isVisible(QuranOralRecitationState state) =>
+      source.isMarker ||
+      (targetIndex != null &&
+          (state.mode == OralRecitationMode.reading ||
+              state.revealedGlobals.contains(source.globalAyah) ||
+              (state.mode == OralRecitationMode.firstWord &&
+                  source.ordinal == 0) ||
+              state.visibleWordIndices.contains(targetIndex) ||
+              state.hintedWordIndices.contains(targetIndex)));
 }
 
 class _PageLine {
@@ -278,31 +296,12 @@ List<_PageLine> _pageLines(
               final target = !word.isMarker && word.ordinal < indices.length
                   ? indices[word.ordinal]
                   : null;
-              final visible =
-                  word.isMarker ||
-                  (target != null &&
-                      (state.mode == OralRecitationMode.reading ||
-                          state.revealedGlobals.contains(word.globalAyah) ||
-                          (state.mode == OralRecitationMode.firstWord &&
-                              word.ordinal == 0) ||
-                          state.visibleWordIndices.contains(target) ||
-                          state.hintedWordIndices.contains(target)));
               return _PageWord(
                 source: word,
                 canonicalText: word.isMarker
                     ? ''
                     : canonical[word.globalAyah]![word.ordinal],
                 targetIndex: target,
-                visible: visible,
-                mistake:
-                    visible &&
-                    target != null &&
-                    state.mistakeWordIndices.contains(target),
-                unresolved:
-                    visible &&
-                    target != null &&
-                    state.unresolvedMistakeWordIndices.contains(target),
-                current: word.globalAyah == state.currentGlobalAyah,
               );
             })(),
         ],
@@ -340,14 +339,46 @@ class OralMushafPaintedWord {
 }
 
 class _PaintedRun {
-  const _PaintedRun(this.painter, this.offset);
+  _PaintedRun(this.painter, this.offset, {this.word, this.wordIndex});
   final TextPainter painter;
   final Offset offset;
+  final _PageWord? word;
+  final int? wordIndex;
+  final _colorVariants = <Color, TextPainter>{};
+
+  void paint(Canvas canvas, {Color? color}) {
+    if (color == null) {
+      painter.paint(canvas, offset);
+      return;
+    }
+    // A mistake or current ayah marker needs a paint variant, never another
+    // page fit or new word positions. Cache it if that word is revisited.
+    final variant = _colorVariants.putIfAbsent(color, () {
+      final span = painter.text! as TextSpan;
+      return TextPainter(
+        text: TextSpan(
+          text: span.text,
+          style: span.style!.copyWith(color: color),
+        ),
+        textDirection: TextDirection.rtl,
+        textScaler: TextScaler.noScaling,
+      )..layout();
+    });
+    variant.paint(canvas, offset);
+  }
+
+  void dispose() {
+    painter.dispose();
+    for (final variant in _colorVariants.values) {
+      variant.dispose();
+    }
+  }
 }
 
 class _WordGeometry {
-  _WordGeometry(this.word);
+  _WordGeometry(this.word, this.index);
   final _PageWord word;
+  final int index;
   final boxes = <Rect>[];
   final lines = <int>[];
   final baselines = <double>[];
@@ -357,6 +388,7 @@ class _PageLayout {
   const _PageLayout({
     required this.runs,
     required this.words,
+    required this.wordSources,
     required this.height,
     required this.minimumHeight,
     required this.fontSize,
@@ -366,6 +398,7 @@ class _PageLayout {
   });
   final List<_PaintedRun> runs;
   final List<OralMushafPaintedWord> words;
+  final List<_PageWord> wordSources;
   final double height;
   final double minimumHeight;
   final double fontSize;
@@ -375,9 +408,32 @@ class _PageLayout {
 
   void dispose() {
     for (final run in runs) {
-      run.painter.dispose();
+      run.dispose();
     }
   }
+
+  List<OralMushafPaintedWord> displayWords(QuranOralRecitationState state) => [
+    for (var index = 0; index < words.length; index++)
+      (() {
+        final geometry = words[index];
+        final source = wordSources[index];
+        final visible = source.isVisible(state);
+        return OralMushafPaintedWord(
+          text: geometry.text,
+          targetIndex: geometry.targetIndex,
+          globalAyah: geometry.globalAyah,
+          visible: visible,
+          mistake:
+              visible && state.mistakeWordIndices.contains(source.targetIndex),
+          unresolved:
+              visible &&
+              state.unresolvedMistakeWordIndices.contains(source.targetIndex),
+          boxes: geometry.boxes,
+          lineNumbers: geometry.lineNumbers,
+          baselines: geometry.baselines,
+        );
+      })(),
+  ];
 
   static TextPainter _text(String text, double fontSize, Color color) =>
       TextPainter(
@@ -399,9 +455,7 @@ class _PageLayout {
     required double width,
     required String canonicalText,
     required Color ink,
-    required Color error,
     required Color ornament,
-    required Color current,
   }) {
     final scale = width / 390;
     final horizontal = 18 * scale;
@@ -469,13 +523,7 @@ class _PageLayout {
           _text(
             word.source.text,
             fontSize,
-            !word.visible
-                ? Colors.transparent
-                : word.mistake
-                ? error
-                : word.source.isMarker
-                ? (word.current ? current : ornament)
-                : ink,
+            word.source.isMarker ? ornament : ink,
           ),
       ];
       final natural = painters.fold<double>(
@@ -498,10 +546,14 @@ class _PageLayout {
           baseline -
               painter.computeDistanceToActualBaseline(TextBaseline.alphabetic),
         );
-        runs.add(_PaintedRun(painter, origin));
+        int? wordIndex;
         if (!word.source.isMarker) {
           final key = (word.source.globalAyah, word.source.ordinal);
-          final item = geometry.putIfAbsent(key, () => _WordGeometry(word));
+          final item = geometry.putIfAbsent(
+            key,
+            () => _WordGeometry(word, geometry.length),
+          );
+          wordIndex = item.index;
           // Tight selection boxes include the QPC diacritics and are also used
           // by automatic scrolling. Several printed parts may be one word.
           final boxes = painter.getBoxesForSelection(
@@ -511,6 +563,9 @@ class _PageLayout {
           item.baselines.addAll(boxes.map((_) => baseline));
           item.lines.add(line.source.number);
         }
+        runs.add(
+          _PaintedRun(painter, origin, word: word, wordIndex: wordIndex),
+        );
         right = left - gap;
       }
     }
@@ -522,14 +577,15 @@ class _PageLayout {
             text: item.word.canonicalText,
             targetIndex: item.word.targetIndex,
             globalAyah: item.word.source.globalAyah,
-            visible: item.word.visible,
-            mistake: item.word.mistake,
-            unresolved: item.word.unresolved,
+            visible: false,
+            mistake: false,
+            unresolved: false,
             boxes: List.unmodifiable(item.boxes),
             lineNumbers: List.unmodifiable(item.lines),
             baselines: List.unmodifiable(item.baselines),
           ),
       ],
+      wordSources: [for (final item in geometry.values) item.word],
       height: height,
       minimumHeight:
           geometry.values
@@ -547,6 +603,9 @@ class _PageLayout {
 class OralRecitationWordsPainter extends CustomPainter {
   const OralRecitationWordsPainter._(
     this._layout, {
+    required this.words,
+    required this.currentGlobalAyah,
+    required this.currentColor,
     required this.hiddenColor,
     required this.errorColor,
     required this.paperColor,
@@ -554,6 +613,8 @@ class OralRecitationWordsPainter extends CustomPainter {
     required this.paperHeight,
   });
   final _PageLayout _layout;
+  final int currentGlobalAyah;
+  final Color currentColor;
   final Color hiddenColor;
   final Color errorColor;
   final Color paperColor;
@@ -561,7 +622,9 @@ class OralRecitationWordsPainter extends CustomPainter {
   final double paperHeight;
 
   @visibleForTesting
-  List<OralMushafPaintedWord> get words => _layout.words;
+  final List<OralMushafPaintedWord> words;
+  @visibleForTesting
+  Object get geometryIdentity => _layout;
   @visibleForTesting
   double get fontSize => _layout.fontSize;
   @visibleForTesting
@@ -602,11 +665,24 @@ class OralRecitationWordsPainter extends CustomPainter {
       canvas.drawLine(start, end, ornament);
     }
     for (final run in _layout.runs) {
-      run.painter.paint(canvas, run.offset);
+      final wordIndex = run.wordIndex;
+      if (wordIndex != null) {
+        final word = words[wordIndex];
+        if (word.visible) {
+          run.paint(canvas, color: word.mistake ? errorColor : null);
+        }
+      } else {
+        run.paint(
+          canvas,
+          color: run.word?.source.globalAyah == currentGlobalAyah
+              ? currentColor
+              : null,
+        );
+      }
     }
     final mask = Paint()..color = hiddenColor;
     final errorLine = Paint()..color = errorColor;
-    for (final word in _layout.words) {
+    for (final word in words) {
       if (word.visible && !word.unresolved) continue;
       for (var index = 0; index < word.boxes.length; index++) {
         final box = word.boxes[index];
@@ -648,6 +724,9 @@ class OralRecitationWordsPainter extends CustomPainter {
   @override
   bool shouldRepaint(OralRecitationWordsPainter oldDelegate) =>
       oldDelegate._layout != _layout ||
+      !identical(oldDelegate.words, words) ||
+      oldDelegate.currentGlobalAyah != currentGlobalAyah ||
+      oldDelegate.currentColor != currentColor ||
       oldDelegate.hiddenColor != hiddenColor ||
       oldDelegate.errorColor != errorColor ||
       oldDelegate.paperColor != paperColor ||

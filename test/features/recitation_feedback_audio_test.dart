@@ -165,6 +165,50 @@ void main() {
         },
       );
     }
+
+    test('$cue cannot make following quiet speech disappear', () async {
+      for (final gain in [1, 2]) {
+        final cueAudio = await _cuePcm(cue, gain: gain);
+        for (final amplitude in [50, 100, 200, 400]) {
+          final segmenter = SpeechSegmenter();
+          final voice = Int16List.fromList([
+            for (var i = 0; i < 1800 * 16; i++)
+              i.isEven ? amplitude : -amplitude,
+          ]);
+          final beforeVoice = Int16List.fromList([
+            ..._silence(300),
+            ...cueAudio,
+            ..._silence(90),
+          ]);
+          final segments = <SpeechSegment>[];
+          for (final section in [beforeVoice, voice]) {
+            for (final packet in _packets(section, packetSamples: 1600)) {
+              segments.addAll(segmenter.push(packet));
+            }
+          }
+          final reason = '$cue ×$gain followed by speech at RMS $amplitude';
+          expect(segments, isEmpty, reason: 'No false breath during $reason');
+          for (final packet in _packets(_silence(600))) {
+            segments.addAll(segmenter.push(packet));
+          }
+          expect(segments, hasLength(1), reason: reason);
+          // Compare against the actual input, not another segmenter with the
+          // same classification bug. The entire quiet phrase must survive.
+          final voiceEnd = beforeVoice.length + voice.length;
+          expect(
+            segments.single.samples.length,
+            greaterThanOrEqualTo(voiceEnd),
+            reason: reason,
+          );
+          expect(
+            segments.single.samples.sublist(beforeVoice.length, voiceEnd),
+            orderedEquals(voice),
+            reason: reason,
+          );
+          expect(segmenter.flush(), isNull, reason: reason);
+        }
+      }
+    });
   }
 
   group('offline service quiet diagnostics', () {
@@ -234,38 +278,41 @@ void main() {
       },
     );
 
-    test('an empty forced-cut tail still requires 420ms of actual quiet', () async {
-      await service.dispose();
-      quiet.clear();
-      final segmenter = SpeechSegmenter(
-        maxSegmentMs: 600,
-        forcedCutWindowMs: 30,
-      );
-      service = OfflineSpeechRecognitionService(
-        channel: channel,
-        audioEvents: native.audio.stream,
-        segmenter: segmenter,
-        clockMs: () => native.nowMs,
-      );
-      service.feedbackQuietStream.listen(quiet.add);
-      service.resultsStream.listen(results.add);
-      service.errorStream.listen(errors.add);
-      expect(await service.startListening(), isTrue);
-      native.feed(_voice(600));
-      expect(segmenter.bufferedDurationMs, 0);
-      expect(service.isQuietForFeedback, isFalse);
-      expect(quiet, isEmpty);
-      native.feed(_silence(390));
-      expect(service.isQuietForFeedback, isFalse);
-      expect(quiet, isEmpty);
-      native.feed(_silence(30));
-      expect(service.isQuietForFeedback, isTrue);
-      expect(quiet, [true]);
-      await service.stopListening();
-      expect(service.isQuietForFeedback, isFalse);
-      expect(quiet, [true, false]);
-      expect(errors, isEmpty);
-    });
+    test(
+      'an empty forced-cut tail still requires 420ms of actual quiet',
+      () async {
+        await service.dispose();
+        quiet.clear();
+        final segmenter = SpeechSegmenter(
+          maxSegmentMs: 600,
+          forcedCutWindowMs: 30,
+        );
+        service = OfflineSpeechRecognitionService(
+          channel: channel,
+          audioEvents: native.audio.stream,
+          segmenter: segmenter,
+          clockMs: () => native.nowMs,
+        );
+        service.feedbackQuietStream.listen(quiet.add);
+        service.resultsStream.listen(results.add);
+        service.errorStream.listen(errors.add);
+        expect(await service.startListening(), isTrue);
+        native.feed(_voice(600));
+        expect(segmenter.bufferedDurationMs, 0);
+        expect(service.isQuietForFeedback, isFalse);
+        expect(quiet, isEmpty);
+        native.feed(_silence(390));
+        expect(service.isQuietForFeedback, isFalse);
+        expect(quiet, isEmpty);
+        native.feed(_silence(30));
+        expect(service.isQuietForFeedback, isTrue);
+        expect(quiet, [true]);
+        await service.stopListening();
+        expect(service.isQuietForFeedback, isFalse);
+        expect(quiet, [true, false]);
+        expect(errors, isEmpty);
+      },
+    );
 
     test(
       'late stop-tail audio never reopens the quiet feedback window',

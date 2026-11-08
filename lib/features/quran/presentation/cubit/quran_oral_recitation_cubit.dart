@@ -1094,6 +1094,10 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         hintedGlobalAyahs: {...state.hintedGlobalAyahs, ...previewAssistance},
         hintCount: state.hintCount + previewAssistance.length,
         correctionWordIndex: alignResult.correctionWordIndex,
+        isCorrectionProvisional:
+            !result.isFinal &&
+            alignResult.correctionWordIndex != null &&
+            !unresolvedMistakes.contains(alignResult.correctionWordIndex),
         clearCorrection: alignResult.correctionWordIndex == null,
       ),
     );
@@ -1480,6 +1484,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
         hintedGlobalAyahs: {...state.hintedGlobalAyahs, ...previewAssistance},
         hintCount: state.hintCount + previewAssistance.length,
         correctionWordIndex: correction,
+        isCorrectionProvisional: false,
         clearCorrection: correction == null,
       ),
     );

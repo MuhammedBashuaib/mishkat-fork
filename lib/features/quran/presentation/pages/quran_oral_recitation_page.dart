@@ -687,7 +687,8 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
         return Column(
           children: [
             Expanded(child: OralRecitationMushaf(state: state)),
-            if (state.correctionWordIndex != null)
+            if (state.correctionWordIndex != null &&
+                !state.isCorrectionProvisional)
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: constraints.maxHeight * .42,
@@ -1116,7 +1117,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
         spacing: 8,
         children: [
           Text(
-            definite ? 'الصحيح:' : 'أعد آخر كلمة بوضوح',
+            definite ? 'الصحيح:' : 'لم تتضح كلمة في المقطع الأخير',
             style: TextStyle(color: color, fontSize: 12),
           ),
           if (definite) ...[

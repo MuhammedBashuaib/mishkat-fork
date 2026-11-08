@@ -210,7 +210,7 @@ class _QuranReaderPageState extends State<QuranReaderPage>
       }();
     }
 
-    final reader = MultiBlocProvider(
+    return MultiBlocProvider(
       providers: [
         BlocProvider<MushafInteractionCubit>.value(
           value: _scopedInteractionCubit!,
@@ -510,10 +510,12 @@ class _QuranReaderPageState extends State<QuranReaderPage>
                               onZoomChanged: _handleZoomChanged,
                             );
                             if (_focus) {
-                              return MushafPaperSheet(
-                                page: index + 1,
-                                onExit: () => _setFocus(false),
-                                child: pageContent,
+                              return _MushafPaperTheme(
+                                child: MushafPaperSheet(
+                                  page: index + 1,
+                                  onExit: () => _setFocus(false),
+                                  child: pageContent,
+                                ),
                               );
                             }
                             return Padding(
@@ -543,7 +545,7 @@ class _QuranReaderPageState extends State<QuranReaderPage>
                                   borderRadius: BorderRadius.circular(
                                     MishkatRadius.lg,
                                   ),
-                                  child: pageContent,
+                                  child: _MushafPaperTheme(child: pageContent),
                                 ),
                               ),
                             );
@@ -562,7 +564,6 @@ class _QuranReaderPageState extends State<QuranReaderPage>
         },
       ),
     );
-    return _MushafReaderTheme(child: reader);
   }
 
   Widget _buildBottomBar(BuildContext context) {
@@ -673,8 +674,8 @@ class _QuranReaderPageState extends State<QuranReaderPage>
   );
 }
 
-class _MushafReaderTheme extends StatelessWidget {
-  const _MushafReaderTheme({required this.child});
+class _MushafPaperTheme extends StatelessWidget {
+  const _MushafPaperTheme({required this.child});
 
   final Widget child;
 
@@ -698,7 +699,10 @@ class _MushafThemeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = context.select(
+      (SettingsCubit cubit) =>
+          cubit.state.settings.mushafTheme == MushafThemePreference.dark,
+    );
     final colors = context.mishkat;
     return IconButton.filledTonal(
       key: const ValueKey('mushaf-theme-toggle'),

@@ -439,6 +439,107 @@ void main() {
   });
 
   testWidgets(
+    'live hypotheses reuse shaped page geometry through reveal and correction',
+    (tester) async {
+      final geometry = repository.getPageGeometry(3)!;
+      final base = session(
+        globals: geometry.ayahs.map((ayah) => ayah.globalAyah).toList(),
+      );
+      await tester.pumpWidget(harness(base));
+      await tester.pumpAndSettle();
+      final initial = painter(tester, 3);
+      final firstWord = initial.words.firstWhere(
+        (word) => word.targetIndex == 0,
+      );
+
+      // Actual ASR callbacks create fresh sets, including unchanged empty sets.
+      for (var callback = 0; callback < 3; callback++) {
+        await tester.pumpWidget(
+          harness(
+            base.copyWith(
+              liveTranscript: 'الفرضية $callback',
+              visibleWordIndices: <int>{},
+              mistakeWordIndices: <int>{},
+              unresolvedMistakeWordIndices: <int>{},
+              hintedWordIndices: <int>{},
+              revealedGlobals: <int>{},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final repeated = painter(tester, 3);
+        expect(
+          identical(repeated.geometryIdentity, initial.geometryIdentity),
+          isTrue,
+        );
+        expect(identical(repeated.words, initial.words), isTrue);
+        expect(repeated.shouldRepaint(initial), isFalse);
+      }
+
+      final mistake = base.copyWith(
+        visibleWordIndices: {0, 1},
+        mistakeWordIndices: {1},
+        unresolvedMistakeWordIndices: {1},
+      );
+      await tester.pumpWidget(harness(mistake));
+      await tester.pumpAndSettle();
+      final revealed = painter(tester, 3);
+      expect(
+        identical(revealed.geometryIdentity, initial.geometryIdentity),
+        isTrue,
+      );
+      expect(revealed.shouldRepaint(initial), isTrue);
+      expect(visible(tester, 3), {0, 1});
+      final wrong = revealed.words.singleWhere((word) => word.targetIndex == 1);
+      expect(wrong.mistake && wrong.unresolved, isTrue);
+      expect(
+        identical(
+          revealed.words.firstWhere((word) => word.targetIndex == 0).boxes,
+          firstWord.boxes,
+        ),
+        isTrue,
+      );
+
+      await tester.pumpWidget(
+        harness(
+          mistake.copyWith(
+            currentGlobalAyah: geometry.ayahs.last.globalAyah,
+            unresolvedMistakeWordIndices: {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final corrected = painter(tester, 3);
+      expect(
+        identical(corrected.geometryIdentity, initial.geometryIdentity),
+        isTrue,
+      );
+      expect(corrected.fontSize, initial.fontSize);
+      expect(corrected.lineCount, initial.lineCount);
+      final correctedWord = corrected.words.singleWhere(
+        (word) => word.targetIndex == 1,
+      );
+      expect(correctedWord.mistake, isTrue);
+      expect(correctedWord.unresolved, isFalse);
+      expect(identical(correctedWord.boxes, wrong.boxes), isTrue);
+      expect(corrected.shouldRepaint(revealed), isTrue);
+
+      // A genuine theme change must still rebuild the colored glyph cache.
+      await tester.pumpWidget(harness(mistake, dark: true));
+      await tester.pumpAndSettle();
+      expect(
+        identical(
+          painter(tester, 3).geometryIdentity,
+          initial.geometryIdentity,
+        ),
+        isFalse,
+      );
+      expect(visible(tester, 3), {0, 1});
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'vertical follow ignores raw partial cursor and follows stable revealed words',
     (tester) async {
       tester.view.physicalSize = const Size(390, 400);

@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:mishkat_app/core/theme/app_colors.dart';
 import 'package:mishkat_app/core/theme/app_theme.dart';
 import 'package:mishkat_app/features/quran/data/repositories/mushaf_layout_repository.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_repository.dart';
@@ -15,6 +16,7 @@ import 'package:mishkat_app/features/quran/presentation/cubit/mushaf_interaction
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_cubit.dart';
 import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.dart';
 import 'package:mishkat_app/features/quran/presentation/services/mushaf_coordinate_mapper.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/ayah_action_sheet.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/mushaf_interaction_layer.dart';
 import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
@@ -31,6 +33,10 @@ import 'quran_home_hub_test.dart'
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const captureEnabled = bool.fromEnvironment('CAPTURE_MUSHAF_READER');
+  const captureDirectory = String.fromEnvironment(
+    'CAPTURE_MUSHAF_READER_DIRECTORY',
+    defaultValue: 'screenshots',
+  );
   final repository = QuranRepository();
   final layoutRepository = MushafLayoutRepository.instance;
   late InMemoryLocalStorage storage;
@@ -51,7 +57,9 @@ void main() {
     await (FontLoader(
       'MaterialIcons',
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
-    if (captureEnabled) await Directory('screenshots').create(recursive: true);
+    if (captureEnabled) {
+      await Directory(captureDirectory).create(recursive: true);
+    }
   });
 
   setUp(() async {
@@ -113,8 +121,8 @@ void main() {
               locale: const Locale('ar'),
               supportedLocales: const [Locale('ar')],
               localizationsDelegates: GlobalMaterialLocalizations.delegates,
-              theme: AppTheme.light(),
-              darkTheme: AppTheme.dark(),
+              theme: AppTheme.light(state.settings.uiFontScale),
+              darkTheme: AppTheme.dark(state.settings.uiFontScale),
               themeMode: state.settings.themeMode,
               builder: (context, child) {
                 final media = MediaQuery.of(context);
@@ -163,6 +171,39 @@ void main() {
     );
   }
 
+  void expectReaderControlsBrightness(
+    WidgetTester tester,
+    Brightness brightness,
+  ) {
+    for (final control in [
+      find.byType(Scaffold),
+      find.byType(AppBar),
+      find.byTooltip('تكبير المصحف'),
+      find.byKey(const ValueKey('mushaf-theme-toggle')),
+      find.byKey(const ValueKey('reader-play-toggle')),
+    ]) {
+      expect(Theme.of(tester.element(control)).brightness, brightness);
+    }
+    final colors = brightness == Brightness.dark
+        ? MishkatColors.dark
+        : MishkatColors.light;
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+      colors.surfaceMuted,
+    );
+    expect(
+      tester.widget<AppBar>(find.byType(AppBar)).backgroundColor,
+      colors.surface,
+    );
+  }
+
+  void expectPaperThemeIcon(WidgetTester tester, IconData icon) {
+    final toggle = tester.widget<IconButton>(
+      find.byKey(const ValueKey('mushaf-theme-toggle')),
+    );
+    expect((toggle.icon as Icon).icon, icon);
+  }
+
   Future<void> enterFullscreen(WidgetTester tester) async {
     await tester.tap(find.byTooltip('ملء الشاشة'));
     await tester.pumpAndSettle();
@@ -186,7 +227,7 @@ void main() {
       final image = await boundary.toImage(pixelRatio: 2);
       try {
         final data = await image.toByteData(format: ui.ImageByteFormat.png);
-        await File('screenshots/mushaf_fullscreen_$name.png')
+        await File('$captureDirectory/mushaf_fullscreen_$name.png')
             .writeAsBytes(data!.buffer.asUint8List());
       } finally {
         image.dispose();
@@ -240,6 +281,8 @@ void main() {
       await settings.setQuranFont(48);
       final boundary = await openReader(tester, dark: true);
       expectReaderBrightness(tester, Brightness.light);
+      expectReaderControlsBrightness(tester, Brightness.dark);
+      expectPaperThemeIcon(tester, Icons.dark_mode_rounded);
       expect(
         Theme.of(tester.element(find.byType(QuranReaderPage))).brightness,
         Brightness.dark,
@@ -260,6 +303,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('mushaf-theme-toggle')));
       await tester.pumpAndSettle();
       expectReaderBrightness(tester, Brightness.dark);
+      expectReaderControlsBrightness(tester, Brightness.dark);
+      expectPaperThemeIcon(tester, Icons.light_mode_rounded);
       expect(find.byTooltip('تفعيل الوضع الفاتح للمصحف'), findsOneWidget);
       expect(settings.state.settings.theme, AppThemePreference.dark);
       expect(settings.state.settings.mushafTheme, MushafThemePreference.dark);
@@ -277,11 +322,15 @@ void main() {
         Brightness.light,
       );
       expectReaderBrightness(tester, Brightness.dark);
+      expectReaderControlsBrightness(tester, Brightness.light);
+      expectPaperThemeIcon(tester, Icons.light_mode_rounded);
       await capture(tester, boundary, 'toolbar_dark_in_light_app');
 
       await tester.tap(find.byKey(const ValueKey('mushaf-theme-toggle')));
       await tester.pumpAndSettle();
       expectReaderBrightness(tester, Brightness.light);
+      expectReaderControlsBrightness(tester, Brightness.light);
+      expectPaperThemeIcon(tester, Icons.dark_mode_rounded);
       expect(settings.state.settings.theme, AppThemePreference.light);
       expect(settings.state.settings.mushafTheme, MushafThemePreference.light);
       expect(quran.state.currentPage, 562);
@@ -292,6 +341,51 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets('reader sheets use the app theme when paper appearance differs', (
+    tester,
+  ) async {
+    for (final appDark in [true, false]) {
+      await settings.setMushafTheme(
+        appDark ? MushafThemePreference.light : MushafThemePreference.dark,
+      );
+      await openReader(tester, dark: appDark);
+      final appBrightness = appDark ? Brightness.dark : Brightness.light;
+      final paperBrightness = appDark ? Brightness.light : Brightness.dark;
+      expectReaderBrightness(tester, paperBrightness);
+      expectReaderControlsBrightness(tester, appBrightness);
+
+      await tester.tap(find.text('صفحة 562'));
+      await tester.pumpAndSettle();
+      expect(find.text('خيارات القراءة'), findsOneWidget);
+      expect(
+        Theme.of(tester.element(find.text('خيارات القراءة'))).brightness,
+        appBrightness,
+      );
+      await tester.tap(find.text('تم'));
+      await tester.pumpAndSettle();
+
+      final interaction = tester
+          .element(currentPage())
+          .read<MushafInteractionCubit>();
+      interaction.selectAyah(
+        layoutRepository.getPageGeometry(562)!.ayahs.first,
+      );
+      interaction.setActionSheetOpen(true);
+      await tester.pumpAndSettle();
+      expect(find.byType(AyahActionSheet), findsOneWidget);
+      expect(
+        Theme.of(tester.element(find.byType(AyahActionSheet))).brightness,
+        appBrightness,
+      );
+      Navigator.of(tester.element(find.byType(AyahActionSheet))).pop();
+      await tester.pumpAndSettle();
+      expectReaderBrightness(tester, paperBrightness);
+      expectReaderControlsBrightness(tester, appBrightness);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
 
   testWidgets('Mushaf appearance survives fullscreen and reopening', (
     tester,
@@ -304,11 +398,13 @@ void main() {
     await tester.tap(find.byTooltip('إنهاء ملء الشاشة'));
     await tester.pumpAndSettle();
     expectReaderBrightness(tester, Brightness.dark);
+    expectReaderControlsBrightness(tester, Brightness.light);
     await tester.pumpWidget(const SizedBox.shrink());
 
     await settings.load();
     await openReader(tester);
     expectReaderBrightness(tester, Brightness.dark);
+    expectReaderControlsBrightness(tester, Brightness.light);
     expect(settings.state.settings.theme, AppThemePreference.light);
     expect(find.byTooltip('تفعيل الوضع الفاتح للمصحف'), findsOneWidget);
     expect(tester.takeException(), isNull);

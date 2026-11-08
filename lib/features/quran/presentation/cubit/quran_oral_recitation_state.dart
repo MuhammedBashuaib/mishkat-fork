@@ -44,6 +44,7 @@ class QuranOralRecitationState extends Equatable {
     this.hintedWordIndices = const {},
     this.assistedWordIndices = const {},
     this.correctionWordIndex,
+    this.isCorrectionProvisional = false,
   });
 
   final OralRecitationLifecycle lifecycle;
@@ -98,6 +99,10 @@ class QuranOralRecitationState extends Equatable {
   final Set<int> hintedWordIndices;
   final Set<int> assistedWordIndices;
   final int? correctionWordIndex;
+
+  /// An unfinished ASR hypothesis can locate a word without asking the reader
+  /// to repeat it. Only final uncertainty or a confirmed mistake prompts them.
+  final bool isCorrectionProvisional;
 
   int get attemptedWords =>
       alignedWords.where((w) => !w.status.isUpcoming).length;
@@ -160,6 +165,7 @@ class QuranOralRecitationState extends Equatable {
     Set<int>? hintedWordIndices,
     Set<int>? assistedWordIndices,
     int? correctionWordIndex,
+    bool? isCorrectionProvisional,
     bool clearCorrection = false,
     bool clearSummary = false,
   }) {
@@ -210,6 +216,9 @@ class QuranOralRecitationState extends Equatable {
       correctionWordIndex: clearCorrection
           ? null
           : (correctionWordIndex ?? this.correctionWordIndex),
+      isCorrectionProvisional: clearCorrection
+          ? false
+          : (isCorrectionProvisional ?? this.isCorrectionProvisional),
     );
   }
 
@@ -255,5 +264,6 @@ class QuranOralRecitationState extends Equatable {
     hintedWordIndices,
     assistedWordIndices,
     correctionWordIndex,
+    isCorrectionProvisional,
   ];
 }
