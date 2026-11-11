@@ -195,18 +195,47 @@ void main() {
   });
 
   test(
-    'empty speech and pause retract a fast prefix without saving it',
+    'empty partial keeps a fast prefix but pause settles it without saving it',
     () async {
       await say(basmala);
       await say('');
-      expect(cubit.state.visibleWordIndices, isEmpty);
-      expect(cubit.state.assistedWordIndices, {0, 1, 2});
+      expect(cubit.state.visibleWordIndices, {0, 1, 2});
+      expect(cubit.state.assistedWordIndices, isEmpty);
       expect(cubit.state.committedTargetIndex, 0);
       await cubit.pauseRecitation();
+      expect(cubit.state.visibleWordIndices, isEmpty);
+      expect(cubit.state.assistedWordIndices, {0, 1, 2});
       await cubit.finishSession();
       expect(cubit.state.summary!.matchedWords, 0);
       expect(cubit.state.summary!.matchedAyahs, 0);
       expect(cubit.state.summary!.assistedWords, 3);
+    },
+  );
+
+  test(
+    'confirmed earlier ayahs survive empty and incomplete next-ayah results',
+    () async {
+      await say(basmala, isFinal: true);
+      await say('');
+      expect(cubit.state.visibleWordIndices, {0, 1, 2, 3});
+      expect(cubit.state.completedGlobalAyahs, {1});
+      await say('الحمد لله رب');
+      expect(cubit.state.visibleWordIndices, {0, 1, 2, 3, 4, 5});
+      await say('الحمد لله رب العالمين', isFinal: true);
+      await say('');
+      expect(
+        cubit.state.visibleWordIndices,
+        Set.of(List.generate(8, (i) => i)),
+      );
+      expect(cubit.state.completedGlobalAyahs, {1, 2});
+      await say('الرحمن');
+      expect(
+        cubit.state.visibleWordIndices,
+        Set.of(List.generate(8, (i) => i)),
+      );
+      expect(cubit.state.visibleWordIndices, isNot(contains(9)));
+      expect(cubit.state.committedTargetIndex, 8);
+      expect(cubit.state.hintCount, 0);
     },
   );
 

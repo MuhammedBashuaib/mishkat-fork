@@ -210,7 +210,7 @@ void main() {
   );
 
   test(
-    'two live hypotheses reveal an Ayah without awarding final progress',
+    'two live hypotheses keep an Ayah visible without awarding final progress',
     () async {
       await cubit.startRecitation();
       speech.emitTranscript('بسم الله الرحمن الرحيم');
@@ -224,10 +224,14 @@ void main() {
       expect(cubit.state.isListening, isTrue);
       speech.emitTranscript('بسم الله');
       await pumpEventQueue();
-      expect(cubit.state.previewCompletedGlobalAyahs, isEmpty);
+      expect(cubit.state.previewCompletedGlobalAyahs, {1});
+      expect(cubit.state.visibleWordIndices, {0, 1, 2, 3});
+      expect(cubit.state.committedTargetIndex, 0);
+      expect(cubit.state.hintCount, 0);
       await cubit.finishSession();
       expect(cubit.state.summary!.matchedWords, 0);
       expect(cubit.state.summary!.matchedAyahs, 0);
+      expect(cubit.state.summary!.assistedWords, 4);
     },
   );
 

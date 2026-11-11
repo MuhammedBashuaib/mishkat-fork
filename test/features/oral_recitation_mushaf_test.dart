@@ -3,13 +3,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mishkat_app/core/services/local_storage_service.dart';
 import 'package:mishkat_app/core/theme/app_theme.dart';
 import 'package:mishkat_app/features/quran/data/models/oral_recitation_models.dart';
 import 'package:mishkat_app/features/quran/data/models/quran_models.dart';
 import 'package:mishkat_app/features/quran/data/repositories/mushaf_layout_repository.dart';
+import 'package:mishkat_app/features/quran/data/repositories/quran_memorization_repository.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_repository.dart';
+import 'package:mishkat_app/features/quran/presentation/cubit/quran_memorization_cubit.dart';
+import 'package:mishkat_app/features/quran/presentation/cubit/quran_oral_recitation_cubit.dart';
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_oral_recitation_state.dart';
+import 'package:mishkat_app/features/quran/presentation/services/offline_speech_recognition_service.dart';
 import 'package:mishkat_app/features/quran/presentation/services/quran_recitation_text.dart';
+import 'package:mishkat_app/features/quran/presentation/services/speech_recognition_service.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/oral_recitation_mushaf.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/oral_recitation_word_page.dart';
 
@@ -21,6 +27,43 @@ class _DeferredLayoutBundle extends CachingAssetBundle {
 
   @override
   Future<ByteData> load(String key) => throw UnimplementedError();
+}
+
+class _MemoryStorage implements LocalStorageService {
+  final _values = <String, dynamic>{};
+  @override
+  Future<void> init() async {}
+  @override
+  Map<String, dynamic> readMap(String key) =>
+      Map<String, dynamic>.from(_values[key] as Map? ?? {});
+  @override
+  List<dynamic> readList(String key) =>
+      List<dynamic>.from(_values[key] as List? ?? []);
+  @override
+  int readInt(String key, [int fallback = 0]) =>
+      _values[key] as int? ?? fallback;
+  @override
+  Future<void> writeMap(String key, Map<String, dynamic> value) async =>
+      _values[key] = value;
+  @override
+  Future<void> writeList(String key, List<dynamic> value) async =>
+      _values[key] = value;
+  @override
+  Future<void> writeInt(String key, int value) async => _values[key] = value;
+  @override
+  Future<void> remove(String key) async => _values.remove(key);
+  @override
+  Future<void> clear() async => _values.clear();
+}
+
+class _OfflineSpeech extends MockSpeechRecognitionService
+    implements OfflineSpeechDiagnostics {
+  @override
+  bool get isOffline => true;
+  @override
+  Stream<double> get soundLevelStream => const Stream.empty();
+  @override
+  Stream<bool> get processingStream => const Stream.empty();
 }
 
 void main() {
@@ -118,6 +161,131 @@ void main() {
     for (final word in painter(tester, page).words)
       if (word.visible && word.targetIndex != null) word.targetIndex!,
   };
+
+  testWidgets(
+    'live ayahs stay painted through revisions without changing saved progress',
+    (tester) async {
+      final speech = _OfflineSpeech();
+      final memory = QuranMemorizationCubit(
+        repository: QuranMemorizationRepository(storage: _MemoryStorage()),
+      );
+      await memory.load();
+      final cubit = QuranOralRecitationCubit(
+        speechService: speech,
+        quranRepository: quranRepository,
+        memorizationCubit: memory,
+      );
+      await cubit.prepareSession(
+        surahNumber: 1,
+        startGlobalAyah: 1,
+        endGlobalAyah: 4,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(1),
+          home: Scaffold(
+            body: Directionality(
+              textDirection: TextDirection.rtl,
+              child: StreamBuilder<QuranOralRecitationState>(
+                stream: cubit.stream,
+                initialData: cubit.state,
+                builder: (context, snapshot) => OralRecitationMushaf(
+                  state: snapshot.requireData,
+                  layoutRepository: repository,
+                  quranRepository: quranRepository,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await cubit.startRecitation();
+      await tester.pumpAndSettle();
+      final geometry = painter(tester, 1).geometryIdentity;
+      final firstWordBoxes = painter(tester, 1).words.first.boxes;
+      const first = 'بسم الله الرحمن الرحيم';
+      const second = '$first الحمد لله رب العالمين';
+      const third = '$second الرحمن الرحيم';
+
+      Future<void> hear(String words, {bool finalResult = false}) async {
+        speech.emitTranscript(words, isFinal: finalResult);
+        await tester.pumpAndSettle();
+        expect(
+          identical(painter(tester, 1).geometryIdentity, geometry),
+          isTrue,
+        );
+        expect(
+          identical(painter(tester, 1).words.first.boxes, firstWordBoxes),
+          isTrue,
+        );
+      }
+
+      Set<int> firstWords(int count) => Set.of(List.generate(count, (i) => i));
+
+      await hear(first);
+      await hear(first);
+      expect(visible(tester, 1), firstWords(4));
+      await hear('بسم');
+      await hear('');
+      expect(visible(tester, 1), firstWords(4));
+      await hear(second);
+      await hear(second);
+      expect(visible(tester, 1), firstWords(8));
+      await hear('بسم الله');
+      await hear('');
+      expect(visible(tester, 1), firstWords(8));
+      await hear(third);
+      await hear(third);
+      expect(visible(tester, 1), firstWords(10));
+      await hear('$first الحمد');
+      await hear('');
+      expect(visible(tester, 1), firstWords(10));
+      expect(cubit.state.committedTargetIndex, 0);
+      expect(cubit.state.completedGlobalAyahs, isEmpty);
+      expect(cubit.state.assistedWordIndices, isEmpty);
+      expect(
+        painter(tester, 1).words
+            .where((word) => word.globalAyah >= 4)
+            .every((word) => !word.visible),
+        isTrue,
+      );
+
+      // Stable paint is not a final verdict or memorization credit.
+      final firstPause = cubit.pauseRecitation();
+      await tester.pumpAndSettle();
+      await firstPause;
+      expect(visible(tester, 1), isEmpty);
+      expect(cubit.state.matchedWordsCount, 0);
+      expect(cubit.state.committedTargetIndex, 0);
+      expect(cubit.state.assistedWordIndices, firstWords(10));
+      await cubit.resumeRecitation();
+      await hear(first, finalResult: true);
+      await hear('الحمد لله رب العالمين');
+      await hear('الحمد لله رب العالمين');
+      expect(visible(tester, 1), firstWords(8));
+      await hear('');
+      expect(visible(tester, 1), firstWords(8));
+      final secondPause = cubit.pauseRecitation();
+      await tester.pumpAndSettle();
+      await secondPause;
+      expect(visible(tester, 1), firstWords(4));
+      expect(cubit.state.completedGlobalAyahs, {1});
+      expect(cubit.state.committedTargetIndex, 4);
+      final finish = cubit.finishSession();
+      await tester.pumpAndSettle();
+      await finish;
+      expect(cubit.state.summary!.matchedWords, 4);
+      expect(cubit.state.summary!.matchedAyahs, 1);
+      expect(cubit.state.summary!.assistedWords, 10);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox());
+      await cubit.close();
+      await speech.dispose();
+      await memory.close();
+    },
+  );
 
   testWidgets(
     'shared decoded canonical data survives asset cache resets and remounts',

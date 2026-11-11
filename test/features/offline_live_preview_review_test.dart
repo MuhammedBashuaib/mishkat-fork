@@ -102,8 +102,10 @@ void main() {
       () async {
         await say(_basmala);
         await say('');
+        expect(cubit.state.visibleWordIndices, {0, 1, 2});
         await say(_basmala);
         expect(cubit.state.previewCompletedGlobalAyahs, isEmpty);
+        expect(cubit.state.visibleWordIndices, {0, 1, 2});
         expect(cubit.state.hintedGlobalAyahs, isEmpty);
         expect(cubit.state.hintCount, 0);
         await say(_basmala);
@@ -112,20 +114,89 @@ void main() {
     );
 
     test(
-      'empty partial retracts visible text and remembers its assistance',
+      'empty partial keeps exposed text until a final settles its assistance',
       () async {
         await showPreview();
         await say('');
-        expect(cubit.state.previewCompletedGlobalAyahs, isEmpty);
+        expect(cubit.state.previewCompletedGlobalAyahs, {1});
+        expect(cubit.state.visibleWordIndices, {0, 1, 2, 3});
         expect(cubit.state.completedGlobalAyahs, isEmpty);
         expect(cubit.state.committedTargetIndex, 0);
+        expect(cubit.state.hintedGlobalAyahs, isEmpty);
+        expect(cubit.state.assistedWordIndices, isEmpty);
+        expect(cubit.state.hintCount, 0);
+        await say('');
+        expect(cubit.state.visibleWordIndices, {0, 1, 2, 3});
+        expect(cubit.state.hintCount, 0);
+
+        // An actual empty final still rejects the preview. Keeping it visible
+        // during inference must not turn it into unassisted memorization.
+        await say('', isFinal: true);
+        expect(cubit.state.previewCompletedGlobalAyahs, isEmpty);
+        expect(cubit.state.visibleWordIndices, isEmpty);
         expect(cubit.state.matchedWordsCount, 0);
         expect(cubit.state.hintedGlobalAyahs, {1});
+        expect(cubit.state.assistedWordIndices, {0, 1, 2, 3});
         expect(cubit.state.hintCount, 1);
-        await say('');
+        await say('', isFinal: true);
         expect(cubit.state.hintCount, 1);
       },
     );
+
+    test('first and second ayahs stay visible through changing third-ayah previews', () async {
+      await showPreview();
+      var exposed = Set<int>.of(cubit.state.visibleWordIndices);
+      Future<void> partial(String text) async {
+        await say(text);
+        expect(
+          cubit.state.visibleWordIndices.containsAll(exposed),
+          isTrue,
+          reason: 'an interim update must not hide an already exposed word',
+        );
+        exposed = Set<int>.of(cubit.state.visibleWordIndices);
+        expect(cubit.state.committedTargetIndex, 0);
+        expect(cubit.state.completedGlobalAyahs, isEmpty);
+        expect(cubit.state.hintCount, 0);
+        expect(cubit.state.assistedWordIndices, isEmpty);
+      }
+
+      await partial('');
+      await partial('$_basmala الحمد لله رب');
+      expect(cubit.state.visibleWordIndices, {0, 1, 2, 3, 4, 5});
+      expect(cubit.state.visibleWordIndices, isNot(contains(6)));
+      await partial('بسم الله');
+      const twoAyahs = '$_basmala الحمد لله رب العالمين';
+      await partial(twoAyahs);
+      await partial(twoAyahs);
+      expect(
+        cubit.state.visibleWordIndices,
+        Set.of(List.generate(8, (i) => i)),
+      );
+      expect(cubit.state.previewCompletedGlobalAyahs, {1, 2});
+
+      await partial('');
+      await partial('بسم الله الرحمن');
+      expect(cubit.state.visibleWordIndices, isNot(contains(8)));
+      await partial(_passage);
+      expect(cubit.state.visibleWordIndices, contains(8));
+      expect(cubit.state.visibleWordIndices, isNot(contains(9)));
+      // An empty hypothesis breaks confirmation for the NEW trailing word,
+      // even while already exposed words remain steady on the page.
+      await partial('');
+      await partial(_passage);
+      expect(cubit.state.visibleWordIndices, isNot(contains(9)));
+      await partial(_passage);
+      expect(
+        cubit.state.visibleWordIndices,
+        Set.of(List.generate(10, (i) => i)),
+      );
+
+      await say(_passage, isFinal: true);
+      expect(cubit.state.completedGlobalAyahs, {1, 2, 3});
+      expect(cubit.state.summary!.hintCount, 0);
+      expect(cubit.state.summary!.assistedWords, 0);
+      expect(cubit.state.summary!.suggestedOutcome, ReviewOutcome.easy);
+    });
 
     test(
       'final rejection cannot become unassisted mastery on rereading',
@@ -182,7 +253,7 @@ void main() {
     );
   });
 
-  test('offline service forwards an empty live hypothesis to revoke its predecessor', () async {
+  test('offline service forwards empty live hypotheses without finalizing them', () async {
     const channel = MethodChannel('test/mishkat_live_preview_review');
     final audio = StreamController<Object?>.broadcast(sync: true);
     final texts = <String>[_basmala, ''];

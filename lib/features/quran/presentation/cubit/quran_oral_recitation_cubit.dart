@@ -953,6 +953,15 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
     final transcript = result.recognizedWords.trim();
     if (transcript.isEmpty) {
+      if (_isOffline && !result.isFinal) {
+        // An empty live hypothesis is not a verdict on words already shown.
+        // Break consecutive evidence for NEW words, but keep the page steady
+        // until the utterance is finalized or listening is stopped.
+        _previousPreviewAyahs = const {};
+        _previousPreviewWords = const {};
+        emit(state.copyWith(liveTranscript: ''));
+        return;
+      }
       _restoreConfirmedAlignment();
       emit(state.copyWith(liveTranscript: ''));
       return;
@@ -1011,6 +1020,13 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       // They never commit its cursor, finish a session, or award memorization.
       previewAyahs.addAll(candidates.intersection(_previousPreviewAyahs));
       _previousPreviewAyahs = candidates;
+
+      // Keep previously supported display through transient ASR revisions.
+      // This union never reveals a new word by itself or advances the saved
+      // cursor. A final result (or pause) still resolves every exposed word
+      // against confirmed audio and records any rejected exposure as help.
+      previewWords.addAll(_exposedPreviewWords);
+      previewAyahs.addAll(_exposedPreviewAyahs);
     } else {
       _previousPreviewAyahs = const {};
       _previousPreviewWords = const {};
