@@ -74,7 +74,7 @@ class WirdWidgetHomeWidget {
 
   static Future<bool?> updateWidget() {
     return HomeWidget.updateWidget(
-      androidName: 'WirdWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.WirdWidgetHomeWidgetReceiver',
       iOSName: 'WirdWidgetHomeWidget',
     );
   }
@@ -87,7 +87,7 @@ class WirdWidgetHomeWidget {
   /// needed after data changes that should show in the gallery right away.
   static Future<bool> updatePreview() async {
     return await HomeWidget.updateWidgetPreview(
-      androidName: 'WirdWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.WirdWidgetHomeWidgetReceiver',
     ) ?? false;
   }
 
@@ -104,7 +104,7 @@ class WirdWidgetHomeWidget {
   /// and does nothing anywhere else.
   static Future<void> requestPinWidget() {
     return HomeWidget.requestPinWidget(
-      androidName: 'WirdWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.WirdWidgetHomeWidgetReceiver',
     );
   }
 

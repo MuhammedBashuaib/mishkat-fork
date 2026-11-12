@@ -174,13 +174,15 @@ void main() {
         .where((call) => call.method == 'updateWidget')
         .toList();
     expect(
-      refreshes.map((call) => (call.arguments as Map)['android']).toSet(),
+      refreshes
+          .map((call) => (call.arguments as Map)['qualifiedAndroidName'])
+          .toSet(),
       {
-        'PrayerTimesWidgetHomeWidgetReceiver',
-        'QiblaWidgetHomeWidgetReceiver',
-        'AdhkarWidgetHomeWidgetReceiver',
-        'WirdWidgetHomeWidgetReceiver',
-        'TasbihWidgetHomeWidgetReceiver',
+        'com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidgetReceiver',
+        'com.dakomn.mishkatapp.QiblaWidgetHomeWidgetReceiver',
+        'com.dakomn.mishkatapp.AdhkarWidgetHomeWidgetReceiver',
+        'com.dakomn.mishkatapp.WirdWidgetHomeWidgetReceiver',
+        'com.dakomn.mishkatapp.TasbihWidgetHomeWidgetReceiver',
       },
     );
     final themeWrite = calls.indexWhere(
@@ -251,8 +253,11 @@ void main() {
       expect(
         calls
             .where((call) => call.method == 'requestPinWidget')
-            .map((call) => (call.arguments as Map)['android']),
-        ['WirdWidgetHomeWidgetReceiver', 'TasbihWidgetHomeWidgetReceiver'],
+            .map((call) => (call.arguments as Map)['qualifiedAndroidName']),
+        [
+          'com.dakomn.mishkatapp.WirdWidgetHomeWidgetReceiver',
+          'com.dakomn.mishkatapp.TasbihWidgetHomeWidgetReceiver',
+        ],
       );
       await service.syncWird(null);
       expect(saved['home_widget.WirdWidget.wirdPages'], 'ابدأ ختمتك الأولى');

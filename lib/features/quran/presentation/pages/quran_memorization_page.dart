@@ -15,6 +15,7 @@ import '../cubit/quran_cubit.dart';
 import '../cubit/quran_memorization_cubit.dart';
 import '../cubit/quran_memorization_state.dart';
 import '../widgets/oral_recitation_info_sheet.dart';
+import '../widgets/oral_recitation_range_sheet.dart';
 import 'memorization_plan_page.dart';
 import 'memorization_session_page.dart';
 import 'quran_memorization_analytics_page.dart';
@@ -1540,19 +1541,12 @@ void _showOralRecitationSourceSheet(
   );
 }
 
-void _showFreeRecitationSetup(
+Future<void> _showFreeRecitationSetup(
   BuildContext context,
   QuranData quranData, {
   int initialSurah = 1,
-}) {
-  var selectedSurah = initialSurah.clamp(1, quranData.chapters.length);
-  var startAyah = 1;
-  var endAyah = quranData.chapter(selectedSurah).ayahs.length > 5
-      ? 5
-      : quranData.chapter(selectedSurah).ayahs.length;
-  var wholeSurah = false;
-
-  showModalBottomSheet<void>(
+}) async {
+  final selection = await showModalBottomSheet<OralRecitationSelection>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
@@ -1561,219 +1555,20 @@ void _showFreeRecitationSetup(
         top: Radius.circular(MishkatRadius.xl),
       ),
     ),
-    builder: (sheetContext) => StatefulBuilder(
-      builder: (sheetContext, setSheetState) {
-        final colors = sheetContext.mishkat;
-        final chapter = quranData.chapter(selectedSurah);
-        final totalAyahs = chapter.ayahs.length;
-        final selectedCount = wholeSurah ? totalAyahs : endAyah - startAyah + 1;
-
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              18,
-              12,
-              18,
-              20 + MediaQuery.viewInsetsOf(sheetContext).bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 38,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: colors.textMuted.withValues(alpha: .35),
-                      borderRadius: MishkatRadius.brPill,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'تسميع حر',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'اختر ما تريد تسميعه دون ربط النتيجة بخطة.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                ),
-                const SizedBox(height: 18),
-                DropdownButtonFormField<int>(
-                  key: ValueKey('free-surah-$selectedSurah'),
-                  initialValue: selectedSurah,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'السورة',
-                    prefixIcon: Icon(Icons.menu_book_outlined),
-                  ),
-                  items: quranData.chapters
-                      .map(
-                        (item) => DropdownMenuItem<int>(
-                          value: item.number,
-                          child: Text(
-                            '${item.number}. سورة ${item.name}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    final ayahCount = quranData.chapter(value).ayahs.length;
-                    setSheetState(() {
-                      selectedSurah = value;
-                      startAyah = 1;
-                      endAyah = ayahCount > 5 ? 5 : ayahCount;
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceVariant.withValues(alpha: .6),
-                    borderRadius: MishkatRadius.brMd,
-                  ),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'السورة كاملة',
-                              style: TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                            Text(
-                              'أو عطّل الخيار وحدد بداية ونهاية.',
-                              style: TextStyle(fontSize: 10.5),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch.adaptive(
-                        value: wholeSurah,
-                        onChanged: (value) {
-                          setSheetState(() {
-                            wholeSurah = value;
-                            if (value) {
-                              startAyah = 1;
-                              endAyah = totalAyahs;
-                            } else {
-                              endAyah = totalAyahs > 5 ? 5 : totalAyahs;
-                            }
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                if (!wholeSurah) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          key: ValueKey('free-start-$selectedSurah-$startAyah'),
-                          initialValue: startAyah,
-                          decoration: const InputDecoration(
-                            labelText: 'من الآية',
-                          ),
-                          items: List.generate(totalAyahs, (index) => index + 1)
-                              .map(
-                                (value) => DropdownMenuItem<int>(
-                                  value: value,
-                                  child: Text('$value'),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setSheetState(() {
-                              startAyah = value;
-                              if (endAyah < value) endAyah = value;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          key: ValueKey(
-                            'free-end-$selectedSurah-$startAyah-$endAyah',
-                          ),
-                          initialValue: endAyah,
-                          decoration: const InputDecoration(
-                            labelText: 'إلى الآية',
-                          ),
-                          items:
-                              List.generate(
-                                    totalAyahs - startAyah + 1,
-                                    (index) => startAyah + index,
-                                  )
-                                  .map(
-                                    (value) => DropdownMenuItem<int>(
-                                      value: value,
-                                      child: Text('$value'),
-                                    ),
-                                  )
-                                  .toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setSheetState(() => endAyah = value);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Text(
-                  '$selectedCount آية محددة',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: colors.textSecondary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                MishkatPrimaryAction(
-                  label: 'متابعة إلى التسميع',
-                  icon: const Icon(Icons.mic_rounded),
-                  isFullWidth: true,
-                  onPressed: () {
-                    final resolvedStart = wholeSurah ? 1 : startAyah;
-                    final resolvedEnd = wholeSurah ? totalAyahs : endAyah;
-                    final startGlobal = chapter.globalStart + resolvedStart - 1;
-                    final endGlobal = chapter.globalStart + resolvedEnd - 1;
-                    Navigator.pop(sheetContext);
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!context.mounted) return;
-                      OralRecitationInfoSheet.show(
-                        context,
-                        surahNumber: selectedSurah,
-                        startGlobalAyah: startGlobal,
-                        endGlobalAyah: endGlobal,
-                      );
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    builder: (sheetContext) => OralRecitationRangeSheet(
+      quranData: quranData,
+      initialSurah: initialSurah,
+      onSelected: (selection) => Navigator.pop(sheetContext, selection),
     ),
+  );
+  if (selection == null || !context.mounted) return;
+  await OralRecitationInfoSheet.show(
+    context,
+    surahNumber: selection.surahNumber,
+    startGlobalAyah: selection.startGlobalAyah,
+    endGlobalAyah: selection.endGlobalAyah,
+    startPage: selection.startPage,
+    endPage: selection.endPage,
   );
 }
 

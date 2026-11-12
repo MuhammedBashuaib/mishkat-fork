@@ -54,7 +54,7 @@ class QiblaWidgetHomeWidget {
 
   static Future<bool?> updateWidget() {
     return HomeWidget.updateWidget(
-      androidName: 'QiblaWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.QiblaWidgetHomeWidgetReceiver',
       iOSName: 'QiblaWidgetHomeWidget',
     );
   }
@@ -67,7 +67,7 @@ class QiblaWidgetHomeWidget {
   /// needed after data changes that should show in the gallery right away.
   static Future<bool> updatePreview() async {
     return await HomeWidget.updateWidgetPreview(
-      androidName: 'QiblaWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.QiblaWidgetHomeWidgetReceiver',
     ) ?? false;
   }
 
@@ -84,7 +84,7 @@ class QiblaWidgetHomeWidget {
   /// and does nothing anywhere else.
   static Future<void> requestPinWidget() {
     return HomeWidget.requestPinWidget(
-      androidName: 'QiblaWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.QiblaWidgetHomeWidgetReceiver',
     );
   }
 

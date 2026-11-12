@@ -265,21 +265,25 @@ void main() {
   );
 
   test(
-    'the last ayah does not end capture while an earlier mistake remains',
+    'the last ayah opens the report with earlier mistakes retained',
     () async {
       await cubit.startRecitation();
       await hear(wholeRangeWithMistake);
       expect(cubit.state.committedTargetIndex, cubit.state.targetWords.length);
       expect(cubit.state.unresolvedMistakeWordIndices, {8});
-      expect(cubit.state.isListening, isTrue);
-      expect(speech.isListening, isTrue);
-      expect(cubit.state.summary, isNull);
+      expect(cubit.state.isCompleted, isTrue);
+      expect(speech.isListening, isFalse);
+      final summary = cubit.state.summary;
 
       await hear('مختلفون');
       expect(cubit.state.isCompleted, isTrue);
-      expect(cubit.state.unresolvedMistakeWordIndices, isEmpty);
+      expect(cubit.state.unresolvedMistakeWordIndices, {8});
       expect(cubit.state.mistakeWordIndices, {8});
-      expect(cubit.state.summary!.matchedWords, cubit.state.targetWords.length);
+      expect(cubit.state.summary, same(summary));
+      expect(
+        cubit.state.summary!.matchedWords,
+        cubit.state.targetWords.length - 1,
+      );
       expect(cubit.state.summary!.assistedWords, 1);
       expect(cubit.state.summary!.suggestedOutcome, ReviewOutcome.difficult);
     },
@@ -289,17 +293,15 @@ void main() {
     'manual finish retains a remaining mistake instead of awarding it credit',
     () async {
       await cubit.startRecitation();
-      await hear(wholeRangeWithMistake);
+      await hear(throughMistake);
       await cubit.finishSession();
 
       expect(cubit.state.isCompleted, isTrue);
       expect(cubit.state.unresolvedMistakeWordIndices, {8});
       expect(cubit.state.mistakeWordIndices, {8});
-      expect(
-        cubit.state.summary!.matchedWords,
-        cubit.state.targetWords.length - 1,
-      );
+      expect(cubit.state.summary!.matchedWords, 8);
       expect(cubit.state.summary!.substitutionsCount, 1);
+      expect(cubit.state.summary!.unrecitedWords, 5);
       expect(cubit.state.summary!.assistedWords, 1);
       expect(cubit.state.summary!.suggestedOutcome, ReviewOutcome.difficult);
     },
@@ -331,8 +333,9 @@ void main() {
     'weak retry includes a corrected red ayah but starts a clean attempt',
     () async {
       await cubit.startRecitation();
-      await hear(wholeRangeWithMistake);
+      await hear(throughMistake);
       await hear('مختلفون');
+      await hear('كلا سيعلمون ثم كلا سيعلمون');
       expect(cubit.state.isCompleted, isTrue);
       expect(cubit.state.mistakeWordIndices, {8});
       final oldSession = cubit.state.sessionId;
@@ -378,12 +381,10 @@ void main() {
     },
   );
 
-  test('bypassing one old error at the end leaves another error available to correct', () async {
+  test('bypassing one old error before the end leaves another available to correct', () async {
     await cubit.startRecitation();
-    await hear(
-      'عم يتساءلون عن النبأ الكبير الذي هم فيه مختلفين كلا سيعلمون ثم كلا سيعلمون',
-    );
-    expect(cubit.state.committedTargetIndex, cubit.state.targetWords.length);
+    await hear('عم يتساءلون عن النبأ الكبير الذي هم فيه مختلفين كلا سيعلمون');
+    expect(cubit.state.committedTargetIndex, 11);
     expect(cubit.state.unresolvedMistakeWordIndices, {4, 8});
     expect(cubit.state.correctionWordIndex, 4);
 

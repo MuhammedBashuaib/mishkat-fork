@@ -205,9 +205,7 @@ void main() {
 
   test('multiple mistakes in one final produce one grouped event', () async {
     await startAndClear();
-    await say(
-      'عم يتساءلون عن النبأ الكبير الذي هم فيه مختلفين كلا سيعلمون ثم كلا سيعلمون',
-    );
+    await say('عم يتساءلون عن النبأ الكبير الذي هم فيه مختلفين كلا سيعلمون');
     expect(events.single.cue, RecitationCue.mistake);
     expect(events.single.wordIndices, {4, 8});
     expect(cubit.state.isListening, isTrue);
@@ -311,12 +309,29 @@ void main() {
 
   test('manual finish with remaining mistakes never emits complete', () async {
     await startAndClear();
-    await say(wholeRangeWithMistake);
+    await say(throughMistake);
     events.clear();
     await cubit.finishSession();
     expect(events.single.cue, RecitationCue.paused);
     expect(cubit.state.unresolvedMistakeWordIndices, {8});
   });
+
+  test(
+    'automatic report with mistakes ends capture without a success cue',
+    () async {
+      await startAndClear();
+      await say(wholeRangeWithMistake);
+      expect(events.map((event) => event.cue), [
+        RecitationCue.mistake,
+        RecitationCue.paused,
+      ]);
+      expect(eventStates.last.isCompleted, isTrue);
+      expect(captureAtEvent.last, isFalse);
+      expect(cubit.state.summary!.substitutionsCount, 1);
+      await cubit.finishSession();
+      expect(events, hasLength(2));
+    },
+  );
 
   test(
     'finish during pause shares drain and emits only its final cue',

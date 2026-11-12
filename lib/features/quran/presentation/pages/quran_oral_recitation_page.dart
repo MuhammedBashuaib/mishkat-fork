@@ -35,6 +35,8 @@ class QuranOralRecitationPage extends StatelessWidget {
     this.surahNumber = 1,
     this.startGlobalAyah,
     this.endGlobalAyah,
+    this.startPage,
+    this.endPage,
     this.planId,
     this.speechService,
     this.cubit,
@@ -45,6 +47,8 @@ class QuranOralRecitationPage extends StatelessWidget {
   final int surahNumber;
   final int? startGlobalAyah;
   final int? endGlobalAyah;
+  final int? startPage;
+  final int? endPage;
   final String? planId;
   final SpeechRecognitionService? speechService;
   final QuranOralRecitationCubit? cubit;
@@ -90,6 +94,8 @@ class QuranOralRecitationPage extends StatelessWidget {
             surahNumber: surahNumber,
             startGlobalAyah: startGlobalAyah,
             endGlobalAyah: endGlobalAyah,
+            startPage: startPage,
+            endPage: endPage,
             planId: planId,
           );
           if (!cubit.isClosed && cubit.state.lifecycle.isPermissionDenied) {
@@ -343,7 +349,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
                   Text(
                     state.targetWords.isEmpty
                         ? 'التسميع من الحفظ'
-                        : 'تسميع · الآيات ${state.targetWords.first.ayahInSurah}–${state.targetWords.last.ayahInSurah}',
+                        : 'تسميع · ${_rangeLabel(state)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -520,17 +526,32 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
     );
   }
 
+  String _rangeLabel(QuranOralRecitationState state) {
+    final ayahs = state.targetWords.map((word) => word.globalAyah).toSet();
+    final isReview =
+        ayahs.isNotEmpty &&
+        ayahs.length < state.endGlobalAyah - state.startGlobalAyah + 1;
+    if (state.startPage != null) {
+      final pages = state.startPage == state.endPage
+          ? 'الصفحة ${state.startPage}'
+          : 'الصفحات ${state.startPage}–${state.endPage}';
+      return isReview ? 'مواضع مراجعة من $pages' : pages;
+    }
+    if (isReview) return 'مواضع مراجعة · ${ayahs.length} آيات';
+    final first = state.targetWords.isEmpty
+        ? 1
+        : state.targetWords.first.ayahInSurah;
+    final last = state.targetWords.isEmpty
+        ? first
+        : state.targetWords.last.ayahInSurah;
+    return 'الآيات $first–$last';
+  }
+
   Widget _buildHeaderBanner(
     BuildContext context,
     QuranOralRecitationState state,
   ) {
     final colors = context.mishkat;
-    final startAyah = state.targetWords.isEmpty
-        ? state.startGlobalAyah
-        : state.targetWords.first.ayahInSurah;
-    final endAyah = state.targetWords.isEmpty
-        ? state.endGlobalAyah
-        : state.targetWords.last.ayahInSurah;
 
     final badgeColor = switch (state.lifecycle) {
       OralRecitationLifecycle.listening => colors.primary,
@@ -575,7 +596,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
             children: [
               Expanded(
                 child: Text(
-                  '${state.surahName} · الآيات $startAyah - $endAyah',
+                  '${state.surahName} · ${_rangeLabel(state)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1623,8 +1644,6 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
     final colors = context.mishkat;
     final summary = state.summary;
     final cubit = context.read<QuranOralRecitationCubit>();
-    final first = state.targetWords.firstOrNull;
-    final last = state.targetWords.lastOrNull;
     final weakAyahs = <int, List<RecitationWordAlignment>>{};
     final ayahWords = <int, List<RecitationWordAlignment>>{};
     for (final word in state.alignedWords) {
@@ -1674,7 +1693,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
           ),
           const SizedBox(height: 7),
           Text(
-            '${state.surahName} · الآيات ${first?.ayahInSurah ?? 1} - ${last?.ayahInSurah ?? 1}',
+            '${state.surahName} · ${_rangeLabel(state)}',
             textAlign: TextAlign.center,
             style: TextStyle(color: colors.textSecondary, fontSize: 13),
           ),
@@ -1926,7 +1945,9 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
             alignment: WrapAlignment.spaceBetween,
             children: [
               Text(
-                'الآية ${words.first.authoritativeWord.ayahInSurah}',
+                state.startPage == null
+                    ? 'الآية ${words.first.authoritativeWord.ayahInSurah}'
+                    : '${context.read<QuranOralRecitationCubit>().surahNameFor(words.first.authoritativeWord.surah)} · الآية ${words.first.authoritativeWord.ayahInSurah}',
                 style: TextStyle(
                   color: colors.primaryStrong,
                   fontWeight: FontWeight.w700,

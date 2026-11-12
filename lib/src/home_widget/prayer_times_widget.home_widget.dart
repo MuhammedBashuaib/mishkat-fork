@@ -27,7 +27,7 @@ class PrayerTimesWidgetHomeWidget {
         if (_timedTimes.isEmpty) {
           await HomeWidget.saveWidgetData('${_$paramPrefix}.timedData', null, appGroupId: _$appGroupId);
           try {
-            await HomeWidget.cancelScheduledWidgetUpdates(androidName: 'PrayerTimesWidgetHomeWidgetReceiver');
+            await HomeWidget.cancelScheduledWidgetUpdates(qualifiedAndroidName: 'com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidgetReceiver');
           } catch (error, stackTrace) {
             // Cancelling is best effort; the data was deleted.
             FlutterError.reportError(
@@ -47,7 +47,7 @@ class PrayerTimesWidgetHomeWidget {
         };
         await HomeWidget.saveFile('${_$paramPrefix}.timedData', Uint8List.fromList(utf8.encode(jsonEncode(_timedJson))), extension: 'json', appGroupId: _$appGroupId);
         try {
-          await HomeWidget.scheduleWidgetUpdates(_timedTimes, androidName: 'PrayerTimesWidgetHomeWidgetReceiver');
+          await HomeWidget.scheduleWidgetUpdates(_timedTimes, qualifiedAndroidName: 'com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidgetReceiver');
         } catch (error, stackTrace) {
           // Scheduling is best effort; the data was saved.
           FlutterError.reportError(
@@ -72,7 +72,7 @@ class PrayerTimesWidgetHomeWidget {
       if (timedData) () async {
         await HomeWidget.saveWidgetData('${_$paramPrefix}.timedData', null, appGroupId: _$appGroupId);
         try {
-          await HomeWidget.cancelScheduledWidgetUpdates(androidName: 'PrayerTimesWidgetHomeWidgetReceiver');
+          await HomeWidget.cancelScheduledWidgetUpdates(qualifiedAndroidName: 'com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidgetReceiver');
         } catch (error, stackTrace) {
           // Cancelling is best effort; the data was deleted.
           FlutterError.reportError(
@@ -125,7 +125,7 @@ class PrayerTimesWidgetHomeWidget {
 
   static Future<bool?> updateWidget() {
     return HomeWidget.updateWidget(
-      androidName: 'PrayerTimesWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidgetReceiver',
       iOSName: 'PrayerTimesWidgetHomeWidget',
     );
   }
@@ -138,7 +138,7 @@ class PrayerTimesWidgetHomeWidget {
   /// needed after data changes that should show in the gallery right away.
   static Future<bool> updatePreview() async {
     return await HomeWidget.updateWidgetPreview(
-      androidName: 'PrayerTimesWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidgetReceiver',
     ) ?? false;
   }
 
@@ -155,7 +155,7 @@ class PrayerTimesWidgetHomeWidget {
   /// and does nothing anywhere else.
   static Future<void> requestPinWidget() {
     return HomeWidget.requestPinWidget(
-      androidName: 'PrayerTimesWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.PrayerTimesWidgetHomeWidgetReceiver',
     );
   }
 

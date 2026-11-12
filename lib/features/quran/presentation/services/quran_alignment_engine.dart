@@ -392,6 +392,21 @@ class QuranAlignmentEngine {
       }
 
       while (heard < spoken.length && cursor < targetWords.length) {
+        // A page range can continue into the next Surah. Its unnumbered
+        // basmala is optional spoken context, never a scored Quran word.
+        // Check only the first word of that Surah; never search through speech
+        // or consume the Fatiha's numbered basmala (or add one to Tawba).
+        final basmala = _boundaryBasmalaLength(
+          targetWords,
+          cursor,
+          spoken,
+          heard,
+          isFinal: isFinal,
+        );
+        if (basmala > 0) {
+          heard += basmala;
+          continue;
+        }
         final exact = _followingMatch(targetWords, cursor, spoken, heard);
         if (exact != null) {
           final recognized = spoken.sublist(heard, heard + exact.$2).join(' ');
@@ -629,6 +644,34 @@ class QuranAlignmentEngine {
       alignmentReason:
           'Anchored following: cursor $cursor, committed $nextCommitted',
     );
+  }
+
+  static int _boundaryBasmalaLength(
+    List<AuthoritativeWord> target,
+    int cursor,
+    List<String> spoken,
+    int heard, {
+    required bool isFinal,
+  }) {
+    if (cursor <= 0 || cursor >= target.length) return 0;
+    final next = target[cursor];
+    if (next.surah == 1 ||
+        next.surah == 9 ||
+        next.ayahInSurah != 1 ||
+        target[cursor - 1].surah == next.surah) {
+      return 0;
+    }
+    const basmala = ['بسم', 'الله', 'الرحمن', 'الرحيم'];
+    final count = min(basmala.length, spoken.length - heard);
+    if (count < basmala.length && isFinal) return 0;
+    for (var i = 0; i < count; i++) {
+      if (!QuranRecitationText.sameWord(spoken[heard + i], basmala[i])) {
+        return 0;
+      }
+    }
+    // A live prefix may wait for the remaining words without creating a
+    // provisional Quran error. Neither it nor a full basmala advances cursor.
+    return count;
   }
 
   /// Returns (target word count, transcript token count) for exact orthography.

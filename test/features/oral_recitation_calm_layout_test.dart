@@ -57,6 +57,7 @@ class _QuranRepository extends QuranRepository {
         ayahs: const [
           'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
           'ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ',
+          'ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
         ],
       ),
     ],
@@ -112,7 +113,9 @@ void main() {
       await cubit.prepareSession(
         surahNumber: 1,
         startGlobalAyah: 1,
-        endGlobalAyah: 2,
+        // Keep an unread final Ayah: this test covers correction while the
+        // session is still underway, before automatic report completion.
+        endGlobalAyah: 3,
       );
       tester.view.physicalSize = const Size(780, 1688);
       tester.view.devicePixelRatio = 2;
@@ -181,6 +184,9 @@ void main() {
       expect(cubit.state.unresolvedMistakeWordIndices, isEmpty);
       expect(cubit.state.mistakeWordIndices, {6});
       expect(find.byKey(const ValueKey('recitation-correction')), findsNothing);
+      expect(cubit.state.isListening, isTrue);
+      expect(cubit.state.summary, isNull);
+      expect(cubit.state.completedGlobalAyahs, isNot(contains(3)));
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(const SizedBox());

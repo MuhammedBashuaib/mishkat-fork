@@ -10,6 +10,8 @@ class QuranOralRecitationState extends Equatable {
     this.surahName = 'الفاتحة',
     this.startGlobalAyah = 1,
     this.endGlobalAyah = 7,
+    this.startPage,
+    this.endPage,
     this.planId,
     this.targetWords = const [],
     this.alignedWords = const [],
@@ -53,6 +55,8 @@ class QuranOralRecitationState extends Equatable {
   final String surahName;
   final int startGlobalAyah;
   final int endGlobalAyah;
+  final int? startPage;
+  final int? endPage;
   final String? planId;
 
   final List<AuthoritativeWord> targetWords;
@@ -130,6 +134,8 @@ class QuranOralRecitationState extends Equatable {
     String? surahName,
     int? startGlobalAyah,
     int? endGlobalAyah,
+    int? startPage,
+    int? endPage,
     String? planId,
     List<AuthoritativeWord>? targetWords,
     List<RecitationWordAlignment>? alignedWords,
@@ -176,6 +182,8 @@ class QuranOralRecitationState extends Equatable {
       surahName: surahName ?? this.surahName,
       startGlobalAyah: startGlobalAyah ?? this.startGlobalAyah,
       endGlobalAyah: endGlobalAyah ?? this.endGlobalAyah,
+      startPage: startPage ?? this.startPage,
+      endPage: endPage ?? this.endPage,
       planId: planId ?? this.planId,
       targetWords: targetWords ?? this.targetWords,
       alignedWords: alignedWords ?? this.alignedWords,
@@ -230,6 +238,8 @@ class QuranOralRecitationState extends Equatable {
     surahName,
     startGlobalAyah,
     endGlobalAyah,
+    startPage,
+    endPage,
     planId,
     targetWords,
     alignedWords,

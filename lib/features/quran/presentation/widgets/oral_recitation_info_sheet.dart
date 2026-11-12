@@ -16,12 +16,16 @@ class OralRecitationInfoSheet extends StatelessWidget {
     this.surahNumber = 1,
     this.startGlobalAyah,
     this.endGlobalAyah,
+    this.startPage,
+    this.endPage,
     this.planId,
   });
 
   final int surahNumber;
   final int? startGlobalAyah;
   final int? endGlobalAyah;
+  final int? startPage;
+  final int? endPage;
   final String? planId;
 
   static Future<void> show(
@@ -29,6 +33,8 @@ class OralRecitationInfoSheet extends StatelessWidget {
     int surahNumber = 1,
     int? startGlobalAyah,
     int? endGlobalAyah,
+    int? startPage,
+    int? endPage,
     String? planId,
   }) {
     return showModalBottomSheet<void>(
@@ -44,6 +50,8 @@ class OralRecitationInfoSheet extends StatelessWidget {
         surahNumber: surahNumber,
         startGlobalAyah: startGlobalAyah,
         endGlobalAyah: endGlobalAyah,
+        startPage: startPage,
+        endPage: endPage,
         planId: planId,
       ),
     );
@@ -214,6 +222,8 @@ class OralRecitationInfoSheet extends StatelessWidget {
                         surahNumber: surahNumber,
                         startGlobalAyah: startGlobalAyah,
                         endGlobalAyah: endGlobalAyah,
+                        startPage: startPage,
+                        endPage: endPage,
                         planId: planId,
                         quranRepository: quranRepo,
                         speechService: speechService,

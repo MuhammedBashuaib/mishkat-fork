@@ -43,6 +43,13 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   final QuranAudioService? audioService;
   final bool ownsSpeechService;
 
+  String surahNameFor(int number) {
+    for (final chapter in _quranData?.chapters ?? const <QuranChapter>[]) {
+      if (chapter.number == number) return chapter.name;
+    }
+    return number == state.surahNumber ? state.surahName : 'سورة $number';
+  }
+
   final _feedback = StreamController<RecitationFeedbackEvent>.broadcast(
     sync: true,
   );
@@ -69,7 +76,6 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   Future<void>? _drainOperation;
   Future<void>? _finishOperation;
   bool _acceptDrainingResults = false;
-  Set<int>? _selectedGlobalAyahs;
   bool get _isOffline =>
       speechService is OfflineSpeechDiagnostics &&
       (speechService as OfflineSpeechDiagnostics).isOffline;
@@ -122,11 +128,13 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   Set<int> _previousPreviewWords = const {};
   Set<int> _exposedPreviewWords = const {};
 
-  /// Prepares an oral recitation session for a target Surah or Ayah range.
+  /// Prepares a Surah/Ayah range, or full canonical pages across Surahs.
   Future<void> prepareSession({
     required int surahNumber,
     int? startGlobalAyah,
     int? endGlobalAyah,
+    int? startPage,
+    int? endPage,
     String? planId,
     Set<int>? selectedGlobalAyahs,
   }) async {
@@ -153,9 +161,6 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     _exposedPreviewWords = const {};
     _lastProcessedTranscript = '';
     _acceptDrainingResults = false;
-    _selectedGlobalAyahs = selectedGlobalAyahs == null
-        ? null
-        : Set.unmodifiable(selectedGlobalAyahs);
 
     emit(
       QuranOralRecitationState(
@@ -170,21 +175,53 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       if (!_isCurrentOperation(operation)) return;
       final chapters = _quranData!.chapters;
 
-      final chapter = chapters.firstWhere(
+      var chapter = chapters.firstWhere(
         (c) => c.number == surahNumber,
         orElse: () => chapters.first,
       );
 
-      final chapterEnd = chapter.globalStart + chapter.ayahs.length - 1;
-      final rawStart = (startGlobalAyah ?? chapter.globalStart).clamp(
-        chapter.globalStart,
-        chapterEnd,
-      );
-      final rawEnd =
-          (endGlobalAyah ?? (chapter.globalStart + chapter.ayahs.length - 1))
-              .clamp(chapter.globalStart, chapterEnd);
-      final resolvedStart = min(rawStart, rawEnd);
-      final resolvedEnd = max(rawStart, rawEnd);
+      final int resolvedStart;
+      final int resolvedEnd;
+      int? resolvedStartPage;
+      int? resolvedEndPage;
+      var rangeName = chapter.name;
+      if (startPage != null || endPage != null) {
+        final firstPage = startPage ?? endPage!;
+        final lastPage = endPage ?? firstPage;
+        final pages = {for (final page in _quranData!.pages) page.page: page};
+        if (firstPage < 1 ||
+            lastPage > 604 ||
+            firstPage > lastPage ||
+            !pages.containsKey(firstPage) ||
+            !pages.containsKey(lastPage)) {
+          throw ArgumentError('حدد نطاق صفحات صحيحًا من 1 إلى 604');
+        }
+        resolvedStart = pages[firstPage]!.first.global;
+        resolvedEnd = pages[lastPage]!.last.global;
+        resolvedStartPage = firstPage;
+        resolvedEndPage = lastPage;
+        chapter = chapters.firstWhere(
+          (item) => item.number == pages[firstPage]!.first.surah,
+        );
+        final lastChapter = chapters.firstWhere(
+          (item) => item.number == pages[lastPage]!.last.surah,
+        );
+        rangeName = chapter.number == lastChapter.number
+            ? chapter.name
+            : '${chapter.name} – ${lastChapter.name}';
+      } else {
+        final chapterEnd = chapter.globalStart + chapter.ayahs.length - 1;
+        final rawStart = (startGlobalAyah ?? chapter.globalStart).clamp(
+          chapter.globalStart,
+          chapterEnd,
+        );
+        final rawEnd = (endGlobalAyah ?? chapterEnd).clamp(
+          chapter.globalStart,
+          chapterEnd,
+        );
+        resolvedStart = min(rawStart, rawEnd);
+        resolvedEnd = max(rawStart, rawEnd);
+      }
 
       final preparedWords = alignmentEngine.prepareTargetTokens(
         chapters: chapters,
@@ -249,9 +286,11 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
           errorMessage: errorMessage,
           sessionId: sessionId,
           surahNumber: chapter.number,
-          surahName: chapter.name,
+          surahName: rangeName,
           startGlobalAyah: resolvedStart,
           endGlobalAyah: resolvedEnd,
+          startPage: resolvedStartPage,
+          endPage: resolvedEndPage,
           planId: planId,
           targetWords: targetWords,
           alignedWords: initialAligned,
@@ -619,7 +658,14 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
     }
     final sessionId = state.sessionId;
     final alreadyDraining = _drainOperation != null;
-    await _drainCapture();
+    final drain = _drainCapture();
+    final operation = _captureOperation;
+    await drain;
+    if (!_isCurrentOperation(operation)) return;
+    if (state.sessionId == sessionId && _hasConfirmedFullTarget) {
+      _publishCompletedSummary(notifyFeedback: notifyFeedback);
+      return;
+    }
     if (notifyFeedback &&
         !alreadyDraining &&
         _finishOperation == null &&
@@ -743,8 +789,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       ),
     );
     _restoreConfirmedAlignment();
-    if (_committedTargetIndex >= state.targetWords.length &&
-        state.unresolvedMistakeWordIndices.isEmpty) {
+    if (_hasConfirmedFullTarget) {
       await finishSession(notifyFeedback: false);
     } else if (wasListening) {
       await resumeRecitation(notifyFeedback: false);
@@ -762,7 +807,9 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       return;
     }
     final previous = state;
-    Set<int>? selection = _selectedGlobalAyahs;
+    // The report's full-retry action must restore the original range after
+    // reviewing only weak Ayahs, including those in later Surahs/pages.
+    Set<int>? selection;
     if (globalAyah != null) {
       selection = {globalAyah};
     } else if (onlyWeakAyahs) {
@@ -784,12 +831,14 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       surahNumber: previous.surahNumber,
       startGlobalAyah: previous.startGlobalAyah,
       endGlobalAyah: previous.endGlobalAyah,
+      startPage: previous.startPage,
+      endPage: previous.endPage,
       planId: previous.planId,
       selectedGlobalAyahs: selection,
     );
   }
 
-  /// Manually finishes the oral recitation session and builds the honest summary.
+  /// Finishes once, flushing pending audio before building the honest summary.
   Future<void> finishSession({bool notifyFeedback = true}) {
     if (isClosed || _isClosing || state.lifecycle.isCompleted) {
       return Future<void>.value();
@@ -805,13 +854,25 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
   Future<void> _finishSession({required bool notifyFeedback}) async {
     final sessionId = state.sessionId;
-    await _drainCapture();
-    if (isClosed ||
-        _isClosing ||
+    final drain = _drainCapture();
+    final operation = _captureOperation;
+    await drain;
+    if (!_isCurrentOperation(operation) ||
         state.lifecycle.isCompleted ||
         state.sessionId != sessionId) {
       return;
     }
+    _publishCompletedSummary(notifyFeedback: notifyFeedback);
+  }
+
+  bool get _hasConfirmedFullTarget =>
+      state.targetWords.isNotEmpty &&
+      _committedTargetIndex >= state.targetWords.length &&
+      _committedAlignedWords.length == state.targetWords.length &&
+      _committedAlignedWords.every((word) => !word.status.isUpcoming);
+
+  void _publishCompletedSummary({required bool notifyFeedback}) {
+    if (isClosed || _isClosing || state.isCompleted) return;
     emit(
       state.copyWith(
         lifecycle: OralRecitationLifecycle.completed,
@@ -1134,10 +1195,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
       }
     }
 
-    if (result.isFinal &&
-        alignResult.isCompleted &&
-        unresolvedMistakes.isEmpty &&
-        !_acceptDrainingResults) {
+    if (result.isFinal && _hasConfirmedFullTarget && !_acceptDrainingResults) {
       unawaited(finishSession());
     }
   }
@@ -1542,6 +1600,8 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
           state.sessionId ?? 'oral_${DateTime.now().millisecondsSinceEpoch}',
       startGlobalAyah: state.startGlobalAyah,
       endGlobalAyah: state.endGlobalAyah,
+      startPage: state.startPage,
+      endPage: state.endPage,
       surahNumber: state.surahNumber,
       surahName: state.surahName,
       totalAyahs: totalAyahs,

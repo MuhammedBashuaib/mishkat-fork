@@ -196,11 +196,15 @@ class OralRecitationSessionSummary extends Equatable {
     this.mode = OralRecitationMode.hidden,
     this.detectedMistakesCount = 0,
     this.correctedMistakesCount = 0,
+    this.startPage,
+    this.endPage,
   });
 
   final String sessionId;
   final int startGlobalAyah;
   final int endGlobalAyah;
+  final int? startPage;
+  final int? endPage;
   final int surahNumber;
   final String surahName;
   final int totalAyahs;
@@ -257,6 +261,8 @@ class OralRecitationSessionSummary extends Equatable {
     sessionId,
     startGlobalAyah,
     endGlobalAyah,
+    startPage,
+    endPage,
     surahNumber,
     surahName,
     totalAyahs,

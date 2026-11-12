@@ -35,7 +35,7 @@ class TasbihWidgetHomeWidget {
         if (_timedTimes.isEmpty) {
           await HomeWidget.saveWidgetData('${_$paramPrefix}.timedData', null, appGroupId: _$appGroupId);
           try {
-            await HomeWidget.cancelScheduledWidgetUpdates(androidName: 'TasbihWidgetHomeWidgetReceiver');
+            await HomeWidget.cancelScheduledWidgetUpdates(qualifiedAndroidName: 'com.dakomn.mishkatapp.TasbihWidgetHomeWidgetReceiver');
           } catch (error, stackTrace) {
             // Cancelling is best effort; the data was deleted.
             FlutterError.reportError(
@@ -55,7 +55,7 @@ class TasbihWidgetHomeWidget {
         };
         await HomeWidget.saveFile('${_$paramPrefix}.timedData', Uint8List.fromList(utf8.encode(jsonEncode(_timedJson))), extension: 'json', appGroupId: _$appGroupId);
         try {
-          await HomeWidget.scheduleWidgetUpdates(_timedTimes, androidName: 'TasbihWidgetHomeWidgetReceiver');
+          await HomeWidget.scheduleWidgetUpdates(_timedTimes, qualifiedAndroidName: 'com.dakomn.mishkatapp.TasbihWidgetHomeWidgetReceiver');
         } catch (error, stackTrace) {
           // Scheduling is best effort; the data was saved.
           FlutterError.reportError(
@@ -88,7 +88,7 @@ class TasbihWidgetHomeWidget {
       if (timedData) () async {
         await HomeWidget.saveWidgetData('${_$paramPrefix}.timedData', null, appGroupId: _$appGroupId);
         try {
-          await HomeWidget.cancelScheduledWidgetUpdates(androidName: 'TasbihWidgetHomeWidgetReceiver');
+          await HomeWidget.cancelScheduledWidgetUpdates(qualifiedAndroidName: 'com.dakomn.mishkatapp.TasbihWidgetHomeWidgetReceiver');
         } catch (error, stackTrace) {
           // Cancelling is best effort; the data was deleted.
           FlutterError.reportError(
@@ -145,7 +145,7 @@ class TasbihWidgetHomeWidget {
 
   static Future<bool?> updateWidget() {
     return HomeWidget.updateWidget(
-      androidName: 'TasbihWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.TasbihWidgetHomeWidgetReceiver',
       iOSName: 'TasbihWidgetHomeWidget',
     );
   }
@@ -158,7 +158,7 @@ class TasbihWidgetHomeWidget {
   /// needed after data changes that should show in the gallery right away.
   static Future<bool> updatePreview() async {
     return await HomeWidget.updateWidgetPreview(
-      androidName: 'TasbihWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.TasbihWidgetHomeWidgetReceiver',
     ) ?? false;
   }
 
@@ -175,7 +175,7 @@ class TasbihWidgetHomeWidget {
   /// and does nothing anywhere else.
   static Future<void> requestPinWidget() {
     return HomeWidget.requestPinWidget(
-      androidName: 'TasbihWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.TasbihWidgetHomeWidgetReceiver',
     );
   }
 

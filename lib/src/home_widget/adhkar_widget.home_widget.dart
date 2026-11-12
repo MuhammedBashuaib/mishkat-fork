@@ -24,7 +24,7 @@ class AdhkarWidgetHomeWidget {
         if (_timedTimes.isEmpty) {
           await HomeWidget.saveWidgetData('${_$paramPrefix}.timedData', null, appGroupId: _$appGroupId);
           try {
-            await HomeWidget.cancelScheduledWidgetUpdates(androidName: 'AdhkarWidgetHomeWidgetReceiver');
+            await HomeWidget.cancelScheduledWidgetUpdates(qualifiedAndroidName: 'com.dakomn.mishkatapp.AdhkarWidgetHomeWidgetReceiver');
           } catch (error, stackTrace) {
             // Cancelling is best effort; the data was deleted.
             FlutterError.reportError(
@@ -44,7 +44,7 @@ class AdhkarWidgetHomeWidget {
         };
         await HomeWidget.saveFile('${_$paramPrefix}.timedData', Uint8List.fromList(utf8.encode(jsonEncode(_timedJson))), extension: 'json', appGroupId: _$appGroupId);
         try {
-          await HomeWidget.scheduleWidgetUpdates(_timedTimes, androidName: 'AdhkarWidgetHomeWidgetReceiver');
+          await HomeWidget.scheduleWidgetUpdates(_timedTimes, qualifiedAndroidName: 'com.dakomn.mishkatapp.AdhkarWidgetHomeWidgetReceiver');
         } catch (error, stackTrace) {
           // Scheduling is best effort; the data was saved.
           FlutterError.reportError(
@@ -67,7 +67,7 @@ class AdhkarWidgetHomeWidget {
       if (timedData) () async {
         await HomeWidget.saveWidgetData('${_$paramPrefix}.timedData', null, appGroupId: _$appGroupId);
         try {
-          await HomeWidget.cancelScheduledWidgetUpdates(androidName: 'AdhkarWidgetHomeWidgetReceiver');
+          await HomeWidget.cancelScheduledWidgetUpdates(qualifiedAndroidName: 'com.dakomn.mishkatapp.AdhkarWidgetHomeWidgetReceiver');
         } catch (error, stackTrace) {
           // Cancelling is best effort; the data was deleted.
           FlutterError.reportError(
@@ -119,7 +119,7 @@ class AdhkarWidgetHomeWidget {
 
   static Future<bool?> updateWidget() {
     return HomeWidget.updateWidget(
-      androidName: 'AdhkarWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.AdhkarWidgetHomeWidgetReceiver',
       iOSName: 'AdhkarWidgetHomeWidget',
     );
   }
@@ -132,7 +132,7 @@ class AdhkarWidgetHomeWidget {
   /// needed after data changes that should show in the gallery right away.
   static Future<bool> updatePreview() async {
     return await HomeWidget.updateWidgetPreview(
-      androidName: 'AdhkarWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.AdhkarWidgetHomeWidgetReceiver',
     ) ?? false;
   }
 
@@ -149,7 +149,7 @@ class AdhkarWidgetHomeWidget {
   /// and does nothing anywhere else.
   static Future<void> requestPinWidget() {
     return HomeWidget.requestPinWidget(
-      androidName: 'AdhkarWidgetHomeWidgetReceiver',
+      qualifiedAndroidName: 'com.dakomn.mishkatapp.AdhkarWidgetHomeWidgetReceiver',
     );
   }
 

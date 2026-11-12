@@ -127,6 +127,10 @@ val isReleaseBuild = gradle.startParameter.taskNames.any {
 val useTestSigningForRelease = providers.gradleProperty("useTestSigningForRelease")
     .orNull
     .equals("true", ignoreCase = true)
+// Opt-in local install alongside the Google Play app and its separate data.
+val developmentInstall = providers.gradleProperty("mishkatDevelopmentBuild")
+    .orNull
+    .equals("true", ignoreCase = true)
 
 if (isReleaseBuild && !keystorePropertiesFile.exists() && !useTestSigningForRelease) {
     throw GradleException(
@@ -148,6 +152,9 @@ android {
 
     defaultConfig {
         applicationId = "com.dakomn.mishkatapp"
+        if (developmentInstall) applicationIdSuffix = ".dev"
+        manifestPlaceholders["mishkatAppLabel"] =
+            if (developmentInstall) "مشكاة تجربة" else "مشكاة"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -173,6 +180,7 @@ android {
 
     buildTypes {
         release {
+            proguardFiles("proguard-rules.pro")
             signingConfig = if (useTestSigningForRelease) {
                 signingConfigs.getByName("debug")
             } else {
