@@ -96,6 +96,17 @@ class RecitationFeedbackSettings extends StatelessWidget {
               height: 1.6,
             ),
           ),
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) ...[
+          const SizedBox(height: 4),
+          Text(
+            'لسماع التنبيهات، ارفع صوت الوسائط وأوقف وضع الصامت أو الاهتزاز و«عدم الإزعاج» في الهاتف.',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 12,
+              height: 1.6,
+            ),
+          ),
+        ],
         if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
           const SizedBox(height: 4),
           Text(

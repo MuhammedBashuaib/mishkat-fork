@@ -888,9 +888,16 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
           state.alignedWords.length == state.targetWords.length &&
           state.alignedWords.every((word) => word.status.isMatched) &&
           state.unresolvedMistakeWordIndices.isEmpty;
-      _emitFeedback(
-        completedCorrectly ? RecitationCue.complete : RecitationCue.paused,
-      );
+      if (state.unresolvedMistakeWordIndices.isNotEmpty) {
+        _emitFeedback(
+          RecitationCue.mistake,
+          wordIndices: state.unresolvedMistakeWordIndices,
+        );
+      } else {
+        _emitFeedback(
+          completedCorrectly ? RecitationCue.complete : RecitationCue.paused,
+        );
+      }
     }
   }
 

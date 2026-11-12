@@ -312,7 +312,8 @@ void main() {
     await say(throughMistake);
     events.clear();
     await cubit.finishSession();
-    expect(events.single.cue, RecitationCue.paused);
+    expect(events.single.cue, RecitationCue.mistake);
+    expect(events.single.wordIndices, {8});
     expect(cubit.state.unresolvedMistakeWordIndices, {8});
   });
 
@@ -323,7 +324,7 @@ void main() {
       await say(wholeRangeWithMistake);
       expect(events.map((event) => event.cue), [
         RecitationCue.mistake,
-        RecitationCue.paused,
+        RecitationCue.mistake,
       ]);
       expect(eventStates.last.isCompleted, isTrue);
       expect(captureAtEvent.last, isFalse);

@@ -10,6 +10,10 @@ import '../cubit/quran_oral_recitation_state.dart';
 import 'recitation_pause_diagnostics.dart';
 import 'speech_recognition_service.dart';
 
+void _traceFeedback(String message) {
+  if (kDebugMode) debugPrint('[MISHKAT_FEEDBACK] $message');
+}
+
 /// Foreground effects are independent of the Quran/background audio player.
 abstract interface class RecitationFeedbackOutput {
   Future<void> prepare();
@@ -56,7 +60,8 @@ class NativeRecitationFeedbackOutput implements RecitationFeedbackOutput {
       // Stopping, replacing or disposing a preparation must not let its late
       // completion re-arm sound for a session that has already moved on.
       if (!_disposed && identical(_ready, pending)) _prepared = true;
-    } on Object {
+    } on Object catch (error) {
+      _traceFeedback('native prepare failed: $error');
       if (identical(_ready, pending)) {
         _ready = null;
         _prepared = false;
@@ -81,7 +86,8 @@ class NativeRecitationFeedbackOutput implements RecitationFeedbackOutput {
           !_disposed &&
           _prepared &&
           identical(_ready, preparation);
-    } on Object {
+    } on Object catch (error) {
+      _traceFeedback('native play failed cue=${cue.name}: $error');
       return false;
     }
   }
@@ -219,15 +225,23 @@ class RecitationFeedbackController {
     }
   }
 
-  void _onState(QuranOralRecitationState state) {
+  void _onState(QuranOralRecitationState _) {
     if (_disposed) return;
+    // Cubit delivers state snapshots asynchronously, while confirmed feedback
+    // is synchronous. A queued draining snapshot may arrive after completion
+    // has already prepared its cue; only the current state can disarm it.
+    final state = _state();
     if (_session != state.sessionId) {
+      _traceFeedback('cancel: session changed');
       _session = state.sessionId;
       _cancel();
       _lastCueAt = _lastMistakeAt = -100000;
     }
     if (state.isDraining ||
         (!state.isListening && !state.isPaused && !state.isCompleted)) {
+      if (_pending != null) {
+        _traceFeedback('cancel pending: draining=${state.isDraining}');
+      }
       _cancel();
     } else if (_pending != null && !_relevant(_pending!)) {
       _clearPending();
@@ -235,6 +249,12 @@ class RecitationFeedbackController {
   }
 
   void _receive(RecitationFeedbackEvent event) {
+    _traceFeedback(
+      'event=${event.cue.name} mode=${_mode.name} '
+      'foreground=$_foreground disposed=$_disposed '
+      'relevant=${_relevant(event)} quiet=$_maySound '
+      'capture=${_speech.isListening}',
+    );
     if (_disposed || !_foreground || _mode == RecitationFeedbackMode.silent) {
       return;
     }
@@ -261,8 +281,8 @@ class RecitationFeedbackController {
     return switch (event.cue) {
       RecitationCue.ready => state.isListening && _speech.isListening,
       RecitationCue.mistake =>
-        state.isListening &&
-            _speech.isListening &&
+        ((state.isListening && _speech.isListening) ||
+                (state.isCompleted && !_speech.isListening)) &&
             event.wordIndices.any(state.unresolvedMistakeWordIndices.contains),
       RecitationCue.corrected =>
         state.isListening &&
@@ -290,6 +310,10 @@ class RecitationFeedbackController {
     if (_mode == RecitationFeedbackMode.silent ||
         _nowMs() >= _expiresAt ||
         !_relevant(event)) {
+      _traceFeedback(
+        'drop=${event.cue.name} mode=${_mode.name} '
+        'expired=${_nowMs() >= _expiresAt} relevant=${_relevant(event)}',
+      );
       _clearPending();
       return;
     }
@@ -303,7 +327,10 @@ class RecitationFeedbackController {
       _timer = Timer(Duration(milliseconds: delay), _flush);
       return;
     }
-    if (_mode == RecitationFeedbackMode.sound && !_maySound) return;
+    if (_mode == RecitationFeedbackMode.sound && !_maySound) {
+      _traceFeedback('wait for quiet: ${event.cue.name}');
+      return;
+    }
     final generation = _generation;
     _flushing = true;
     try {
@@ -313,6 +340,7 @@ class RecitationFeedbackController {
           generation != _generation ||
           !identical(event, _pending) ||
           !_relevant(event)) {
+        _traceFeedback('cancel after preparation: ${event.cue.name}');
         return;
       }
       if (_nowMs() >= _expiresAt) {
@@ -326,7 +354,8 @@ class RecitationFeedbackController {
       if (_mode == RecitationFeedbackMode.vibration) {
         await _output.vibrate(event.cue);
       } else {
-        await _output.play(event.cue);
+        final played = await _output.play(event.cue);
+        _traceFeedback('play=${event.cue.name} success=$played');
       }
     } on Object {
       // A missing asset/device/audio route must never interrupt recitation.
@@ -338,6 +367,11 @@ class RecitationFeedbackController {
 
   /// Audition is explicit and only allowed with capture fully stopped.
   Future<void> preview() async {
+    _traceFeedback(
+      'preview mode=${_mode.name} foreground=$_foreground '
+      'capture=${_speech.isListening} listening=${_state().isListening} '
+      'draining=${_state().isDraining}',
+    );
     if (_disposed ||
         !_foreground ||
         _mode == RecitationFeedbackMode.silent ||
@@ -361,7 +395,8 @@ class RecitationFeedbackController {
       if (_mode == RecitationFeedbackMode.vibration) {
         await _output.vibrate(RecitationCue.mistake);
       } else {
-        await _output.play(RecitationCue.mistake);
+        final played = await _output.play(RecitationCue.mistake);
+        _traceFeedback('preview success=$played');
       }
     } on Object {
       // An unavailable preview does not change the saved feedback preference.

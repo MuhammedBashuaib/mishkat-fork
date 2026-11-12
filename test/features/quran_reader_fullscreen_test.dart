@@ -211,7 +211,7 @@ void main() {
     expect(find.text('حجم الصفحة'), findsNothing);
     expect(find.byTooltip('تكبير المصحف'), findsNothing);
     expect(find.byTooltip('تصغير المصحف'), findsNothing);
-    expect(find.byTooltip('إنهاء ملء الشاشة'), findsOneWidget);
+    expect(find.byTooltip('إنهاء ملء الشاشة').hitTestable(), findsOneWidget);
   }
 
   Future<void> capture(
@@ -395,7 +395,7 @@ void main() {
     await tester.pumpAndSettle();
     await enterFullscreen(tester);
     expectReaderBrightness(tester, Brightness.dark);
-    await tester.tap(find.byTooltip('إنهاء ملء الشاشة'));
+    await tester.tap(find.byTooltip('إنهاء ملء الشاشة').hitTestable());
     await tester.pumpAndSettle();
     expectReaderBrightness(tester, Brightness.dark);
     expectReaderControlsBrightness(tester, Brightness.light);
@@ -497,7 +497,9 @@ void main() {
         final number = tester.getRect(
           find.byKey(ValueKey('mushaf-page-number-$page')),
         );
-        final exit = tester.getRect(find.byTooltip('إنهاء ملء الشاشة'));
+        final exit = tester.getRect(
+          find.byTooltip('إنهاء ملء الشاشة').hitTestable(),
+        );
         final landscape = size.width > size.height;
         final safeBounds = landscape
             ? Rect.fromLTRB(44, 0, size.width - 20, size.height - 18)
@@ -599,7 +601,7 @@ void main() {
         closeTo(1.5, .001),
       );
       await enterFullscreen(tester);
-      await tester.tap(find.byTooltip('إنهاء ملء الشاشة'));
+      await tester.tap(find.byTooltip('إنهاء ملء الشاشة').hitTestable());
       await tester.pumpAndSettle();
       expect(find.byType(AppBar), findsOneWidget);
       expect(quran.state.currentPage, 562);
@@ -607,6 +609,131 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'fullscreen prepares adjacent pages and reuses them during RTL swipes',
+    (tester) async {
+      await openReader(tester);
+      final savedReadingPosition = storage.readMap('quran');
+      await enterFullscreen(tester);
+
+      Finder page(int number) =>
+          find.byKey(ValueKey('mushaf-page-$number'), skipOffstage: false);
+      final viewport = tester.getRect(find.byType(PageView));
+      expect(
+        tester
+            .widgetList<MushafPage>(
+              find.byType(MushafPage, skipOffstage: false),
+            )
+            .map((widget) => widget.page),
+        orderedEquals([561, 562, 563]),
+      );
+      // The neighboring pages have completed layout before the first drag,
+      // but do not replace the user's saved reading position.
+      for (final neighbor in [561, 563]) {
+        final bounds = tester.getRect(page(neighbor));
+        expect(bounds.size, tester.getSize(currentPage()));
+        expect(bounds.overlaps(viewport), isFalse);
+      }
+      expect(quran.state.currentPage, 562);
+      expect(storage.readMap('quran'), savedReadingPosition);
+
+      final preparedPage = tester.state(page(563));
+      final preparedViewer = tester.widget<InteractiveViewer>(
+        find.descendant(
+          of: page(563),
+          matching: find.byType(InteractiveViewer, skipOffstage: false),
+          skipOffstage: false,
+        ),
+      );
+      final preparedTransform = preparedViewer.transformationController;
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PageView)),
+      );
+      await gesture.moveBy(
+        const Offset(130, 0),
+        timeStamp: const Duration(milliseconds: 200),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await gesture.moveBy(
+        const Offset(-110, 0),
+        timeStamp: const Duration(milliseconds: 600),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await gesture.up(timeStamp: const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+      expect(quran.state.currentPage, 562);
+      expect(storage.readMap('quran'), savedReadingPosition);
+      expect(tester.state(page(563)), same(preparedPage));
+
+      await tester.drag(find.byType(PageView), const Offset(300, 0));
+      await tester.pumpAndSettle();
+      expect(quran.state.currentPage, 563);
+      expect(tester.state(currentPage()), same(preparedPage));
+      expect(viewer(tester).transformationController, same(preparedTransform));
+
+      for (final destination in [564, 563, 562, 561, 562]) {
+        final forward = destination > quran.state.currentPage;
+        await tester.fling(
+          find.byType(PageView),
+          Offset(forward ? 250 : -250, 0),
+          600,
+        );
+        await tester.pumpAndSettle();
+        expect(quran.state.currentPage, destination);
+        expect(storage.readMap('quran')['currentPage'], destination);
+        expect(
+          tester
+              .widgetList<MushafPage>(
+                find.byType(MushafPage, skipOffstage: false),
+              )
+              .map((widget) => widget.page),
+          orderedEquals([destination - 1, destination, destination + 1]),
+          reason: 'Preloading stays bounded as the reader moves both ways',
+        );
+        expect(
+          find.byKey(ValueKey('mushaf-page-number-$destination')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('fullscreen preloading respects the first and last page', (
+    tester,
+  ) async {
+    await openReader(tester, page: 1);
+    await enterFullscreen(tester);
+    for (final boundary in [1, 604]) {
+      await quran.openPage(boundary);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<MushafPage>(
+              find.byType(MushafPage, skipOffstage: false),
+            )
+            .map((widget) => widget.page),
+        orderedEquals(boundary == 1 ? [1, 2] : [603, 604]),
+      );
+      await tester.fling(
+        find.byType(PageView),
+        Offset(boundary == 1 ? -300 : 300, 0),
+        600,
+      );
+      await tester.pumpAndSettle();
+      expect(quran.state.currentPage, boundary);
+      expect(storage.readMap('quran')['currentPage'], boundary);
+      expect(
+        find.byKey(ValueKey('mushaf-page-number-$boundary')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('fullscreen keeps ayah selection and RTL page swipes working', (
     tester,

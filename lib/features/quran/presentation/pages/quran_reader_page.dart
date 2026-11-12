@@ -482,6 +482,10 @@ class _QuranReaderPageState extends State<QuranReaderPage>
                         textDirection: TextDirection.rtl,
                         child: PageView.builder(
                           controller: _controller,
+                          // Lay out and decode one page on either side before
+                          // it enters the viewport, instead of parsing its SVG
+                          // during the swipe. PageView releases distant pages.
+                          allowImplicitScrolling: true,
                           physics: _isPageZoomed
                               ? const NeverScrollableScrollPhysics()
                               : const PageScrollPhysics(),
@@ -999,12 +1003,16 @@ class _MushafPageState extends State<_MushafPage> {
       Widget stack = Stack(
         fit: StackFit.expand,
         children: [
-          SvgPicture.asset(
-            'assets/mushaf/pages/${widget.page.toString().padLeft(3, '0')}.svg',
-            fit: BoxFit.contain,
-            colorFilter: colorFilter,
-            placeholderBuilder: (_) =>
-                const Center(child: CircularProgressIndicator()),
+          // Keep the detailed calligraphy in its own retained layer so
+          // selection/playback overlays do not repaint the entire SVG.
+          RepaintBoundary(
+            child: SvgPicture.asset(
+              'assets/mushaf/pages/${widget.page.toString().padLeft(3, '0')}.svg',
+              fit: BoxFit.contain,
+              colorFilter: colorFilter,
+              placeholderBuilder: (_) =>
+                  const Center(child: CircularProgressIndicator()),
+            ),
           ),
           if (selectedAyah != null ||
               playingAyah != null ||

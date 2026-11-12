@@ -288,6 +288,50 @@ void main() {
     expect(h.output.sounds, [RecitationCue.complete]);
   });
 
+  test(
+    'obsolete draining notifications cannot cancel a current report cue',
+    () async {
+      final h = _Harness(null);
+      addTearDown(h.close);
+      await Future<void>.delayed(Duration.zero);
+      h.speech.active = false;
+      h.update(h.state.copyWith(lifecycle: OralRecitationLifecycle.completed));
+      h.output.loading = Completer<void>();
+      h.cue(RecitationCue.complete);
+      await Future<void>.delayed(Duration.zero);
+      // Bloc's asynchronous state stream can deliver an older draining snapshot
+      // after currentState() and the synchronous feedback stream have advanced.
+      h.states.add(
+        h.state.copyWith(
+          lifecycle: OralRecitationLifecycle.paused,
+          isDraining: true,
+        ),
+      );
+      h.output.loading!.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.output.sounds, [RecitationCue.complete]);
+    },
+  );
+
+  testWidgets('report mistakes sound only after capture has stopped', (
+    tester,
+  ) async {
+    final h = _Harness(tester);
+    addTearDown(h.close);
+    h.update(h.state.copyWith(lifecycle: OralRecitationLifecycle.completed));
+    h.cue(RecitationCue.mistake);
+    await tester.pump();
+    expect(h.output.sounds, isEmpty);
+    h.speech.active = false;
+    h.cue(RecitationCue.mistake);
+    await tester.pump();
+    expect(h.output.sounds, [RecitationCue.mistake]);
+    h.update(h.state.copyWith(unresolvedMistakeWordIndices: {}));
+    h.cue(RecitationCue.mistake);
+    await tester.pump(const Duration(seconds: 2));
+    expect(h.output.sounds, hasLength(1));
+  });
+
   testWidgets('output failures never change listening or alignment state', (
     tester,
   ) async {

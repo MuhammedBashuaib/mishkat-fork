@@ -188,11 +188,6 @@ class _OralRecitationRangeSheetState extends State<OralRecitationRangeSheet> {
                     Expanded(child: _pageField(isStart: false)),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'لتسميع صفحة واحدة، أدخل رقمها في الحقلين. يشمل النطاق آيات الصفحات المختارة حتى لو امتد لأكثر من سورة.',
-                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                ),
               ] else ...[
                 DropdownButtonFormField<int>(
                   key: ValueKey('free-surah-$_surah'),
