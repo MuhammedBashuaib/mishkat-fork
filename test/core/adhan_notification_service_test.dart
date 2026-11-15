@@ -25,6 +25,7 @@ void main() {
     calls.clear();
     pluginCalls.clear();
     messenger.setMockMethodCallHandler(plugin, (call) async {
+      if (call.method == 'initialize') return true;
       pluginCalls.add(call);
       if (call.method == 'pendingNotificationRequests') return [];
       if (call.method == 'canScheduleExactNotifications') return true;
@@ -168,6 +169,7 @@ void main() {
     'calendar replacement clears disabled charity and Friday reminders',
     () async {
       messenger.setMockMethodCallHandler(plugin, (call) async {
+        if (call.method == 'initialize') return true;
         pluginCalls.add(call);
         if (call.method == 'canScheduleExactNotifications') return true;
         if (call.method == 'pendingNotificationRequests') {
@@ -203,6 +205,7 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       IOSFlutterLocalNotificationsPlugin.registerWith();
       messenger.setMockMethodCallHandler(plugin, (call) async {
+        if (call.method == 'initialize') return true;
         pluginCalls.add(call);
         if (call.method == 'pendingNotificationRequests') {
           return [

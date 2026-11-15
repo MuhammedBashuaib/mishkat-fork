@@ -29,6 +29,7 @@ void main() {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     AndroidFlutterLocalNotificationsPlugin.registerWith();
     messenger.setMockMethodCallHandler(plugin, (call) async {
+      if (call.method == 'initialize') return true;
       pluginCalls.add(call);
       if (call.method == 'canScheduleExactNotifications') return exactAllowed;
       if (call.method == 'pendingNotificationRequests') return [];
@@ -149,6 +150,7 @@ void main() {
     'revoking exact permission during a calendar update keeps reminders',
     () async {
       messenger.setMockMethodCallHandler(plugin, (call) async {
+        if (call.method == 'initialize') return true;
         pluginCalls.add(call);
         if (call.method == 'canScheduleExactNotifications') return true;
         if (call.method == 'pendingNotificationRequests') return [];
@@ -185,6 +187,7 @@ void main() {
     'native adhan shares the total alarm budget and preserves Friday reminders',
     () async {
       messenger.setMockMethodCallHandler(plugin, (call) async {
+        if (call.method == 'initialize') return true;
         pluginCalls.add(call);
         if (call.method == 'canScheduleExactNotifications') return true;
         if (call.method == 'pendingNotificationRequests') {
@@ -377,6 +380,7 @@ void main() {
       final gate = Completer<void>();
       var pendingReads = 0;
       messenger.setMockMethodCallHandler(plugin, (call) async {
+        if (call.method == 'initialize') return true;
         pluginCalls.add(call);
         if (call.method == 'canScheduleExactNotifications') return true;
         if (call.method == 'pendingNotificationRequests') {

@@ -23,6 +23,7 @@ void main() {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     AndroidFlutterLocalNotificationsPlugin.registerWith();
     messenger.setMockMethodCallHandler(plugin, (call) async {
+      if (call.method == 'initialize') return true;
       calls.add(call);
       if (call.method == 'canScheduleExactNotifications') return exactAllowed;
       if (call.method == 'pendingNotificationRequests') {

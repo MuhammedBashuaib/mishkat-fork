@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -13,6 +15,8 @@ class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   bool _canUseExactAlarms = false;
+  bool _initialized = false;
+  Future<void>? _initializing;
   static const _adhan = MethodChannel('com.dakomn.mishkatapp/adhan');
   Future<void> _pendingUpdate = Future.value();
 
@@ -29,18 +33,45 @@ class LocalNotificationService {
 
   Future<bool> canSchedulePrecisely() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
-    _canUseExactAlarms =
-        await _plugin
-            .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin
-            >()
-            ?.canScheduleExactNotifications() ??
-        false;
+    try {
+      _canUseExactAlarms =
+          await _plugin
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >()
+              ?.canScheduleExactNotifications() ??
+          false;
+    } on PlatformException catch (error, stack) {
+      // Exact alarms are optional: a failed capability check must not disable
+      // ordinary notifications, which can still use inexact scheduling.
+      _canUseExactAlarms = false;
+      developer.log(
+        'Exact alarm capability unavailable',
+        name: 'notifications',
+        error: error,
+        stackTrace: stack,
+      );
+    }
     return _canUseExactAlarms;
   }
 
   Future<void> initialize() async {
-    if (kIsWeb) return;
+    if (kIsWeb || _initialized) return;
+    final pending = _initializing;
+    if (pending != null) return pending;
+    final operation = _initialize();
+    _initializing = operation;
+    try {
+      await operation;
+      _initialized = true;
+    } finally {
+      // Startup deliberately tolerates failure. A later user action must be
+      // able to retry instead of using a partially initialized native plugin.
+      _initializing = null;
+    }
+  }
+
+  Future<void> _initialize() async {
     tz_data.initializeTimeZones();
     await _refreshTimeZone();
     const initialization = InitializationSettings(
@@ -51,6 +82,9 @@ class LocalNotificationService {
         requestSoundPermission: false,
       ),
     );
+    // On iOS this result is the permission result, not initialization success.
+    // With permission prompts deferred, the native plugin returns false even
+    // though initialization succeeded. Only an exception indicates failure.
     await _plugin.initialize(
       initialization,
       onDidReceiveNotificationResponse: (response) {
@@ -67,15 +101,6 @@ class LocalNotificationService {
         launchPayload.isNotEmpty) {
       notificationTapPayload.value = launchPayload;
     }
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      _canUseExactAlarms =
-          await _plugin
-              .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin
-              >()
-              ?.canScheduleExactNotifications() ??
-          false;
-    }
   }
 
   Future<void> _refreshTimeZone() async {
@@ -89,6 +114,7 @@ class LocalNotificationService {
 
   Future<bool> requestPermission() async {
     if (kIsWeb) return false;
+    await initialize();
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       return await _plugin
               .resolvePlatformSpecificImplementation<
@@ -105,11 +131,19 @@ class LocalNotificationService {
       final notificationsAllowed =
           await android?.requestNotificationsPermission() ?? true;
       if (!notificationsAllowed) return false;
-      _canUseExactAlarms =
-          await android?.canScheduleExactNotifications() ?? false;
+      await canSchedulePrecisely();
       if (!_canUseExactAlarms) {
-        _canUseExactAlarms =
-            await android?.requestExactAlarmsPermission() ?? false;
+        try {
+          _canUseExactAlarms =
+              await android?.requestExactAlarmsPermission() ?? false;
+        } on PlatformException catch (error, stack) {
+          developer.log(
+            'Exact alarm permission unavailable',
+            name: 'notifications',
+            error: error,
+            stackTrace: stack,
+          );
+        }
       }
       return true;
     }
@@ -125,6 +159,7 @@ class LocalNotificationService {
     List<ScheduledAppNotification> notifications,
   ) async {
     if (kIsWeb) return;
+    await initialize();
     await _refreshTimeZone();
     await canSchedulePrecisely();
     final groups = notifications.map((item) => _groupFor(item.id)).toSet();
@@ -133,11 +168,6 @@ class LocalNotificationService {
       groups.addAll(const [1, 2, 3, 4, 5]);
     }
     final pending = await _plugin.pendingNotificationRequests();
-    for (final request in pending) {
-      if (groups.contains(_groupFor(request.id))) {
-        await _plugin.cancel(request.id);
-      }
-    }
 
     // The OS replaces requests by ID. Deduplicate before applying its capacity
     // limit so an updated request cannot occupy two slots in our selection.
@@ -174,11 +204,6 @@ class LocalNotificationService {
               .take((androidBudget - recurring.length).clamp(0, androidBudget))
               .toList()
         : const <ScheduledAppNotification>[];
-    if (android && groups.contains(1)) {
-      await _adhan.invokeMethod<void>('replace', [
-        for (final item in nativeAdhan) _nativeAdhan(item),
-      ]);
-    }
     final limit = defaultTargetPlatform == TargetPlatform.iOS
         ? (63 - retained).clamp(0, 58)
         : androidBudget - nativeAdhan.length;
@@ -187,7 +212,23 @@ class LocalNotificationService {
       ...pluginNotifications.where(
         (item) => !item.repeatsDaily && !item.repeatsWeekly,
       ),
-    ].take(limit);
+    ].take(limit).toList();
+    final selectedIds = selected.map((item) => item.id).toSet();
+    for (final request in pending) {
+      if (groups.contains(_groupFor(request.id)) &&
+          !selectedIds.contains(request.id)) {
+        await _plugin.cancel(request.id);
+      }
+    }
+    // Free obsolete plugin alarms before native replacement so switching from
+    // silent prayer alerts to audible adhan cannot exceed Android's budget.
+    if (android && groups.contains(1)) {
+      await _adhan.invokeMethod<void>('replace', [
+        for (final item in nativeAdhan) _nativeAdhan(item),
+      ]);
+    }
+    // Replace matching IDs in place. If a native update fails, previously
+    // scheduled reminders with those IDs remain available for the next retry.
     for (final item in selected) {
       await _scheduleNotification(item);
     }
@@ -294,6 +335,7 @@ class LocalNotificationService {
     String? soundName,
   }) async {
     if (kIsWeb) return;
+    await initialize();
     final item = ScheduledAppNotification(
       id: 999999,
       title: soundName == null ? 'تنبيه تجريبي' : 'تجربة صوت الأذان',

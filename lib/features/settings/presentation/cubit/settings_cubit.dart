@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -24,11 +25,15 @@ class SettingsCubit extends Cubit<SettingsState> {
   final LocalNotificationService _notifications;
   int _notificationToggleRevision = 0;
   int _dataRevision = 0;
+  int _notificationScheduleRevision = 0;
+  static const _scheduleFailureMessage =
+      'تعذّر تحديث التذكيرات. حاول تفعيل التنبيهات مجددًا.';
   bool _resetting = false;
 
   void invalidatePendingOperations() {
     ++_dataRevision;
     ++_notificationToggleRevision;
+    ++_notificationScheduleRevision;
     _resetting = true;
   }
 
@@ -197,25 +202,50 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<bool> setNotificationsEnabled(bool enabled) async {
     final revision = ++_notificationToggleRevision;
-    if (enabled && !await _notifications.requestPermission()) {
-      if (isClosed || revision != _notificationToggleRevision) return false;
-      emit(
-        state.copyWith(
-          status: SettingsStatus.failure,
-          message: 'لم يُمنح إذن التنبيهات من إعدادات الجهاز.',
-        ),
+    ++_notificationScheduleRevision;
+    bool isCurrent() =>
+        !isClosed && !_resetting && revision == _notificationToggleRevision;
+    if (!isCurrent()) return false;
+    try {
+      if (enabled && !await _notifications.requestPermission()) {
+        if (!isCurrent()) return false;
+        emit(
+          state.copyWith(
+            status: SettingsStatus.failure,
+            message: 'لم يُمنح إذن التنبيهات من إعدادات الجهاز.',
+          ),
+        );
+        return false;
+      }
+      if (!isCurrent()) return false;
+      await _save(state.settings.copyWith(notificationsEnabled: enabled));
+      if (!isCurrent()) return false;
+      if (enabled) {
+        // Retain the user's preference so resume/startup can retry, but never
+        // report successful activation when the OS calendar was not updated.
+        return await _rescheduleNotifications(state.settings) && isCurrent();
+      }
+      await _notifications.cancelAll();
+      return isCurrent();
+    } on Object catch (error, stack) {
+      developer.log(
+        'Notification toggle failed',
+        name: 'notifications',
+        error: error,
+        stackTrace: stack,
       );
+      if (isCurrent()) {
+        emit(
+          state.copyWith(
+            status: SettingsStatus.failure,
+            message: enabled
+                ? 'تعذّر تفعيل التنبيهات. حاول مجددًا وتحقق من أذونات الجهاز.'
+                : 'تعذّر إيقاف التذكيرات. حاول إيقاف التنبيهات مجددًا.',
+          ),
+        );
+      }
       return false;
     }
-    if (isClosed || revision != _notificationToggleRevision) return false;
-    await _save(state.settings.copyWith(notificationsEnabled: enabled));
-    if (isClosed || revision != _notificationToggleRevision) return false;
-    if (enabled) {
-      await rescheduleNotifications(state.settings);
-    } else {
-      await _notifications.cancelAll();
-    }
-    return true;
   }
 
   Future<void> testNotification() async {
@@ -298,13 +328,22 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<void> rescheduleNotifications(AppSettings settings) async {
+    await _rescheduleNotifications(settings);
+  }
+
+  Future<bool> _rescheduleNotifications(AppSettings settings) async {
     final revision = _dataRevision;
-    if (_resetting || !settings.notificationsEnabled) return;
+    final scheduleRevision = ++_notificationScheduleRevision;
+    bool isCurrent() =>
+        !isClosed &&
+        !_resetting &&
+        revision == _dataRevision &&
+        scheduleRevision == _notificationScheduleRevision &&
+        state.settings == settings;
+    if (!isCurrent() || !settings.notificationsEnabled) return false;
     try {
       final precise = await _notifications.canSchedulePrecisely();
-      if (isClosed || revision != _dataRevision || state.settings != settings) {
-        return;
-      }
+      if (!isCurrent()) return false;
       emit(state.copyWith(preciseAlarmsAllowed: precise));
       await _notifications.scheduleAll(
         NotificationSchedulePlanner.build(
@@ -312,15 +351,29 @@ class SettingsCubit extends Cubit<SettingsState> {
           settings: settings,
         ),
       );
-    } on Object {
-      if (!isClosed && revision == _dataRevision) {
+      if (!isCurrent()) return false;
+      // A retry clears only its own error, never an unrelated location/save
+      // error that may have appeared while the native request was in flight.
+      if (state.message == _scheduleFailureMessage) {
+        emit(state.copyWith(status: SettingsStatus.ready, clearMessage: true));
+      }
+      return true;
+    } on Object catch (error, stack) {
+      developer.log(
+        'Notification schedule update failed',
+        name: 'notifications',
+        error: error,
+        stackTrace: stack,
+      );
+      if (isCurrent()) {
         emit(
           state.copyWith(
             status: SettingsStatus.failure,
-            message: 'تعذّر تحديث التذكيرات. أعد تفعيل التنبيهات وتحقق من أذونات الجهاز.',
+            message: _scheduleFailureMessage,
           ),
         );
       }
+      return false;
     }
   }
 }
