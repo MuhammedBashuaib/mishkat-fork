@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/printed_mushaf_models.dart';
 
@@ -31,17 +32,7 @@ class PrintedMushafRepository {
       final raw = await (bundle ?? rootBundle).loadString(
         'assets/data/printed-mushaf.json',
       );
-      final decoded = PrintedMushafData.fromJson(
-        Map<String, dynamic>.from(jsonDecode(raw) as Map),
-      );
-      if (decoded.version != 1 || decoded.pages.length != 604) {
-        throw const FormatException('Unsupported printed Mushaf data.');
-      }
-      for (var index = 0; index < decoded.pages.length; index++) {
-        if (decoded.pages[index].page != index + 1) {
-          throw const FormatException('Printed Mushaf pages are incomplete.');
-        }
-      }
+      final decoded = await compute(_parsePrintedMushaf, raw);
       return _cache = decoded;
     } finally {
       _pending = null;
@@ -53,4 +44,19 @@ class PrintedMushafRepository {
     if (pages == null || number < 1 || number > pages.length) return null;
     return pages[number - 1];
   }
+}
+
+PrintedMushafData _parsePrintedMushaf(String raw) {
+  final decoded = PrintedMushafData.fromJson(
+    Map<String, dynamic>.from(jsonDecode(raw) as Map),
+  );
+  if (decoded.version != 1 || decoded.pages.length != 604) {
+    throw const FormatException('Unsupported printed Mushaf data.');
+  }
+  for (var index = 0; index < decoded.pages.length; index++) {
+    if (decoded.pages[index].page != index + 1) {
+      throw const FormatException('Printed Mushaf pages are incomplete.');
+    }
+  }
+  return decoded;
 }

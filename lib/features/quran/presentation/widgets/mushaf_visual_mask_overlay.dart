@@ -143,6 +143,7 @@ class VisualMaskPainter extends CustomPainter {
         contentSize: size,
         viewBox: viewBox,
         padding: EdgeInsets.zero,
+        preserveShape: true,
       );
     }
 
@@ -192,22 +193,14 @@ class VisualMaskPainter extends CustomPainter {
           );
         }
 
-        final localRect = mapper.viewBoxRectToLocal(
+        localPath = mapper.viewBoxRectToLocalPath(
           viewBoxRect: effectiveRect,
           contentSize: size,
           viewBox: viewBox,
           padding: EdgeInsets
               .zero, // Exact 1:1 match with SvgPicture.asset inside the Stack
+          cornerRadius: boundaryMode == MaskBoundaryMode.rounded ? 3 : 0,
         );
-
-        if (boundaryMode == MaskBoundaryMode.rounded) {
-          localPath = Path()
-            ..addRRect(
-              RRect.fromRectAndRadius(localRect, const Radius.circular(3.0)),
-            );
-        } else {
-          localPath = Path()..addRect(localRect);
-        }
       } else if (segment is AyahPolygonSegment) {
         localPath = mapper.viewBoxPathToLocal(
           points: segment.points,
@@ -237,6 +230,7 @@ class VisualMaskPainter extends CustomPainter {
   bool shouldRepaint(covariant VisualMaskPainter oldDelegate) {
     return oldDelegate.maskColor != maskColor ||
         oldDelegate.viewBox != viewBox ||
+        oldDelegate.mapper != mapper ||
         oldDelegate.boundaryMode != boundaryMode ||
         oldDelegate.currentAyah != currentAyah ||
         oldDelegate.currentNumberOutlineColor != currentNumberOutlineColor ||

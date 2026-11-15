@@ -11,6 +11,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mishkat_app/core/theme/app_colors.dart';
 import 'package:mishkat_app/core/theme/app_theme.dart';
 import 'package:mishkat_app/features/quran/data/repositories/mushaf_layout_repository.dart';
+import 'package:mishkat_app/features/quran/data/repositories/mushaf_line_breaks_repository.dart';
 import 'package:mishkat_app/features/quran/data/repositories/quran_repository.dart';
 import 'package:mishkat_app/features/quran/presentation/cubit/mushaf_interaction_cubit.dart';
 import 'package:mishkat_app/features/quran/presentation/cubit/quran_cubit.dart';
@@ -18,6 +19,7 @@ import 'package:mishkat_app/features/quran/presentation/pages/quran_reader_page.
 import 'package:mishkat_app/features/quran/presentation/services/mushaf_coordinate_mapper.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/ayah_action_sheet.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/mushaf_interaction_layer.dart';
+import 'package:mishkat_app/features/quran/presentation/widgets/mushaf_page_artwork.dart';
 import 'package:mishkat_app/features/settings/data/models/app_settings.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_state.dart';
@@ -49,6 +51,8 @@ void main() {
   setUpAll(() async {
     await repository.load();
     await layoutRepository.load();
+    final cuts = await MushafLineBreaksRepository.instance.load();
+    expect(cuts[175], isNotEmpty);
     final cairo = FontLoader('Cairo');
     for (final weight in ['Regular', 'SemiBold', 'Bold', 'Black']) {
       cairo.addFont(rootBundle.load('assets/fonts/Cairo-$weight.ttf'));
@@ -97,6 +101,7 @@ void main() {
     WidgetTester tester, {
     int page = 562,
     bool dark = false,
+    bool safeInsets = true,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -129,7 +134,9 @@ void main() {
                 final landscape = media.size.width > media.size.height;
                 return MediaQuery(
                   data: media.copyWith(
-                    padding: landscape
+                    padding: !safeInsets
+                        ? EdgeInsets.zero
+                        : landscape
                         ? const EdgeInsets.fromLTRB(44, 0, 20, 18)
                         : const EdgeInsets.only(top: 44, bottom: 24),
                   ),
@@ -160,11 +167,22 @@ void main() {
 
   void expectReaderBrightness(WidgetTester tester, Brightness brightness) {
     expect(Theme.of(tester.element(currentPage())).brightness, brightness);
-    final artwork = tester.widget<SvgPicture>(
-      find.descendant(of: currentPage(), matching: find.byType(SvgPicture)),
+    final adaptive = find.descendant(
+      of: currentPage(),
+      matching: find.byType(MushafPageArtwork),
     );
+    final filter = adaptive.evaluate().isNotEmpty
+        ? tester.widget<MushafPageArtwork>(adaptive).colorFilter
+        : tester
+              .widget<SvgPicture>(
+                find.descendant(
+                  of: currentPage(),
+                  matching: find.byType(SvgPicture),
+                ),
+              )
+              .colorFilter;
     expect(
-      artwork.colorFilter,
+      filter,
       brightness == Brightness.dark
           ? const ColorFilter.mode(MushafThemeColors.darkInk, BlendMode.srcIn)
           : null,
@@ -472,6 +490,9 @@ void main() {
     ('landscape', const Size(844, 390), false, 562),
     ('short_landscape', const Size(568, 320), false, 562),
     ('opening_page', const Size(390, 844), false, 1),
+    ('reference_176_dark', const Size(390, 844), true, 176),
+    ('tall_430', const Size(430, 932), false, 175),
+    ('last_page', const Size(390, 844), false, 604),
   ]) {
     testWidgets(
       'fullscreen fills screen with a quiet folio at the bottom: $name',
@@ -479,7 +500,13 @@ void main() {
         await settings.setMushafTheme(
           dark ? MushafThemePreference.dark : MushafThemePreference.light,
         );
-        final boundary = await openReader(tester, dark: dark, page: page);
+        final safeInsets = name != 'reference_176_dark';
+        final boundary = await openReader(
+          tester,
+          dark: dark,
+          page: page,
+          safeInsets: safeInsets,
+        );
         await enterFullscreen(tester);
         expectReaderBrightness(
           tester,
@@ -501,7 +528,9 @@ void main() {
           find.byTooltip('إنهاء ملء الشاشة').hitTestable(),
         );
         final landscape = size.width > size.height;
-        final safeBounds = landscape
+        final safeBounds = !safeInsets
+            ? Offset.zero & size
+            : landscape
             ? Rect.fromLTRB(44, 0, size.width - 20, size.height - 18)
             : Rect.fromLTRB(0, 44, size.width, size.height - 24);
         // The paper fills the screen; the artwork and folio respect the cutout.
@@ -516,10 +545,13 @@ void main() {
           find.byKey(ValueKey('mushaf-page-number-$page')),
         );
         expect(folio.style!.fontSize, lessThanOrEqualTo(11));
-        final artwork = tester.widget<SvgPicture>(
-          find.descendant(of: currentPage(), matching: find.byType(SvgPicture)),
+        expect(
+          find.descendant(
+            of: currentPage(),
+            matching: find.byType(MushafPageArtwork),
+          ),
+          findsOneWidget,
         );
-        expect(artwork.fit, BoxFit.contain);
         final layer = find.descendant(
           of: currentPage(),
           matching: find.byType(MushafInteractionLayer),
@@ -530,12 +562,34 @@ void main() {
           contentSize: tester.getSize(layer),
           viewBox: viewBox,
         );
-        expect(
-          destination.width / viewBox.width,
-          closeTo(destination.height / viewBox.height, .000001),
-          reason:
-              'Text, ayah markers and touch geometry must remain undistorted',
+        final bands = mapper.getBands(
+          contentSize: tester.getSize(layer),
+          viewBox: viewBox,
         );
+        for (final band in bands) {
+          expect(
+            band.destination.width / band.source.width,
+            closeTo(band.destination.height / band.source.height, .000001),
+            reason: 'Every line and ayah marker keeps its original proportions',
+          );
+        }
+        if (page > 2 &&
+            body.height > body.width * viewBox.height / viewBox.width) {
+          expect(bands.length, 15);
+          expect(destination.top, closeTo(0, .001));
+          expect(destination.bottom, closeTo(body.height, .001));
+          expect(destination.width, closeTo(body.width, .001));
+        }
+        if (!landscape && page > 2) {
+          // A vertical drag at fitted size must never introduce a tiny scroll
+          // or move the last line beyond the visible canvas.
+          final initialMatrix = viewer(tester).transformationController!.value
+              .clone();
+          await tester.drag(layer, const Offset(0, -80));
+          await tester.pumpAndSettle();
+          expect(viewer(tester).transformationController!.value, initialMatrix);
+          expect(quran.state.currentPage, page);
+        }
         expect(windowCalls.last.method, 'setFullscreen');
         expect(windowCalls.last.arguments, true);
         expect(exit.overlaps(body), isFalse);
@@ -782,4 +836,63 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'fullscreen selects the displayed ayah across spaced lines and zoom',
+    (tester) async {
+      await openReader(tester, page: 176);
+      await enterFullscreen(tester);
+      for (final page in [176, 562, 604]) {
+        await quran.openPage(page);
+        await tester.pumpAndSettle();
+        final geometry = layoutRepository.getPageGeometry(page)!;
+        for (final scale in [1.0, 1.2]) {
+          viewer(tester)
+              .transformationController!
+              .value = Matrix4.diagonal3Values(
+            scale,
+            scale,
+            1,
+          );
+          await tester.pumpAndSettle();
+          final layer = find.descendant(
+            of: currentPage(),
+            matching: find.byType(MushafInteractionLayer),
+          );
+          final mapper = tester.widget<MushafInteractionLayer>(layer).mapper;
+          final box = tester.renderObject<RenderBox>(layer);
+          final interaction = tester
+              .element(layer)
+              .read<MushafInteractionCubit>();
+          for (final ayah in [
+            geometry.ayahs.first,
+            geometry.ayahs[geometry.ayahs.length ~/ 2],
+            geometry.ayahs.last,
+          ]) {
+            final point = mapper.viewBoxToLocal(
+              viewBoxCoordinate: ayah.numberCenter ?? ayah.samplePoint,
+              contentSize: box.size,
+              viewBox: geometry.viewBox,
+            );
+            // Center the selected source point while zoomed, as a reader can pan.
+            if (scale > 1) {
+              final matrix = Matrix4.diagonal3Values(scale, scale, 1)
+                ..setEntry(0, 3, box.size.width / 2 - point.dx * scale)
+                ..setEntry(1, 3, box.size.height / 2 - point.dy * scale);
+              viewer(tester).transformationController!.value = matrix;
+              await tester.pumpAndSettle();
+            }
+            await tester.tapAt(box.localToGlobal(point));
+            await tester.pump(const Duration(milliseconds: 350));
+            await tester.pumpAndSettle();
+            expect(interaction.state.selectedAyah?.globalAyah, ayah.globalAyah);
+          }
+        }
+        viewer(tester).transformationController!.value = Matrix4.identity();
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

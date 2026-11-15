@@ -29,6 +29,7 @@ import '../../../settings/presentation/pages/settings_page.dart';
 import '../cubit/shell_cubit.dart';
 
 import '../widgets/mishkat_bottom_nav_bar.dart';
+import '../widgets/lazy_tab_stack.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -272,7 +273,7 @@ class _AppShellState extends State<AppShell> {
                   ),
                 ],
               ),
-        body: IndexedStack(index: state.index, children: pages),
+        body: LazyTabStack(index: state.index, children: pages),
         bottomNavigationBar: MishkatBottomNavBar(
           selectedIndex: state.index,
           onItemSelected: context.read<ShellCubit>().select,

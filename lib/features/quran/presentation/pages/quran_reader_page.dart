@@ -21,6 +21,7 @@ import '../../../settings/presentation/cubit/settings_state.dart';
 import '../../data/models/mushaf_layout_models.dart';
 import '../../data/models/quran_models.dart';
 import '../../data/repositories/mushaf_layout_repository.dart';
+import '../../data/repositories/mushaf_line_breaks_repository.dart';
 import '../cubit/mushaf_interaction_cubit.dart';
 import '../cubit/mushaf_interaction_state.dart';
 import '../cubit/quran_cubit.dart';
@@ -33,6 +34,7 @@ import '../widgets/ayah_action_sheet.dart';
 import '../widgets/mushaf_ayah_overlay.dart';
 import '../widgets/mushaf_interaction_layer.dart';
 import '../widgets/mushaf_paper_sheet.dart';
+import '../widgets/mushaf_page_artwork.dart';
 import '../widgets/mushaf_visual_mask_overlay.dart';
 import '../widgets/mushaf_visual_recall_interaction_layer.dart';
 import '../widgets/quran_mini_player.dart';
@@ -80,6 +82,8 @@ class _QuranReaderPageState extends State<QuranReaderPage>
   );
   late final PageController _controller;
   late final QuranCubit _quranCubit;
+  late Future<Map<int, List<List<Offset>>>> _fullscreenLineBreaks =
+      MushafLineBreaksRepository.instance.load();
   bool _focus = false;
   bool _isPageZoomed = false;
   int? _lastKhatmaPage;
@@ -515,11 +519,59 @@ class _QuranReaderPageState extends State<QuranReaderPage>
                               onZoomChanged: _handleZoomChanged,
                             );
                             if (_focus) {
-                              return _MushafPaperTheme(
-                                child: MushafPaperSheet(
-                                  page: index + 1,
-                                  onExit: () => _setFocus(false),
-                                  child: pageContent,
+                              return FutureBuilder<
+                                Map<int, List<List<Offset>>>
+                              >(
+                                future: _fullscreenLineBreaks,
+                                builder: (context, snapshot) => _MushafPaperTheme(
+                                  child: MushafPaperSheet(
+                                    page: index + 1,
+                                    surahName: data
+                                        .chapter(
+                                          data.page(index + 1).first.surah,
+                                        )
+                                        .name,
+                                    juz: _juzFor(
+                                      data,
+                                      data.page(index + 1).first.global,
+                                    ),
+                                    onExit: () => _setFocus(false),
+                                    child: snapshot.hasData
+                                        ? _MushafPage(
+                                            key: ValueKey(
+                                              'mushaf-page-${index + 1}',
+                                            ),
+                                            page: index + 1,
+                                            scale: 1,
+                                            persistZoom: false,
+                                            fillHeight: true,
+                                            lineSeams:
+                                                snapshot.data?[index + 1] ??
+                                                const [],
+                                            isCurrent:
+                                                (index + 1) ==
+                                                state.currentPage,
+                                            onZoomChanged: _handleZoomChanged,
+                                          )
+                                        : Center(
+                                            child: snapshot.hasError
+                                                ? TextButton.icon(
+                                                    onPressed: () => setState(() {
+                                                      _fullscreenLineBreaks =
+                                                          MushafLineBreaksRepository
+                                                              .instance
+                                                              .load();
+                                                    }),
+                                                    icon: const Icon(
+                                                      Icons.refresh_rounded,
+                                                    ),
+                                                    label: const Text(
+                                                      'تعذر تجهيز ملء الشاشة. إعادة المحاولة',
+                                                    ),
+                                                  )
+                                                : const CircularProgressIndicator(),
+                                          ),
+                                  ),
                                 ),
                               );
                             }
@@ -839,6 +891,8 @@ class MushafPage extends StatefulWidget {
     required this.isCurrent,
     this.onZoomChanged,
     this.persistZoom = true,
+    this.fillHeight = false,
+    this.lineSeams = const [],
   });
 
   final int page;
@@ -846,6 +900,8 @@ class MushafPage extends StatefulWidget {
   final bool isCurrent;
   final ValueChanged<bool>? onZoomChanged;
   final bool persistZoom;
+  final bool fillHeight;
+  final List<List<Offset>> lineSeams;
 
   @override
   State<MushafPage> createState() => _MushafPageState();
@@ -973,9 +1029,12 @@ class _MushafPageState extends State<_MushafPage> {
         ? const ColorFilter.mode(MushafThemeColors.darkInk, BlendMode.srcIn)
         : null;
 
-    // The paper fills the screen, while the original calligraphy uses one
-    // uniform scale on both axes. Stretching the SVG distorts its glyphs.
-    const pageMapper = MushafCoordinateMapper(contentPadding: EdgeInsets.zero);
+    // Fullscreen spends spare height between intact lines, sharing the same
+    // mapping with touch targets, playback highlights and recall masks.
+    final pageMapper = MushafCoordinateMapper(
+      contentPadding: EdgeInsets.zero,
+      lineSeams: widget.fillHeight ? widget.lineSeams : const [],
+    );
 
     final hasInteractionCubit =
         context
@@ -1006,13 +1065,20 @@ class _MushafPageState extends State<_MushafPage> {
           // Keep the detailed calligraphy in its own retained layer so
           // selection/playback overlays do not repaint the entire SVG.
           RepaintBoundary(
-            child: SvgPicture.asset(
-              'assets/mushaf/pages/${widget.page.toString().padLeft(3, '0')}.svg',
-              fit: BoxFit.contain,
-              colorFilter: colorFilter,
-              placeholderBuilder: (_) =>
-                  const Center(child: CircularProgressIndicator()),
-            ),
+            child: widget.fillHeight
+                ? MushafPageArtwork(
+                    page: widget.page,
+                    viewBox: viewBox,
+                    mapper: pageMapper,
+                    colorFilter: colorFilter,
+                  )
+                : SvgPicture.asset(
+                    'assets/mushaf/pages/${widget.page.toString().padLeft(3, '0')}.svg',
+                    fit: BoxFit.contain,
+                    colorFilter: colorFilter,
+                    placeholderBuilder: (_) =>
+                        const Center(child: CircularProgressIndicator()),
+                  ),
           ),
           if (selectedAyah != null ||
               playingAyah != null ||
@@ -1170,7 +1236,9 @@ class _MushafPageState extends State<_MushafPage> {
                   width: constraints.maxWidth,
                   height: constraints.maxHeight,
                   child: Padding(
-                    padding: const EdgeInsets.all(8),
+                    padding: widget.fillHeight
+                        ? EdgeInsets.zero
+                        : const EdgeInsets.all(8),
                     child: hasInteractionCubit
                         ? BlocSelector<
                             MushafInteractionCubit,

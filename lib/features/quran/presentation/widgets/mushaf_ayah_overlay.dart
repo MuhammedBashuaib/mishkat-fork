@@ -198,18 +198,15 @@ class MushafAyahHighlightPainter extends CustomPainter {
   ) {
     for (final segment in ayah.segments) {
       if (segment is AyahRectSegment) {
-        final localRect = mapper.viewBoxRectToLocal(
+        final localPath = mapper.viewBoxRectToLocalPath(
           viewBoxRect: segment.rect,
           contentSize: size,
           viewBox: viewBox,
+          cornerRadius: 3,
         );
-        final rrect = RRect.fromRectAndRadius(
-          localRect,
-          const Radius.circular(3),
-        );
-        canvas.drawRRect(rrect, fillPaint);
+        canvas.drawPath(localPath, fillPaint);
         if (strokePaint != null) {
-          canvas.drawRRect(rrect, strokePaint);
+          canvas.drawPath(localPath, strokePaint);
         }
       } else if (segment is AyahPolygonSegment) {
         final localPath = mapper.viewBoxPathToLocal(
@@ -231,6 +228,7 @@ class MushafAyahHighlightPainter extends CustomPainter {
         oldDelegate.playingAyah != playingAyah ||
         !_listEqualsAyahs(oldDelegate.bookmarkedAyahs, bookmarkedAyahs) ||
         oldDelegate.viewBox != viewBox ||
+        oldDelegate.mapper != mapper ||
         oldDelegate.selectionColor != selectionColor ||
         oldDelegate.playbackColor != playbackColor ||
         oldDelegate.unifiedColor != unifiedColor ||
