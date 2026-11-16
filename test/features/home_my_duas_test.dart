@@ -375,7 +375,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(adhkarCubit.state.customItems.length, 1);
-      expect(adhkarCubit.state.customItems.first.title, 'دعاء تيسير الأمور');
+      expect(adhkarCubit.state.customDuas.first.name, 'دعاء تيسير الأمور');
       expect(adhkarCubit.state.customDuas, hasLength(1));
       final firstDuaId = adhkarCubit.state.customDuas.single.id;
       expect(

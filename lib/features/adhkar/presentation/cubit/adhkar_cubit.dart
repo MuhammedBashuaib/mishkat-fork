@@ -242,6 +242,62 @@ class AdhkarCubit extends Cubit<AdhkarState> {
     await _persist();
   }
 
+  Future<int> saveCustomCards({
+    int? duaId,
+    required String title,
+    required List<DhikrItem> items,
+  }) {
+    final submittedItems = List<DhikrItem>.of(items);
+    return _queueCustom(() async {
+      if (submittedItems.isEmpty) {
+        throw ArgumentError.value(items, 'items', 'أضف بطاقة واحدة على الأقل');
+      }
+      final cards = <DhikrItem>[];
+      for (final item in submittedItems) {
+        if (item.text.trim().isEmpty) {
+          throw ArgumentError.value(item.text, 'text', 'نص كل بطاقة مطلوب');
+        }
+        if (item.count < 1 || item.count > 10000) {
+          throw ArgumentError.value(
+            item.count,
+            'count',
+            'عدد مرات التكرار يجب أن يكون بين 1 و10000',
+          );
+        }
+        cards.add(
+          DhikrItem(
+            title: item.title.trim(),
+            text: item.text.trim(),
+            count: item.count,
+          ),
+        );
+      }
+      final id = duaId ?? state.nextCustomId;
+      final customDuas = [...state.customDuas];
+      if (duaId == null) {
+        customDuas.add(
+          AdhkarCategory(
+            id: id,
+            name: title.trim().isEmpty ? 'دعاء ${-id}' : title.trim(),
+            items: cards,
+            custom: true,
+          ),
+        );
+      } else {
+        final index = _customIndex(duaId);
+        final dua = customDuas[index];
+        customDuas[index] = dua.copyWith(items: [...dua.items, ...cards]);
+      }
+      await _commitCustom(
+        state.copyWith(
+          customDuas: customDuas,
+          nextCustomId: duaId == null ? id - 1 : state.nextCustomId,
+        ),
+      );
+      return id;
+    });
+  }
+
   Future<int> saveCustom({
     int? duaId,
     int? index,

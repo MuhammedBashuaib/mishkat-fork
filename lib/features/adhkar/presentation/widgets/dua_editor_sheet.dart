@@ -8,7 +8,7 @@ import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../data/models/adhkar_models.dart';
 import '../cubit/adhkar_cubit.dart';
 
-/// Modal bottom sheet for adding or editing a personal dua/supplication.
+/// Creates a personal dua with its cards, appends cards, or edits one card.
 class DuaEditorSheet extends StatefulWidget {
   const DuaEditorSheet({super.key, this.duaId, this.index, this.item});
 
@@ -45,10 +45,12 @@ class DuaEditorSheet extends StatefulWidget {
 }
 
 class _DuaEditorSheetState extends State<DuaEditorSheet> {
-  late final TextEditingController _titleController;
-  late final TextEditingController _textController;
-  late final TextEditingController _countController;
+  final _titleController = TextEditingController();
+  final _cards = <_CardDraft>[];
+  final _removedCards = <_CardDraft>[];
+  var _nextCardId = 0;
   bool _isSaving = false;
+  bool _showErrors = false;
 
   bool get _isEdit => widget.item != null || widget.index != null;
   bool get _isCard => widget.duaId != null;
@@ -56,64 +58,95 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.item?.title);
-    _textController = TextEditingController(text: widget.item?.text);
-    _countController = TextEditingController(
-      text: '${widget.item != null ? widget.item!.count : 1}',
-    );
+    _cards.add(_CardDraft(_nextCardId++, item: widget.item));
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _textController.dispose();
-    _countController.dispose();
+    for (final card in [..._cards, ..._removedCards]) {
+      card.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    final text = _textController.text.trim();
-    if (text.isEmpty) {
-      context.showMessage(
-        _isCard
-            ? 'يرجى كتابة نص البطاقة أولاً.'
-            : 'يرجى كتابة نص الدعاء أولاً.',
-      );
-      return;
-    }
+  void _reveal(_CardDraft card) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final cardContext = card.anchor.currentContext;
+      if (mounted && cardContext != null) {
+        Scrollable.ensureVisible(
+          cardContext,
+          alignment: 0,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 250),
+        );
+      }
+    });
+  }
 
-    final title = _titleController.text.trim();
-    final count = int.tryParse(
-      AppFormatters.normalizeArabic(_countController.text),
-    );
-    if (count == null || count < 1 || count > 10000) {
-      context.showMessage('أدخل عدد تكرار من 1 إلى 10000.');
-      return;
+  void _addCard() {
+    if (_isSaving) return;
+    final card = _CardDraft(_nextCardId++);
+    setState(() => _cards.add(card));
+    _reveal(card);
+  }
+
+  void _removeCard(_CardDraft card) {
+    if (_isSaving || _cards.length == 1) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _cards.remove(card);
+      // Keep controllers alive until the removed fields have unmounted.
+      _removedCards.add(card);
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_isSaving) return;
+    for (final card in _cards) {
+      if (!card.isValid) {
+        setState(() => _showErrors = true);
+        _reveal(card);
+        return;
+      }
     }
     setState(() => _isSaving = true);
-
+    final cubit = context.read<AdhkarCubit>();
+    final items = [for (final card in _cards) card.toItem()];
     try {
-      await context.read<AdhkarCubit>().saveCustom(
-        duaId: widget.duaId,
-        index: widget.index,
-        title: title,
-        text: text,
-        count: count,
-      );
+      if (_isEdit) {
+        final item = items.single;
+        await cubit.saveCustom(
+          duaId: widget.duaId,
+          index: widget.index,
+          title: item.title,
+          text: item.text,
+          count: item.count,
+        );
+      } else {
+        await cubit.saveCustomCards(
+          duaId: widget.duaId,
+          title: _titleController.text.trim(),
+          items: items,
+        );
+      }
       if (mounted) {
         context.showMessage(
-          _isCard
-              ? (_isEdit
-                    ? 'تم تحديث البطاقة.'
-                    : 'تمت إضافة البطاقة إلى الدعاء.')
-              : 'تمت إضافة الدعاء إلى أدعيتك.',
+          _isEdit
+              ? 'تم تحديث البطاقة.'
+              : _isCard
+              ? (_cards.length == 1
+                    ? 'تمت إضافة البطاقة إلى الدعاء.'
+                    : 'تمت إضافة البطاقات إلى الدعاء.')
+              : 'تم حفظ الدعاء وبطاقاته في أدعيتك.',
         );
         Navigator.pop(context, true);
       }
     } catch (_) {
       if (mounted) {
         setState(() => _isSaving = false);
-        context.showMessage('تعذّر الحفظ. حاول مرة أخرى.');
+        context.showMessage('تعذّر الحفظ. بطاقاتك ما زالت هنا، حاول مرة أخرى.');
       }
     }
   }
@@ -121,6 +154,9 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = context.mishkat;
+    final duaName = _isCard
+        ? context.read<AdhkarCubit>().state.categoryById(widget.duaId!)?.name
+        : null;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         MishkatSpacing.lg,
@@ -133,7 +169,6 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Top drag handle
             Center(
               child: Container(
                 width: 44,
@@ -145,8 +180,6 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
               ),
             ),
             const SizedBox(height: MishkatSpacing.lg),
-
-            // Header with icon and title
             Row(
               children: [
                 Container(
@@ -168,7 +201,7 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
                 Expanded(
                   child: Text(
                     _isCard
-                        ? (_isEdit ? 'تعديل البطاقة' : 'إضافة بطاقة للدعاء')
+                        ? (_isEdit ? 'تعديل البطاقة' : 'إضافة بطاقات للدعاء')
                         : 'إضافة دعاء جديد',
                     style: Theme.of(context).textTheme.headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w800, fontSize: 18),
@@ -176,69 +209,171 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
                 ),
               ],
             ),
-            if (!_isCard) ...[
-              const SizedBox(height: MishkatSpacing.sm),
-              Text(
-                'يُحفظ الدعاء مستقلًا، ويمكنك إضافة بطاقات أخرى داخله.',
-                style: TextStyle(color: colors.textSecondary, height: 1.5),
-              ),
-            ],
+            const SizedBox(height: MishkatSpacing.sm),
+            Text(
+              _isCard ? 'ضمن «${duaName ?? 'الدعاء'}»' : 'اجمع أدعيتك تحت عنوان واحد، ولكل بطاقة نصّها وعدد تكرارها.',
+              style: TextStyle(color: colors.textSecondary, height: 1.5),
+            ),
             const SizedBox(height: MishkatSpacing.lg),
-
-            // Optional title input
-            TextField(
-              controller: _titleController,
-              textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: _isCard
-                    ? 'عنوان البطاقة (اختياري)'
-                    : 'عنوان الدعاء (اختياري)',
-                hintText: _isCard
-                    ? 'مثال: دعاء البداية'
-                    : 'مثال: دعاء تيسير الأمور، للوالدين...',
+            if (!_isCard) ...[
+              TextField(
+                controller: _titleController,
+                enabled: !_isSaving,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'عنوان الدعاء (اختياري)',
+                  hintText: 'مثال: أدعية قبل النوم',
+                ),
               ),
-            ),
-            const SizedBox(height: MishkatSpacing.md),
-
-            // Required dua text input
-            TextField(
-              controller: _textController,
-              minLines: 3,
-              maxLines: 6,
-              textInputAction: TextInputAction.newline,
-              decoration: InputDecoration(
-                labelText: _isCard ? 'نص البطاقة *' : 'نص الدعاء أو الذكر *',
-                hintText: 'اكتب نص الدعاء هنا...',
-                alignLabelWithHint: true,
+              const SizedBox(height: MishkatSpacing.lg),
+            ],
+            for (final (index, card) in _cards.indexed) ...[
+              _cardFields(context, card, index),
+              const SizedBox(height: MishkatSpacing.md),
+            ],
+            if (!_isEdit) ...[
+              OutlinedButton.icon(
+                onPressed: _isSaving ? null : _addCard,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('إضافة بطاقة أخرى'),
               ),
-            ),
-            const SizedBox(height: MishkatSpacing.md),
-
-            // Repetition count input
-            TextField(
-              controller: _countController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'عدد مرات التكرار',
-                hintText: '1',
-                suffixText: 'مرات',
-              ),
-            ),
-            const SizedBox(height: MishkatSpacing.xl),
-
-            // Action button
+              const SizedBox(height: MishkatSpacing.lg),
+            ],
             MishkatPrimaryAction(
               onPressed: _isSaving ? null : _submit,
               icon: const Icon(Icons.check_rounded),
-              label: _isEdit
+              label: _isSaving
+                  ? 'جارٍ الحفظ…'
+                  : _isEdit
                   ? 'حفظ التعديلات'
                   : _isCard
-                  ? 'إضافة البطاقة'
+                  ? (_cards.length == 1 ? 'إضافة البطاقة' : 'إضافة البطاقات')
                   : 'حفظ في أدعيتي',
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _cardFields(BuildContext context, _CardDraft card, int index) {
+    final colors = context.mishkat;
+    return Padding(
+      key: card.anchor,
+      padding: EdgeInsets.zero,
+      child: Container(
+        key: ValueKey('dua-draft-card-${card.id}'),
+        padding: const EdgeInsets.all(MishkatSpacing.md),
+        decoration: BoxDecoration(
+          color: colors.primarySoft.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(MishkatRadius.md),
+          border: Border.all(color: colors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'البطاقة ${(widget.index ?? index) + 1}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: colors.primary,
+                    ),
+                  ),
+                ),
+                if (!_isEdit && _cards.length > 1)
+                  IconButton(
+                    tooltip: 'إزالة البطاقة ${index + 1}',
+                    onPressed: _isSaving ? null : () => _removeCard(card),
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                  ),
+              ],
+            ),
+            const SizedBox(height: MishkatSpacing.md),
+            if (_isCard) ...[
+              TextField(
+                key: ValueKey('dua-card-title-${card.id}'),
+                controller: card.title,
+                enabled: !_isSaving,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'عنوان البطاقة (اختياري)',
+                  hintText: 'مثال: دعاء البداية',
+                ),
+              ),
+              const SizedBox(height: MishkatSpacing.md),
+            ],
+            TextField(
+              key: ValueKey('dua-card-text-${card.id}'),
+              controller: card.text,
+              enabled: !_isSaving,
+              minLines: 3,
+              maxLines: 6,
+              onChanged: _showErrors ? (_) => setState(() {}) : null,
+              textInputAction: TextInputAction.newline,
+              decoration: InputDecoration(
+                labelText: _isCard ? 'نص البطاقة *' : 'نص الدعاء أو الذكر *',
+                hintText: 'اكتب نص الدعاء أو الذكر هنا...',
+                alignLabelWithHint: true,
+                errorMaxLines: 2,
+                errorText: _showErrors && card.text.text.trim().isEmpty
+                    ? 'اكتب نص الدعاء أو الذكر لهذه البطاقة.'
+                    : null,
+              ),
+            ),
+            const SizedBox(height: MishkatSpacing.md),
+            TextField(
+              key: ValueKey('dua-card-count-${card.id}'),
+              controller: card.count,
+              enabled: !_isSaving,
+              keyboardType: TextInputType.number,
+              onChanged: _showErrors ? (_) => setState(() {}) : null,
+              decoration: InputDecoration(
+                labelText: 'عدد مرات التكرار',
+                hintText: '1',
+                suffixText: 'مرات',
+                errorMaxLines: 2,
+                errorText: _showErrors && !card.hasValidCount
+                    ? 'أدخل عددًا من 1 إلى 10000.'
+                    : null,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CardDraft {
+  _CardDraft(this.id, {DhikrItem? item})
+    : title = TextEditingController(text: item?.title),
+      text = TextEditingController(text: item?.text),
+      count = TextEditingController(text: '${item?.count ?? 1}');
+
+  final int id;
+  final anchor = GlobalKey();
+  final TextEditingController title;
+  final TextEditingController text;
+  final TextEditingController count;
+
+  int? get repetitions =>
+      int.tryParse(AppFormatters.normalizeArabic(count.text));
+  bool get hasValidCount =>
+      repetitions != null && repetitions! >= 1 && repetitions! <= 10000;
+  bool get isValid => text.text.trim().isNotEmpty && hasValidCount;
+
+  DhikrItem toItem() => DhikrItem(
+    title: title.text.trim(),
+    text: text.text.trim(),
+    count: repetitions!,
+  );
+
+  void dispose() {
+    title.dispose();
+    text.dispose();
+    count.dispose();
   }
 }

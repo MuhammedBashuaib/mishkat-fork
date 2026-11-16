@@ -2,11 +2,190 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/core/services/local_storage_service.dart';
+import 'package:mishkat_app/features/adhkar/data/models/adhkar_models.dart';
 import 'package:mishkat_app/features/adhkar/data/repositories/adhkar_repository.dart';
 import 'package:mishkat_app/features/adhkar/presentation/cubit/adhkar_cubit.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('a batch creates one dua with ordered independent cards and survives reload', () async {
+    final storage = _MemoryStorage();
+    final cubit = AdhkarCubit(AdhkarRepository(), storage);
+    addTearDown(cubit.close);
+    await cubit.load();
+    final writesBefore = storage.writeAttempts;
+    final id = await cubit.saveCustomCards(
+      title: '  أدعية قبل النوم  ',
+      items: const [
+        DhikrItem(title: '  الأولى  ', text: '  سبحان الله  ', count: 3),
+        DhikrItem(title: 'الثانية', text: 'الحمد لله', count: 1),
+        DhikrItem(text: 'الله أكبر', count: 10000),
+      ],
+    );
+    expect(storage.writeAttempts, writesBefore + 1);
+    expect(cubit.state.customDuas, hasLength(1));
+    expect(cubit.state.nextCustomId, id - 1);
+    final dua = cubit.state.categoryById(id)!;
+    expect(dua.name, 'أدعية قبل النوم');
+    expect(dua.items, const [
+      DhikrItem(title: 'الأولى', text: 'سبحان الله', count: 3),
+      DhikrItem(title: 'الثانية', text: 'الحمد لله', count: 1),
+      DhikrItem(text: 'الله أكبر', count: 10000),
+    ]);
+    await cubit.increment(id, 0);
+    await cubit.increment(id, 0);
+    await cubit.increment(id, 1);
+    expect([for (var i = 0; i < 3; i++) cubit.countFor(id, i)], [2, 1, 0]);
+    final beforeReload = cubit.state;
+    await cubit.load();
+    expect(cubit.state, beforeReload);
+  });
+
+  test(
+    'batch append preserves the dua name, old counters and other services',
+    () async {
+      final storage = _MemoryStorage();
+      final cubit = AdhkarCubit(AdhkarRepository(), storage);
+      addTearDown(cubit.close);
+      await cubit.load();
+      final first = await cubit.saveCustom(
+        title: 'ورد خاص',
+        text: 'الحمد لله',
+        count: 3,
+      );
+      final sibling = await cubit.saveCustom(
+        title: 'دعاء مستقل',
+        text: 'اللهم اهدني',
+        count: 3,
+      );
+      await cubit.increment(first, 0);
+      await cubit.increment(sibling, 0);
+      await cubit.increment(1, 0);
+      await cubit.increment(133, 0);
+      await cubit.setCountTarget(1, 19, 100);
+      final before = cubit.state;
+      final returnedId = await cubit.saveCustomCards(
+        duaId: first,
+        title: 'عنوان يجب ألا يغيّر الاسم',
+        items: const [
+          DhikrItem(title: 'الثانية', text: 'سبحان الله', count: 5),
+          DhikrItem(title: 'الثالثة', text: 'الله أكبر', count: 2),
+        ],
+      );
+      expect(returnedId, first);
+      expect(cubit.state.nextCustomId, before.nextCustomId);
+      expect(cubit.state.customDuas, hasLength(2));
+      final dua = cubit.state.categoryById(first)!;
+      expect(dua.name, 'ورد خاص');
+      expect(dua.items.map((item) => item.text), [
+        'الحمد لله',
+        'سبحان الله',
+        'الله أكبر',
+      ]);
+      expect(dua.items.map((item) => item.count), [3, 5, 2]);
+      expect(cubit.state.categoryById(sibling), before.categoryById(sibling));
+      expect(cubit.state.progress, before.progress);
+      expect(cubit.state.countTargets, before.countTargets);
+      expect(cubit.state.categories, before.categories);
+      expect([for (var i = 0; i < 3; i++) cubit.countFor(first, i)], [1, 0, 0]);
+      final beforeReload = cubit.state;
+      await cubit.load();
+      expect(cubit.state, beforeReload);
+    },
+  );
+
+  test(
+    'an invalid card rejects the entire batch before any storage write',
+    () async {
+      final storage = _MemoryStorage();
+      final cubit = AdhkarCubit(AdhkarRepository(), storage);
+      addTearDown(cubit.close);
+      await cubit.load();
+      final existing = await cubit.saveCustom(
+        title: 'دعاء موجود',
+        text: 'الحمد لله',
+        count: 3,
+      );
+      await cubit.increment(existing, 0);
+      final before = cubit.state;
+      final storedBefore = storage.readMap('adhkar');
+      final writesBefore = storage.writeAttempts;
+      for (final duaId in [null, existing]) {
+        for (final cards in <List<DhikrItem>>[
+          [],
+          const [
+            DhikrItem(text: 'صحيح', count: 3),
+            DhikrItem(text: '  ', count: 3),
+          ],
+          const [
+            DhikrItem(text: 'صحيح', count: 3),
+            DhikrItem(text: 'خطأ', count: 0),
+          ],
+          const [
+            DhikrItem(text: 'صحيح', count: 3),
+            DhikrItem(text: 'خطأ', count: 10001),
+          ],
+        ]) {
+          await expectLater(
+            cubit.saveCustomCards(
+              duaId: duaId,
+              title: 'دفعة غير صالحة',
+              items: cards,
+            ),
+            throwsArgumentError,
+          );
+          expect(cubit.state, before);
+          expect(storage.readMap('adhkar'), storedBefore);
+          expect(storage.writeAttempts, writesBefore);
+        }
+      }
+    },
+  );
+
+  test(
+    'failed batch writes leave no partial cards and retry adds them once',
+    () async {
+      final storage = _MemoryStorage();
+      final cubit = AdhkarCubit(AdhkarRepository(), storage);
+      addTearDown(cubit.close);
+      await cubit.load();
+      const cards = [
+        DhikrItem(title: 'الأولى', text: 'الحمد لله', count: 3),
+        DhikrItem(title: 'الثانية', text: 'سبحان الله', count: 5),
+      ];
+      final beforeCreate = cubit.state;
+      final storedBeforeCreate = storage.readMap('adhkar');
+      storage.failWrites = true;
+      await expectLater(
+        cubit.saveCustomCards(title: 'دعاء جديد', items: cards),
+        throwsStateError,
+      );
+      expect(cubit.state, beforeCreate);
+      expect(storage.readMap('adhkar'), storedBeforeCreate);
+      storage.failWrites = false;
+      final id = await cubit.saveCustomCards(title: 'دعاء جديد', items: cards);
+      expect(id, beforeCreate.nextCustomId);
+      expect(cubit.state.customDuas.single.items, cards);
+      await cubit.increment(id, 0);
+      final beforeAppend = cubit.state;
+      final storedBeforeAppend = storage.readMap('adhkar');
+      storage.failWrites = true;
+      await expectLater(
+        cubit.saveCustomCards(duaId: id, title: '', items: cards),
+        throwsStateError,
+      );
+      expect(cubit.state, beforeAppend);
+      expect(storage.readMap('adhkar'), storedBeforeAppend);
+      storage.failWrites = false;
+      await cubit.saveCustomCards(duaId: id, title: '', items: cards);
+      expect(cubit.state.customDuas.single.items, [...cards, ...cards]);
+      expect(cubit.countFor(id, 0), 1);
+      final beforeReload = cubit.state;
+      await cubit.load();
+      expect(cubit.state, beforeReload);
+    },
+  );
 
   test('legacy personal cards become separate duas without changing daily progress', () async {
     final storage = _MemoryStorage();
@@ -287,6 +466,7 @@ String _today() {
 class _MemoryStorage extends LocalStorageService {
   final _maps = <String, Map<String, dynamic>>{};
   bool failWrites = false;
+  int writeAttempts = 0;
   Completer<void>? pauseWriteReturn;
   Completer<void>? writeStarted;
 
@@ -296,6 +476,7 @@ class _MemoryStorage extends LocalStorageService {
 
   @override
   Future<void> writeMap(String key, Map<String, dynamic> value) async {
+    writeAttempts++;
     if (failWrites) throw StateError('disk unavailable');
     _maps[key] = value;
     if (writeStarted?.isCompleted == false) writeStarted!.complete();
