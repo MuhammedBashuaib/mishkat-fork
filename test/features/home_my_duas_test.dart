@@ -100,6 +100,12 @@ class FakeLocationService implements LocationService {
 
 class FakeNotificationService implements LocalNotificationService {
   @override
+  Future<bool> isPermissionGranted() async => true;
+
+  @override
+  Future<bool> openAppSettings() async => true;
+
+  @override
   Future<bool> canSchedulePrecisely() async => true;
 
   @override

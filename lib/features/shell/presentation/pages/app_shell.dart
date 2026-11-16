@@ -7,6 +7,7 @@ import '../../../../core/services/local_notification_service.dart';
 import '../../../../core/services/home_widget_service.dart';
 import '../../../../core/services/app_data_reset_service.dart';
 import '../../../../core/services/reminder_navigation.dart';
+import '../../../../core/widgets/location_permission_flow.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../adhkar/presentation/cubit/adhkar_cubit.dart';
 import '../../../adhkar/presentation/pages/adhkar_page.dart';
@@ -372,7 +373,7 @@ class _AppShellState extends State<AppShell> {
             const SizedBox(height: MishkatSpacing.lg),
             MishkatPrimaryButton(
               onPressed: () async {
-                await context.read<SettingsCubit>().useCurrentLocation();
+                await LocationPermissionFlow.useCurrentLocation(sheetContext);
                 if (!mounted) return;
                 if (sheetContext.mounted &&
                     context

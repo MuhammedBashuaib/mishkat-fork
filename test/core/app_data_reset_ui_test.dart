@@ -220,6 +220,10 @@ void main() {
     expect(find.byType(SettingsPage), findsNothing);
     expect(find.byType(AppShell), findsNothing);
     expect(find.byType(OnboardingPage), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('notification-permission-dialog')),
+      findsNothing,
+    );
     expect(find.byKey(const ValueKey('onboarding-skip')), findsOneWidget);
     expect(reset.isResetting, isFalse);
     expect(reset.generation, 1);
@@ -253,4 +257,96 @@ void main() {
     expect(reset.shell.state.index, 0);
     expect(tester.takeException(), isNull);
   });
+
+  for (final skip in [false, true]) {
+    testWidgets(
+      'first launch asks for notifications only after ${skip ? 'skipping' : 'completing'} onboarding',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final storage = InMemoryLocalStorageService();
+        final notifications = _Notifications();
+        final settings = SettingsCubit(
+          storage: storage,
+          locationService: LocationService(),
+          notifications: notifications,
+        );
+        await settings.load();
+        final khatma = KhatmaCubit(storage, notifications: notifications);
+        final downloads = _GatedDownloads();
+        await tester.pumpWidget(
+          MishkatApp(
+            storage: storage,
+            notifications: notifications,
+            audioService: DummyAudioService(),
+            quranRepository: quranRepository,
+            adhkarRepository: adhkarRepository,
+            libraryRepository: libraryRepository,
+            settingsCubit: settings,
+            khatmaCubit: khatma,
+            offlineDownloads: downloads,
+            homeWidgetService: _Widgets(adhkarRepository),
+            initiallyShowOnboarding: true,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final qibla = tester
+            .element(find.byType(OnboardingPage))
+            .read<QiblaCubit>();
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await settings.close();
+          await khatma.close();
+          await qibla.close();
+          downloads.dispose();
+        });
+        final dialog = find.byKey(
+          const ValueKey('notification-permission-dialog'),
+        );
+        final next = find.byKey(const ValueKey('onboarding-primary-action'));
+        expect(dialog, findsNothing);
+        expect(storage.readInt('notification_permission_intro_version'), 0);
+        if (skip) {
+          await tester.tap(find.byKey(const ValueKey('onboarding-skip')));
+        } else {
+          for (var page = 0; page < 3; page++) {
+            await tester.tap(next);
+            await tester.pumpAndSettle();
+            expect(dialog, findsNothing);
+          }
+          await tester.tap(next);
+        }
+        // The onboarding button is busy until the permission dialog closes.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(dialog, findsOneWidget);
+        expect(
+          find.text('لتصلك تنبيهات الصلاة والأذكار وتذكيرات الخير.'),
+          findsOneWidget,
+        );
+        expect(find.byType(AppShell), findsNothing);
+        expect(find.text('ابدأ بمواقيت مدينتك'), findsNothing);
+        expect(storage.readInt('notification_permission_intro_version'), 1);
+        await tester.tap(
+          find.byKey(const ValueKey('notification-permission-later')),
+        );
+        await tester.pumpAndSettle();
+        expect(dialog, findsNothing);
+        expect(find.byType(OnboardingPage), findsNothing);
+        expect(find.byType(AppShell), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.text('ابدأ بمواقيت مدينتك'),
+          ),
+          findsOneWidget,
+        );
+        expect(storage.readInt('onboarding_version'), 1);
+        expect(settings.state.settings.notificationsEnabled, false);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }

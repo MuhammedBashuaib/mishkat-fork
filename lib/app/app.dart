@@ -30,6 +30,7 @@ import '../features/quran/presentation/cubit/quran_cubit.dart';
 import '../features/quran/presentation/cubit/quran_memorization_cubit.dart';
 import '../features/settings/presentation/cubit/settings_cubit.dart';
 import '../features/settings/presentation/cubit/settings_state.dart';
+import '../features/settings/presentation/widgets/notification_permission_flow.dart';
 import '../features/shell/presentation/cubit/shell_cubit.dart';
 import '../features/shell/presentation/pages/app_shell.dart';
 import '../features/tasbih/presentation/cubit/tasbih_cubit.dart';
@@ -233,7 +234,8 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _syncProgressWidgets();
+      if (!mounted) return;
+      _syncProgressWidgets();
     });
   }
 
@@ -268,6 +270,10 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
   }
 
   Future<void> _completeOnboarding() async {
+    // Ask after the introduction, while its first-install marker is intact.
+    // Mount AppShell only after dismissal so its city sheet cannot overlap.
+    await NotificationPermissionFlow.showOnFirstLaunch(context, widget.storage);
+    if (!mounted) return;
     await widget.storage.writeInt('onboarding_version', 1);
     if (mounted) setState(() => _showOnboarding = false);
   }

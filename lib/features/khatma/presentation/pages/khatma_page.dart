@@ -10,6 +10,7 @@ import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../quran/presentation/cubit/quran_cubit.dart';
 import '../../../quran/presentation/pages/quran_reader_page.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
+import '../../../settings/presentation/widgets/notification_permission_flow.dart';
 import '../../data/models/khatma_plan.dart';
 import '../cubit/khatma_cubit.dart';
 import '../cubit/khatma_state.dart';
@@ -200,15 +201,15 @@ class KhatmaPage extends StatelessWidget {
     if (wantsReminder) {
       try {
         final settings = context.read<SettingsCubit>();
-        final allowed = await settings.setNotificationsEnabled(true);
+        final allowed = await NotificationPermissionFlow.enable(context);
+        if (!context.mounted) return;
         if (!allowed) {
-          reminderMessage = 'حُفظت الخطة. لتلقي تذكير الورد، اسمح بالإشعارات من إعدادات الجهاز.';
+          reminderMessage = 'حُفظت الخطة، ولم يكتمل تفعيل تذكير الورد.';
         } else if (!settings.state.preciseAlarmsAllowed) {
-          reminderMessage = 'حُفظت الخطة. فعّل إذن المنبّهات والتذكيرات من إعدادات الجهاز ليصلك الإشعار في الوقت المحدد.';
+          reminderMessage = 'حُفظت الخطة. قد يتأخر تذكير الورد دون السماح بالمنبّهات الدقيقة.';
         }
       } on Object {
-        reminderMessage =
-            'حُفظت الخطة، وتعذّر تفعيل الإشعارات. أعد تفعيلها من الإعدادات.';
+        reminderMessage = 'حُفظت الخطة، وتعذّر تفعيل تذكير الورد.';
       }
     }
     try {
@@ -229,10 +230,24 @@ class KhatmaPage extends StatelessWidget {
       final saved = cubit.state.plans.any(
         (plan) => !previousIds.contains(plan.id),
       );
-      context.showMessage(
-        saved
-            ? 'حُفظت الخطة، وتعذّرت جدولة التذكير. أعد تفعيل الإشعارات من الإعدادات.'
-            : 'تعذّر حفظ الخطة. حاول مرة أخرى.',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved
+                ? 'حُفظت الخطة، وتعذّرت جدولة التذكير.'
+                : 'تعذّر حفظ الخطة. حاول مرة أخرى.',
+          ),
+          action: saved && wantsReminder
+              ? SnackBarAction(
+                  label: 'تفعيل التذكير',
+                  onPressed: () {
+                    if (context.mounted) {
+                      NotificationPermissionFlow.enable(context);
+                    }
+                  },
+                )
+              : null,
+        ),
       );
     }
   }

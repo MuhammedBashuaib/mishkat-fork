@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:permission_handler/permission_handler.dart' as permissions;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -111,6 +112,31 @@ class LocalNotificationService {
       // Preserve the last known zone when the platform cannot report one.
     }
   }
+
+  /// Rechecks a return from device settings without showing another prompt.
+  Future<bool> isPermissionGranted() async {
+    if (kIsWeb) return false;
+    await initialize();
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return await _plugin
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >()
+              ?.areNotificationsEnabled() ??
+          false;
+    }
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final permission = await _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.checkPermissions();
+      return permission?.isEnabled ?? false;
+    }
+    return false;
+  }
+
+  Future<bool> openAppSettings() => permissions.openAppSettings();
 
   Future<bool> requestPermission() async {
     if (kIsWeb) return false;

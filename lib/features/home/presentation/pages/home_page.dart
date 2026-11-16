@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/utils/app_formatters.dart';
+import '../../../../core/widgets/location_permission_flow.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../adhkar/data/models/adhkar_models.dart';
 import '../../../adhkar/presentation/cubit/adhkar_cubit.dart';
@@ -61,7 +62,8 @@ class HomePage extends StatelessWidget {
                 const SizedBox(height: MishkatSpacing.lg),
                 if (state.schedule == null)
                   _LocationPrompt(
-                    onTap: context.read<SettingsCubit>().useCurrentLocation,
+                    onTap: () =>
+                        LocationPermissionFlow.useCurrentLocation(context),
                   )
                 else
                   _NextPrayerHero(schedule: state.schedule!),

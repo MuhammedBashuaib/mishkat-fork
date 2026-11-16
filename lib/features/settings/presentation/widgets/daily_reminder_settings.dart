@@ -8,6 +8,7 @@ import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/reminder_preferences.dart';
 import '../cubit/settings_cubit.dart';
+import 'notification_permission_flow.dart';
 
 class DailyReminderSettings extends StatefulWidget {
   const DailyReminderSettings({super.key, required this.settings});
@@ -63,7 +64,12 @@ class _DailyReminderSettingsState extends State<DailyReminderSettings> {
           contentPadding: EdgeInsets.zero,
           title: const Text('تفعيل التذكير'),
           value: enabled,
-          onChanged: onChanged,
+          onChanged: (value) async {
+            onChanged(value);
+            if (value) {
+              await NotificationPermissionFlow.ensureEnabled(context);
+            }
+          },
         ),
         if (enabled) ...details,
       ],
@@ -89,12 +95,23 @@ class _DailyReminderSettingsState extends State<DailyReminderSettings> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'اختر تذكيراتك، ثم فعّل «نظام التنبيهات» لتصلك.',
-                    style: text.bodySmall?.copyWith(
-                      color: colors.primary,
-                      height: 1.7,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'فعّل الإشعارات لتصلك التذكيرات التي تختارها.',
+                        style: text.bodySmall?.copyWith(
+                          color: colors.primary,
+                          height: 1.7,
+                        ),
+                      ),
+                      TextButton(
+                        key: const ValueKey('reminders-enable-notifications'),
+                        onPressed: () =>
+                            NotificationPermissionFlow.enable(context),
+                        child: const Text('تفعيل الإشعارات'),
+                      ),
+                    ],
                   ),
                 ),
               ],

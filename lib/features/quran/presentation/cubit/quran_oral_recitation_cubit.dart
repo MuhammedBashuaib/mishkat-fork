@@ -67,6 +67,7 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
   bool _isRestartingRecognition = false;
   bool _isStartingRecognition = false;
   bool _isRefreshingPermission = false;
+  bool _isOpeningPermissionSettings = false;
   bool _isClosing = false;
   int _captureOperation = 0;
   int _busyRestartAttempts = 0;
@@ -361,7 +362,9 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
           emit(
             state.copyWith(
               lifecycle: OralRecitationLifecycle.permissionPermanentlyDenied,
-              errorMessage: 'إذن الميكروفون أو التعرف على الكلام مرفوض من إعدادات الجهاز. افتح إعدادات التطبيق وفعّل الإذن للمتابعة.',
+              errorMessage: permission == SpeechPermissionState.restricted
+                  ? 'إذن الميكروفون أو التعرف على الكلام مقيّد على هذا الجهاز. راجع قيود الخصوصية في إعدادات الجهاز للسماح بالتسميع.'
+                  : 'إذن الميكروفون أو التعرف على الكلام مرفوض من إعدادات الجهاز. اضغط «فتح أذونات الجهاز» للسماح به، ثم ارجع إلى التسميع.',
             ),
           );
           return;
@@ -445,13 +448,32 @@ class QuranOralRecitationCubit extends Cubit<QuranOralRecitationState> {
 
   /// Opens application system settings so the user can grant permission manually.
   Future<void> openAppSettings() async {
+    if (isClosed || _isClosing || _isOpeningPermissionSettings) return;
+    final operation = _captureOperation;
+    _isOpeningPermissionSettings = true;
     emit(
       state.copyWith(
         lifecycle: OralRecitationLifecycle.permissionPermanentlyDenied,
-        errorMessage: 'إذن الميكروفون مرفوض من إعدادات الجهاز. افتح إعدادات التطبيق وفعّل الميكروفون، ثم ارجع وحاول مرة أخرى.',
+        errorMessage: 'إذن الميكروفون مرفوض من إعدادات الجهاز. اسمح بالميكروفون للتطبيق، ثم ارجع إلى التسميع ليتم التحقق من الإذن تلقائيًا.',
       ),
     );
-    await speechService.openAppSettings();
+    try {
+      final opened = await speechService.openAppSettings();
+      if (opened) return;
+    } catch (_) {
+      // A missing settings activity must leave the permission gate usable.
+    } finally {
+      _isOpeningPermissionSettings = false;
+    }
+    if (!_isCurrentOperation(operation) ||
+        !state.lifecycle.isPermissionPermanentlyDenied) {
+      return;
+    }
+    emit(
+      state.copyWith(
+        errorMessage: 'تعذّر فتح أذونات الجهاز تلقائيًا. افتح إعدادات الجهاز ثم مشكاة، واسمح بالميكروفون، ثم ارجع إلى التسميع.',
+      ),
+    );
   }
 
   /// Opens Android voice-input settings (or app settings as a fallback) so

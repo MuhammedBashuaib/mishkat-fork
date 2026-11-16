@@ -24,6 +24,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   final LocationService _locationService;
   final LocalNotificationService _notifications;
   int _notificationToggleRevision = 0;
+  int? _activeNotificationToggle;
   int _dataRevision = 0;
   int _notificationScheduleRevision = 0;
   static const _scheduleFailureMessage =
@@ -35,6 +36,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   void invalidatePendingOperations() {
     ++_dataRevision;
     ++_notificationToggleRevision;
+    _activeNotificationToggle = null;
     ++_notificationScheduleRevision;
     _resetting = true;
   }
@@ -53,12 +55,14 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
   }
 
-  Future<void> useCurrentLocation() async {
+  Future<LocationFailure?> useCurrentLocation({
+    bool reportFailure = true,
+  }) async {
     final revision = _dataRevision;
     emit(state.copyWith(status: SettingsStatus.locating, clearMessage: true));
     try {
       final position = await _locationService.currentPosition();
-      if (isClosed || revision != _dataRevision) return;
+      if (isClosed || revision != _dataRevision) return null;
       final current = state.settings;
       await _save(
         current.copyWith(
@@ -71,19 +75,28 @@ class SettingsCubit extends Cubit<SettingsState> {
         ),
         reschedule: true,
       );
+      return null;
     } on LocationFailure catch (error) {
-      if (isClosed || revision != _dataRevision) return;
-      emit(
-        state.copyWith(status: SettingsStatus.failure, message: error.message),
-      );
-    } on Object {
-      if (isClosed || revision != _dataRevision) return;
+      if (isClosed || revision != _dataRevision) return null;
       emit(
         state.copyWith(
           status: SettingsStatus.failure,
-          message: 'تعذّر تحديد الموقع الآن. حاول مجددًا.',
+          message: reportFailure ? error.message : null,
+          clearMessage: !reportFailure,
         ),
       );
+      return error;
+    } on Object {
+      if (isClosed || revision != _dataRevision) return null;
+      const error = LocationFailure('تعذّر تحديد الموقع الآن. حاول مجددًا.');
+      emit(
+        state.copyWith(
+          status: SettingsStatus.failure,
+          message: reportFailure ? error.message : null,
+          clearMessage: !reportFailure,
+        ),
+      );
+      return error;
     }
   }
 
@@ -212,13 +225,15 @@ class SettingsCubit extends Cubit<SettingsState> {
     bool isCurrent() =>
         !isClosed && !_resetting && revision == _notificationToggleRevision;
     if (!isCurrent()) return false;
+    _activeNotificationToggle = revision;
     try {
       if (enabled && !await _notifications.requestPermission()) {
         if (!isCurrent()) return false;
         emit(
           state.copyWith(
             status: SettingsStatus.failure,
-            message: 'لم يُمنح إذن التنبيهات من إعدادات الجهاز.',
+            message: 'لم يُمنح إذن التنبيهات. يمكنك المحاولة مجددًا عند رغبتك.',
+            notificationPermissionDenied: true,
           ),
         );
         return false;
@@ -244,6 +259,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         emit(
           state.copyWith(
             status: SettingsStatus.failure,
+            notificationPermissionDenied: false,
             message: enabled
                 ? 'تعذّر تفعيل التنبيهات. حاول مجددًا وتحقق من أذونات الجهاز.'
                 : _cancellationFailureMessage,
@@ -251,13 +267,23 @@ class SettingsCubit extends Cubit<SettingsState> {
         );
       }
       return false;
+    } finally {
+      if (_activeNotificationToggle == revision) {
+        _activeNotificationToggle = null;
+      }
     }
   }
 
-  Future<void> testNotification() async {
+  Future<bool> areNotificationsAllowed() =>
+      _notifications.isPermissionGranted();
+
+  Future<bool> openNotificationSettings() => _notifications.openAppSettings();
+
+  Future<void> testNotification({bool permissionAlreadyGranted = false}) async {
     final revision = _dataRevision;
     try {
-      if (!await _notifications.requestPermission()) {
+      if (!permissionAlreadyGranted &&
+          !await _notifications.requestPermission()) {
         throw StateError('notifications denied');
       }
       if (isClosed || revision != _dataRevision) return;
@@ -283,8 +309,13 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> stopAdhanTest() => _notifications.stopTest();
 
-  Future<void> refreshNotificationSchedule() =>
-      rescheduleNotifications(state.settings);
+  Future<void> refreshNotificationSchedule() {
+    // Returning from an OS permission screen can resume the app before the
+    // activation's own schedule finishes. Let that operation reconcile the
+    // calendar instead of invalidating it and falsely reporting failure.
+    if (_activeNotificationToggle != null) return Future<void>.value();
+    return rescheduleNotifications(state.settings);
+  }
 
   Future<void> clearAllData() async {
     invalidatePendingOperations();

@@ -9,6 +9,7 @@ import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/utils/app_formatters.dart';
+import '../../../../core/widgets/location_permission_flow.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../prayer_times/data/services/prayer_calculator.dart';
 import '../../../home_widgets/presentation/pages/home_widgets_page.dart';
@@ -17,6 +18,7 @@ import '../cubit/settings_cubit.dart';
 import '../widgets/daily_reminder_settings.dart';
 import '../widgets/about_mishkat_dialog.dart';
 import '../widgets/privacy_policy_dialog.dart';
+import '../widgets/notification_permission_flow.dart';
 import '../cubit/settings_state.dart';
 import '../../data/models/adhan_preferences.dart';
 import '../../data/models/app_settings.dart';
@@ -433,7 +435,7 @@ class _LocationSettings extends StatelessWidget {
           FilledButton.icon(
             onPressed: state.status == SettingsStatus.locating
                 ? null
-                : context.read<SettingsCubit>().useCurrentLocation,
+                : () => LocationPermissionFlow.useCurrentLocation(context),
             icon: state.status == SettingsStatus.locating
                 ? const SizedBox.square(
                     dimension: 18,
@@ -490,7 +492,13 @@ class _NotificationSettings extends StatelessWidget {
             'الصلاة والأذكار والختمة والحفظ — تعمل والتطبيق مغلق',
           ),
           value: settings.notificationsEnabled,
-          onChanged: context.read<SettingsCubit>().setNotificationsEnabled,
+          onChanged: (enabled) {
+            if (enabled) {
+              NotificationPermissionFlow.enable(context);
+            } else {
+              context.read<SettingsCubit>().setNotificationsEnabled(false);
+            }
+          },
         ),
         if (settings.notificationsEnabled) ...[
           const Divider(),
@@ -504,7 +512,8 @@ class _NotificationSettings extends StatelessWidget {
             trailing: settings.adhanSound
                 ? null
                 : IconButton(
-                    onPressed: context.read<SettingsCubit>().testNotification,
+                    onPressed: () =>
+                        NotificationPermissionFlow.testNotification(context),
                     icon: const Icon(Icons.notification_add_outlined),
                     tooltip: 'إرسال تنبيه تجريبي',
                   ),
@@ -524,9 +533,12 @@ class _NotificationSettings extends StatelessWidget {
             DropdownMenuItem(value: 20, child: Text('قبل 20 دقيقة')),
             DropdownMenuItem(value: 30, child: Text('قبل 30 دقيقة')),
           ],
-          onChanged: (value) {
+          onChanged: (value) async {
             if (value != null) {
-              context.read<SettingsCubit>().setPreMinutes(value);
+              await context.read<SettingsCubit>().setPreMinutes(value);
+              if (value > 0 && context.mounted) {
+                await NotificationPermissionFlow.ensureEnabled(context);
+              }
             }
           },
         ),
@@ -573,13 +585,25 @@ class _AdhanSettings extends StatelessWidget {
             subtitle: Text(
               notificationsReady
                   ? 'اختر المؤذن والمدة والصلوات التي تريدها'
-                  : 'فعّل نظام التنبيهات أولًا لاستخدام الأذان',
+                  : 'اسمح بالإشعارات لتفعيل الأذان',
             ),
             value: settings.adhanSound,
             onChanged: notificationsReady
-                ? context.read<SettingsCubit>().setAdhanSound
+                ? (value) async {
+                    await context.read<SettingsCubit>().setAdhanSound(value);
+                    if (value && context.mounted) {
+                      await NotificationPermissionFlow.ensureEnabled(context);
+                    }
+                  }
                 : null,
           ),
+          if (!notificationsReady)
+            TextButton.icon(
+              key: const ValueKey('adhan-enable-notifications'),
+              onPressed: () => NotificationPermissionFlow.enable(context),
+              icon: const Icon(Icons.notifications_active_outlined),
+              label: const Text('السماح بالإشعارات'),
+            ),
           if (settings.adhanSound && notificationsReady) ...[
             const Divider(height: 28),
             if (!preciseAlarmsAllowed) ...[
@@ -587,8 +611,7 @@ class _AdhanSettings extends StatelessWidget {
                 'لرفع الأذان كاملًا في موعده، اسمح لمشكاة بالمنبّهات والتذكيرات. دون هذا الإذن قد يتأخر التنبيه ويُستخدم الصوت المختصر.',
               ),
               TextButton.icon(
-                onPressed: () =>
-                    context.read<SettingsCubit>().setNotificationsEnabled(true),
+                onPressed: () => NotificationPermissionFlow.enable(context),
                 icon: const Icon(Icons.alarm_add_rounded),
                 label: const Text('السماح بالمنبّهات الدقيقة'),
               ),
@@ -687,15 +710,22 @@ class _AdhanSettings extends StatelessWidget {
                     ),
                     label: Text(prayer.name),
                     selected: settings.prayerAdhanEnabled[prayer.key] == true,
-                    onSelected: (enabled) => context
-                        .read<SettingsCubit>()
-                        .setPrayerAdhan(prayer.key, enabled),
+                    onSelected: (enabled) async {
+                      await context.read<SettingsCubit>().setPrayerAdhan(
+                        prayer.key,
+                        enabled,
+                      );
+                      if (enabled && context.mounted) {
+                        await NotificationPermissionFlow.ensureEnabled(context);
+                      }
+                    },
                   ),
               ],
             ),
             const SizedBox(height: 16),
             FilledButton.tonalIcon(
-              onPressed: context.read<SettingsCubit>().testNotification,
+              onPressed: () =>
+                  NotificationPermissionFlow.testNotification(context),
               icon: const Icon(Icons.play_circle_outline_rounded),
               label: Text('تجربة صوت ${selectedVoice.muezzin}'),
             ),

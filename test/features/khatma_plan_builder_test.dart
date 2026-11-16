@@ -197,14 +197,62 @@ void main() {
     (tester) async {
       final harness = await _openBuilder(tester, permissionGranted: false);
       await _submit(tester);
+      expect(harness.khatma.state.plans, isEmpty);
+      await tester.tap(find.byKey(const Key('notification-permission-later')));
+      await tester.pumpAndSettle();
 
       expect(harness.khatma.state.plans, hasLength(1));
       expect(harness.notifications.permissionRequests, 1);
       expect(harness.settings.state.settings.notificationsEnabled, false);
-      expect(find.textContaining('إشعار'), findsWidgets);
+      expect(find.textContaining('لم يكتمل تفعيل تذكير الورد'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('a saved notification preference does not bypass OS permission', (
+    tester,
+  ) async {
+    final harness = await _openBuilder(tester, initiallyEnabled: true);
+    harness.notifications.granted = false;
+    await _submit(tester);
+
+    expect(harness.notifications.permissionRequests, 1);
+    expect(
+      find.byKey(const Key('notification-permission-later')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('notification-permission-later')));
+    await tester.pumpAndSettle();
+    expect(harness.khatma.state.plans, hasLength(1));
+    expect(find.textContaining('لم يكتمل تفعيل تذكير الورد'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('saved plan scheduling failures offer an in-place retry', (
+    tester,
+  ) async {
+    final harness = await _openBuilder(tester);
+    await _choose(tester, 'khatma-reminder', 'وقت محدد');
+    harness.notifications.failKhatmaSchedule = true;
+    await _submit(tester);
+
+    expect(harness.khatma.state.plans, hasLength(1));
+    expect(find.text('حُفظت الخطة، وتعذّرت جدولة التذكير.'), findsOneWidget);
+    expect(find.text('تفعيل التذكير'), findsOneWidget);
+    harness.notifications.failKhatmaSchedule = false;
+    await tester.tap(find.text('تفعيل التذكير'));
+    await tester.pumpAndSettle();
+
+    expect(harness.notifications.permissionRequests, 2);
+    expect(harness.khatma.state.plans, hasLength(1));
+    expect(
+      harness.notifications.latest.any(
+        (item) => item.payload?.startsWith('khatma:') == true,
+      ),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<_Harness> _openBuilder(
@@ -212,10 +260,14 @@ Future<_Harness> _openBuilder(
   Size size = const Size(390, 844),
   double textScale = 1,
   bool permissionGranted = true,
+  bool initiallyEnabled = false,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   final storage = _MemoryStorage();
+  if (initiallyEnabled) {
+    await storage.writeMap('settings', {'notificationsEnabled': true});
+  }
   final notifications = _Notifications(permissionGranted);
   final khatma = KhatmaCubit(storage, notifications: notifications);
   final settings = SettingsCubit(
@@ -328,7 +380,8 @@ class _MemoryStorage extends LocalStorageService {
 
 class _Notifications extends LocalNotificationService {
   _Notifications(this.granted);
-  final bool granted;
+  bool granted;
+  bool failKhatmaSchedule = false;
   int permissionRequests = 0;
   List<ScheduledAppNotification> latest = [];
 
@@ -343,6 +396,12 @@ class _Notifications extends LocalNotificationService {
 
   @override
   Future<void> scheduleAll(List<ScheduledAppNotification> notifications) async {
+    if (failKhatmaSchedule &&
+        notifications.any(
+          (item) => item.payload?.startsWith('khatma:') == true,
+        )) {
+      throw StateError('Could not schedule khatma reminder');
+    }
     latest = notifications;
   }
 

@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/navigation_icons.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../../core/widgets/location_permission_flow.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../../../settings/presentation/cubit/settings_cubit.dart';
 import '../../../settings/presentation/cubit/settings_state.dart';
@@ -280,7 +281,7 @@ class _QiblaHeader extends StatelessWidget {
             child: InkWell(
               onTap: isLocating
                   ? null
-                  : context.read<SettingsCubit>().useCurrentLocation,
+                  : () => LocationPermissionFlow.useCurrentLocation(context),
               borderRadius: MishkatRadius.brMd,
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -733,7 +734,7 @@ class _NoLocationCard extends StatelessWidget {
           MishkatPrimaryButton(
             onPressed: isLocating
                 ? null
-                : context.read<SettingsCubit>().useCurrentLocation,
+                : () => LocationPermissionFlow.useCurrentLocation(context),
             icon: isLocating
                 ? const SizedBox(
                     width: 18,

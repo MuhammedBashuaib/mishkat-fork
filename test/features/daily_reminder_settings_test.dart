@@ -56,7 +56,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.text('اختر تذكيراتك، ثم فعّل «نظام التنبيهات» لتصلك.'),
+      find.text('فعّل الإشعارات لتصلك التذكيرات التي تختارها.'),
       findsOneWidget,
     );
     // The overview stays quiet even when every reminder is enabled.

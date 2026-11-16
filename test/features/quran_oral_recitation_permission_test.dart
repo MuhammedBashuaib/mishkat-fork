@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/oral_recitation_mushaf.dart';
@@ -57,8 +60,23 @@ class FakeAudioService extends QuranAudioService {
   }
 }
 
+class SettingsHandoffSpeechService extends MockSpeechRecognitionService {
+  SettingsHandoffSpeechService(this.result) : super(initialPermission: false);
+
+  final Future<bool> Function() result;
+
+  @override
+  Future<bool> openAppSettings() {
+    openAppSettingsCount++;
+    return result();
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  const speechSettingsChannel = MethodChannel(
+    'com.dakomn.mishkatapp/speech_settings',
+  );
   setUpAll(() async {
     await MushafLayoutRepository.instance.load();
     await OralRecitationMushaf.preloadCanonicalText();
@@ -92,6 +110,11 @@ void main() {
   late QuranOralRecitationCubit cubit;
 
   setUp(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          speechSettingsChannel,
+          (_) async => {'status': 'installed', 'localeId': 'ar-SA'},
+        );
     mockSpeech = MockSpeechRecognitionService(
       initialAvailable: true,
       initialPermission: false, // Default: permission not yet granted
@@ -114,9 +137,65 @@ void main() {
   tearDown(() async {
     await cubit.close();
     await memCubit.close();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(speechSettingsChannel, null);
   });
 
   group('Q14 Microphone Permission State Machine Tests', () {
+    for (final throwsError in [false, true]) {
+      test(
+        'Settings handoff failure is actionable (throws: $throwsError)',
+        () async {
+          final speech = SettingsHandoffSpeechService(() async {
+            if (throwsError) throw StateError('Settings unavailable');
+            return false;
+          });
+          final testCubit = QuranOralRecitationCubit(
+            speechService: speech,
+            quranRepository: fakeQuranRepo,
+            memorizationCubit: memCubit,
+          );
+          await testCubit.prepareSession(surahNumber: 1);
+          await testCubit.openAppSettings();
+
+          expect(speech.openAppSettingsCount, 1);
+          expect(
+            testCubit.state.lifecycle,
+            OralRecitationLifecycle.permissionPermanentlyDenied,
+          );
+          expect(
+            testCubit.state.errorMessage,
+            contains('تعذّر فتح أذونات الجهاز تلقائيًا'),
+          );
+          await testCubit.close();
+          await speech.dispose();
+        },
+      );
+    }
+
+    test(
+      'Settings handoff is coalesced and ignores completion after close',
+      () async {
+        final barrier = Completer<bool>();
+        final speech = SettingsHandoffSpeechService(() => barrier.future);
+        final testCubit = QuranOralRecitationCubit(
+          speechService: speech,
+          quranRepository: fakeQuranRepo,
+          memorizationCubit: memCubit,
+        );
+        await testCubit.prepareSession(surahNumber: 1);
+        final opening = testCubit.openAppSettings();
+        await testCubit.openAppSettings();
+        expect(speech.openAppSettingsCount, 1);
+        await testCubit.close();
+        barrier.complete(false);
+        await opening;
+        await testCubit.openAppSettings();
+        expect(speech.openAppSettingsCount, 1);
+        await speech.dispose();
+      },
+    );
+
     test(
       '1. Initial state without permission enters permissionDenied gate',
       () async {
@@ -303,6 +382,49 @@ void main() {
 
   group('Q14 Microphone Permission Widget Tests', () {
     testWidgets(
+      'Denied permission retries in place and does not re-prompt on resume',
+      (tester) async {
+        await tester.pumpWidget(
+          MultiBlocProvider(
+            providers: [
+              BlocProvider<QuranMemorizationCubit>.value(value: memCubit),
+              RepositoryProvider<QuranRepository>.value(value: fakeQuranRepo),
+            ],
+            child: MaterialApp(
+              home: QuranOralRecitationPage(
+                surahNumber: 1,
+                startGlobalAyah: 1,
+                endGlobalAyah: 2,
+                speechService: mockSpeech,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(mockSpeech.permissionRequestCount, 1);
+        expect(find.text('السماح والمتابعة'), findsOneWidget);
+        expect(find.text('فتح أذونات الجهاز'), findsNothing);
+        expect(mockSpeech.openAppSettingsCount, 0);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        expect(mockSpeech.permissionRequestCount, 1);
+
+        mockSpeech.autoGrantOnRequest = true;
+        await tester.tap(find.text('السماح والمتابعة'));
+        await tester.pumpAndSettle();
+        expect(mockSpeech.permissionRequestCount, 2);
+        expect(mockSpeech.openAppSettingsCount, 0);
+        expect(find.text('جاهز للتسميع'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'Opening the page requests permission and transitions to ready',
       (tester) async {
         mockSpeech.setPermission(false);
@@ -337,7 +459,7 @@ void main() {
     );
 
     testWidgets(
-      'Permission permanently denied shows فتح إعدادات التطبيق button',
+      'Permanently denied permission opens system settings and refreshes on return',
       (tester) async {
         mockSpeech.setPermission(false);
         mockSpeech.setPermanentlyDenied(true);
@@ -363,16 +485,36 @@ void main() {
         // The automatic request detects permanent denial and offers Settings.
         expect(mockSpeech.permissionRequestCount, 1);
         expect(
-          find.text('إذن الميكروفون مرفوض من إعدادات الجهاز'),
+          find.text('إذن الميكروفون يحتاج إعدادات الجهاز'),
           findsOneWidget,
         );
-        expect(find.text('فتح إعدادات التطبيق'), findsOneWidget);
+        expect(find.text('فتح أذونات الجهاز'), findsOneWidget);
         expect(find.text('إعادة التحقق من الإذن'), findsOneWidget);
 
-        // Tap فتح إعدادات التطبيق
-        await tester.tap(find.text('فتح إعدادات التطبيق'));
+        await tester.tap(find.text('فتح أذونات الجهاز'));
         await tester.pumpAndSettle();
         expect(mockSpeech.openAppSettingsCount, 1);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        expect(mockSpeech.permissionRequestCount, 1);
+        expect(find.text('فتح أذونات الجهاز'), findsOneWidget);
+
+        mockSpeech.setPermission(true);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        expect(mockSpeech.permissionRequestCount, 1);
+        expect(find.text('جاهز للتسميع'), findsOneWidget);
       },
     );
   });

@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
-import '../../../settings/presentation/cubit/settings_cubit.dart';
+import '../../../settings/presentation/widgets/notification_permission_flow.dart';
 import '../../data/models/memorization_plan.dart';
 import '../../data/models/quran_models.dart';
 import '../cubit/quran_memorization_cubit.dart';
@@ -146,13 +146,9 @@ class _MemorizationPlanPageState extends State<MemorizationPlanPage> {
       final cubit = context.read<QuranMemorizationCubit>();
       final plan = widget.existingPlan;
       final reminder = _reminderEnabled ? _reminderTime : null;
-
-      if (reminder != null) {
-        final settings = context.read<SettingsCubit>();
-        if (!settings.state.settings.notificationsEnabled) {
-          await settings.setNotificationsEnabled(true);
-        }
-      }
+      final reminderReady =
+          reminder == null || await NotificationPermissionFlow.enable(context);
+      if (!mounted) return;
 
       if (plan == null) {
         await cubit.createPlan(
@@ -182,7 +178,11 @@ class _MemorizationPlanPageState extends State<MemorizationPlanPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            plan == null ? 'تم إنشاء خطة الحفظ' : 'تم حفظ تعديلات الخطة',
+            !reminderReady
+                ? 'حُفظت خطة الحفظ، ولم يكتمل تفعيل التذكير.'
+                : plan == null
+                ? 'تم إنشاء خطة الحفظ'
+                : 'تم حفظ تعديلات الخطة',
           ),
           behavior: SnackBarBehavior.floating,
         ),

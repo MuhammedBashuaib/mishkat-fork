@@ -118,6 +118,23 @@ void main() {
   });
 
   test(
+    'permission-screen resume cannot invalidate activation in progress',
+    () async {
+      final gate = notifications.scheduleGate = Completer<void>();
+      final enabling = cubit.setNotificationsEnabled(true);
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.settings.notificationsEnabled, isTrue);
+      await cubit.refreshNotificationSchedule();
+      gate.complete();
+      expect(await enabling, isTrue);
+      expect(cubit.state.message, isNull);
+      notifications.scheduleGate = null;
+      await cubit.refreshNotificationSchedule();
+      expect(cubit.state.settings.notificationsEnabled, isTrue);
+    },
+  );
+
+  test(
     'restart reconciles the persisted off switch after failed cancellation',
     () async {
       expect(await cubit.setNotificationsEnabled(true), isTrue);

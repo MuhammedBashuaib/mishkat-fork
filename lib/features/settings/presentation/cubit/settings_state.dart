@@ -10,12 +10,14 @@ class SettingsState extends Equatable {
     this.settings = const AppSettings(),
     this.message,
     this.preciseAlarmsAllowed = true,
+    this.notificationPermissionDenied = false,
   });
 
   final SettingsStatus status;
   final AppSettings settings;
   final String? message;
   final bool preciseAlarmsAllowed;
+  final bool notificationPermissionDenied;
 
   SettingsState copyWith({
     SettingsStatus? status,
@@ -23,13 +25,23 @@ class SettingsState extends Equatable {
     String? message,
     bool clearMessage = false,
     bool? preciseAlarmsAllowed,
+    bool? notificationPermissionDenied,
   }) => SettingsState(
     status: status ?? this.status,
     settings: settings ?? this.settings,
     message: clearMessage ? null : message ?? this.message,
     preciseAlarmsAllowed: preciseAlarmsAllowed ?? this.preciseAlarmsAllowed,
+    notificationPermissionDenied:
+        notificationPermissionDenied ??
+        (clearMessage ? false : this.notificationPermissionDenied),
   );
 
   @override
-  List<Object?> get props => [status, settings, message, preciseAlarmsAllowed];
+  List<Object?> get props => [
+    status,
+    settings,
+    message,
+    preciseAlarmsAllowed,
+    notificationPermissionDenied,
+  ];
 }

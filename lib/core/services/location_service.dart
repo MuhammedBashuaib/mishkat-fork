@@ -3,20 +3,39 @@ import 'dart:math' as math;
 import 'package:geolocator/geolocator.dart';
 
 class LocationService {
-  Future<AppPosition> currentPosition() async {
+  Future<AppPosition>? _pendingPosition;
+
+  Future<AppPosition> currentPosition() => _pendingPosition ??= _locate()
+      .whenComplete(() => _pendingPosition = null);
+
+  Future<AppPosition> _locate() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
-      throw const LocationFailure('خدمة الموقع متوقفة. فعّلها ثم حاول مجددًا.');
+      throw const LocationFailure(
+        'خدمة الموقع متوقفة على الجهاز. فعّلها لحساب الصلاة والقبلة، أو اختر مدينتك يدويًا.',
+        reason: LocationFailureReason.serviceDisabled,
+      );
     }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      throw const LocationFailure('لم يُسمح بالوصول إلى الموقع.');
+    if (permission == LocationPermission.deniedForever) {
+      throw const LocationFailure(
+        'إذن الموقع مغلق لمشكاة. يمكنك السماح به من إعدادات الجهاز، أو اختيار مدينتك يدويًا.',
+        reason: LocationFailureReason.permanentlyDenied,
+      );
+    }
+    if (permission == LocationPermission.denied) {
+      throw const LocationFailure(
+        'لم يُسمح بالوصول إلى الموقع. نحتاجه لحساب الصلاة والقبلة، ويمكنك اختيار مدينتك دون منح الإذن.',
+        reason: LocationFailureReason.denied,
+      );
     }
     final position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 30),
+      ),
     );
     final nearest = closestCity(position.latitude, position.longitude);
     return AppPosition(
@@ -138,9 +157,20 @@ class NearbyCity {
   );
 }
 
+enum LocationFailureReason {
+  unavailable,
+  serviceDisabled,
+  denied,
+  permanentlyDenied,
+}
+
 class LocationFailure implements Exception {
-  const LocationFailure(this.message);
+  const LocationFailure(
+    this.message, {
+    this.reason = LocationFailureReason.unavailable,
+  });
   final String message;
+  final LocationFailureReason reason;
   @override
   String toString() => message;
 }

@@ -1279,13 +1279,13 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
           ),
           const SizedBox(height: 16),
           const Text(
-            'إذن الميكروفون مرفوض من إعدادات الجهاز',
+            'إذن الميكروفون يحتاج إعدادات الجهاز',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            'إذن الميكروفون مرفوض من إعدادات الجهاز. افتح إعدادات التطبيق وفعّل الميكروفون، ثم ارجع وحاول مرة أخرى.',
+            state.errorMessage ?? 'اضغط «فتح أذونات الجهاز» للسماح بالميكروفون، ثم ارجع إلى التسميع ليتم التحقق من الإذن تلقائيًا.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
@@ -1295,7 +1295,7 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
           ),
           const SizedBox(height: 20),
           MishkatPrimaryAction(
-            label: 'فتح إعدادات التطبيق',
+            label: 'فتح أذونات الجهاز',
             icon: const Icon(Icons.settings_outlined),
             isFullWidth: true,
             onPressed: () => cubit.openAppSettings(),
@@ -1448,13 +1448,6 @@ class _QuranOralRecitationViewState extends State<_QuranOralRecitationView>
           icon: const Icon(Icons.mic_rounded),
           isFullWidth: true,
           onPressed: () => cubit.requestPermissionAndInitialize(),
-        ),
-        const SizedBox(height: 10),
-        MishkatSecondaryAction(
-          label: 'فتح إعدادات التطبيق',
-          icon: const Icon(Icons.settings_outlined),
-          isFullWidth: true,
-          onPressed: () => cubit.openAppSettings(),
         ),
       ],
     );
