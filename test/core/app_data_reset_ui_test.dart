@@ -172,6 +172,7 @@ void main() {
     expect(storage.readMap('quran')['bookmarks'], hasLength(1));
     expect(reset.tasbih.state.count, 2);
     expect(khatma.state.plans, hasLength(1));
+    final cancellationsBeforeReset = notifications.cancellations;
 
     await tester.tap(find.byTooltip('الإعدادات').hitTestable().first);
     await tester.pumpAndSettle();
@@ -222,7 +223,7 @@ void main() {
     expect(find.byKey(const ValueKey('onboarding-skip')), findsOneWidget);
     expect(reset.isResetting, isFalse);
     expect(reset.generation, 1);
-    expect(notifications.cancellations, 1);
+    expect(notifications.cancellations, cancellationsBeforeReset + 1);
     expect(storage.readInt('onboarding_version'), 0);
     expect(notificationTapPayload.value, isNull);
     expect(homeWidgetLaunchUri.value, isNull);

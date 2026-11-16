@@ -1,0 +1,24 @@
+Tool: built-in image_gen (no CLI/API fallback)
+Source: mishkat-icon-master.png (ornamented opaque 1254 × 1254 PNG)
+Previous artwork: mishkat-icon-unornamented.png (preserved before ornamentation)
+Purpose: Islamic niche and light with geometric engraving, using Mishkat's forest green and sage palette.
+Regenerate platform sizes on macOS: python3 tools/generate_app_icons.py
+Validate platform sizes: python3 tools/generate_app_icons.py --check
+Optionally include the legacy PWA/iOS wrapper: add --legacy-root ..
+
+Original generation prompt (unornamented version):
+Use case: logo-brand
+Asset type: final production app icon for the Arabic Islamic app “Mishkat / مشكاة”; a single square full-bleed image, 1024 × 1024.
+Primary request: a striking, exceptionally refined symbol of a luminous Islamic wall niche (mishkat) holding a glowing oil lamp. Convey inner light, serenity, and spiritual guidance, readable instantly at small app-icon sizes.
+Design: centered symmetrical pointed Islamic ogee arch, a sculpted thick softly beveled rim in pale sage, enclosing a deep green recess. Inside, one elegant simplified glass mosque oil lamp: a luminous ivory teardrop flame above a small rounded bowl on a short pedestal. The arch and lamp form one distinctive cohesive emblem, beautifully proportioned and visually bold. Subtle soft dimensional relief with crisp intentional contours, restrained reflected light on the inner arch. Modern luxury app icon, neither a busy scene nor a stock lantern illustration.
+Color palette from the actual app: full-bleed deep forest green #234C43 and #28584E, muted green #35685D, sage #73B69D and #B3D5C8, luminous off-white #F1F1EC. Only the heart of the flame has a tiny warm champagne glow, no saturated yellow or brass.
+Composition: frontal, perfectly balanced, generous breathing room. Complete arch and pedestal fit inside central 60% width and 66% height. All essential artwork fits within a centered circle of radius 38% of canvas. Background extends cleanly to every square edge; extremely subtle tonal depth.
+Constraints: one icon only, no text, letters, calligraphy, watermark, crescent, star, extra objects, dense ornament, speckles, thin fussy details, or mockup. No outer frame, no rounded square tile, no rounded canvas corners, no transparent corners. Finish as a polished ready-to-use mobile app icon.
+
+Final edit prompt (built-in image_gen; edit target: mishkat-icon-unornamented.png):
+Use case: precise-object-edit
+Asset type: production square app icon for Mishkat.
+Input image: the attached current Mishkat icon is the EDIT TARGET, not just a style reference.
+Requested edit: add exquisite Islamic ornamental engraving and geometric pattern to this exact icon. In the dark green BACKGROUND around the arch, add a coherent traditional Islamic eight-point rosette and interlaced polygon tessellation, symmetrical and medium scale, rendered as shallow engraved forest-green stone with muted sage highlights. The pattern should be clearly visible on close inspection but restrained, with less contrast than the central icon. Let the ornament gently fade near the flame and toward the extreme edges. Add a very subtle continuous carved interlaced geometric ribbon on the wide face of the existing arch rim and its two vertical pillars; keep the smooth bevel edges. It should feel crafted into the surface, not printed on top. Elegant Islamic architecture, rich but calm.
+Preserve exactly: existing pointed arch silhouette, placement and scale, lamp and flame shape, the glass material, warm luminous ivory glow, all breathing room, and the deep forest green / sage palette. The lamp remains the visual focus. Keep the full-bleed square opaque background and safe margins for mobile icon masks.
+No text, letters, Arabic calligraphy, additional lamps, floating objects, bright gold, added outer frame, rounded canvas corners, transparency, or layout changes. Do not redesign the base icon. The only change is tasteful Islamic ornamentation. Square high-resolution finished artwork.

@@ -1,7 +1,7 @@
 name: mishkat_app
 description: تطبيق مشكاة للقرآن والأذكار ومواقيت الصلاة والقبلة.
 publish_to: none
-version: 1.4.3+15
+version: 1.5.1+16
 
 environment:
   sdk: ^3.13.0

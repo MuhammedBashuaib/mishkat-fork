@@ -28,6 +28,8 @@ class SettingsCubit extends Cubit<SettingsState> {
   int _notificationScheduleRevision = 0;
   static const _scheduleFailureMessage =
       'تعذّر تحديث التذكيرات. حاول تفعيل التنبيهات مجددًا.';
+  static const _cancellationFailureMessage =
+      'تعذّر إيقاف التذكيرات. حاول إيقاف التنبيهات مجددًا.';
   bool _resetting = false;
 
   void invalidatePendingOperations() {
@@ -39,10 +41,14 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> load() async {
     _resetting = false;
-    final settings = AppSettings.fromJson(_storage.readMap('settings'));
+    final savedSettings = _storage.readMap('settings');
+    final settings = AppSettings.fromJson(savedSettings);
     emit(SettingsState(status: SettingsStatus.ready, settings: settings));
     if (settings.keepAwake) unawaited(WakelockPlus.enable());
-    if (settings.notificationsEnabled) {
+    if (settings.notificationsEnabled ||
+        savedSettings['notificationsEnabled'] == false) {
+      // A failed cancellation (or a process exit during it) must be retried
+      // after restart. A persisted off switch is also an OS calendar state.
       unawaited(rescheduleNotifications(settings));
     }
   }
@@ -240,7 +246,7 @@ class SettingsCubit extends Cubit<SettingsState> {
             status: SettingsStatus.failure,
             message: enabled
                 ? 'تعذّر تفعيل التنبيهات. حاول مجددًا وتحقق من أذونات الجهاز.'
-                : 'تعذّر إيقاف التذكيرات. حاول إيقاف التنبيهات مجددًا.',
+                : _cancellationFailureMessage,
           ),
         );
       }
@@ -340,8 +346,22 @@ class SettingsCubit extends Cubit<SettingsState> {
         revision == _dataRevision &&
         scheduleRevision == _notificationScheduleRevision &&
         state.settings == settings;
-    if (!isCurrent() || !settings.notificationsEnabled) return false;
+    if (!isCurrent()) return false;
     try {
+      if (!settings.notificationsEnabled) {
+        // The off preference is saved before cancellation. Retry on resume
+        // and startup so a transient native failure cannot leave old alarms
+        // running indefinitely while the UI says notifications are disabled.
+        await _notifications.cancelAll();
+        if (!isCurrent()) return false;
+        if (state.message == _cancellationFailureMessage ||
+            state.message == _scheduleFailureMessage) {
+          emit(
+            state.copyWith(status: SettingsStatus.ready, clearMessage: true),
+          );
+        }
+        return true;
+      }
       final precise = await _notifications.canSchedulePrecisely();
       if (!isCurrent()) return false;
       emit(state.copyWith(preciseAlarmsAllowed: precise));
@@ -369,7 +389,9 @@ class SettingsCubit extends Cubit<SettingsState> {
         emit(
           state.copyWith(
             status: SettingsStatus.failure,
-            message: _scheduleFailureMessage,
+            message: settings.notificationsEnabled
+                ? _scheduleFailureMessage
+                : _cancellationFailureMessage,
           ),
         );
       }

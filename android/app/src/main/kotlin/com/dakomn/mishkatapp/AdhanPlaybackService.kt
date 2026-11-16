@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -144,6 +145,19 @@ class AdhanPlaybackService : Service() {
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
         private fun channelId(item: JSONObject) = "mishkat_adhan_playback_v1_${item.optBoolean("vibrate", true)}"
 
+        private fun contentIntent(context: Context, item: JSONObject): PendingIntent {
+            val launch = Intent(context, MainActivity::class.java).apply {
+                action = "SELECT_NOTIFICATION"
+                putExtra("notificationId", item.getInt("id"))
+                putExtra("payload", item.optString("payload", "prayer"))
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            return PendingIntent.getActivity(
+                context, item.getInt("id"), launch,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
         private fun notification(context: Context, item: JSONObject, playing: Boolean): Notification {
             val channelId = channelId(item)
             if (Build.VERSION.SDK_INT >= 26) {
@@ -155,18 +169,12 @@ class AdhanPlaybackService : Service() {
                     },
                 )
             }
-            val launch = Intent(context, MainActivity::class.java).apply {
-                action = "SELECT_NOTIFICATION"
-                putExtra("notificationId", item.getInt("id"))
-                putExtra("payload", item.optString("payload", "prayer"))
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val tap = PendingIntent.getActivity(context, item.getInt("id"), launch, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val builder = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_stat_mishkat)
+                .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.drawable.ic_mishkat_large))
                 .setContentTitle(item.getString("title")).setContentText(item.getString("body"))
                 .setCategory(NotificationCompat.CATEGORY_ALARM).setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setContentIntent(tap).setAutoCancel(!playing).setOngoing(playing).setOnlyAlertOnce(true)
+                .setContentIntent(contentIntent(context, item)).setAutoCancel(!playing).setOngoing(playing).setOnlyAlertOnce(true)
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
                 .setSound(null)
             if (item.optBoolean("vibrate", true)) builder.setVibrate(longArrayOf(0, 250, 150, 250))
@@ -181,8 +189,10 @@ class AdhanPlaybackService : Service() {
         fun showFallback(context: Context, item: JSONObject) {
             if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
             val name = item.getString("soundName").removeSuffix("_short") + "_short"
-            val sound = Uri.parse("android.resource://${context.packageName}/${soundResource(name)}")
-            val id = "mishkat_adhan_fallback_v1_${name}_${item.optBoolean("vibrate", true)}"
+            // Resource IDs can change between builds. Persist a stable resource
+            // name in the channel, as flutter_local_notifications does.
+            val sound = Uri.parse("android.resource://${context.packageName}/raw/$name")
+            val id = "mishkat_adhan_fallback_v2_${name}_${item.optBoolean("vibrate", true)}"
             val manager = context.getSystemService(NotificationManager::class.java)
             if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(
                 NotificationChannel(id, "تنبيه الأذان المختصر", NotificationManager.IMPORTANCE_HIGH).apply {
@@ -190,10 +200,15 @@ class AdhanPlaybackService : Service() {
                     enableVibration(item.optBoolean("vibrate", true))
                 },
             )
-            manager.notify(item.getInt("id"), NotificationCompat.Builder(context, id)
+            val builder = NotificationCompat.Builder(context, id)
                 .setSmallIcon(R.drawable.ic_stat_mishkat).setContentTitle(item.getString("title"))
+                .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.drawable.ic_mishkat_large))
                 .setContentText(item.getString("body")).setSound(sound).setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_HIGH).build())
+                .setContentIntent(contentIntent(context, item))
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+            if (item.optBoolean("vibrate", true)) builder.setVibrate(longArrayOf(0, 250, 150, 250))
+            manager.notify(item.getInt("id"), builder.build())
         }
     }
 }

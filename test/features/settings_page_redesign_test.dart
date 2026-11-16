@@ -12,6 +12,7 @@ import 'package:mishkat_app/features/settings/presentation/cubit/settings_cubit.
 import 'package:mishkat_app/features/settings/presentation/cubit/settings_state.dart';
 import 'package:mishkat_app/features/settings/presentation/pages/settings_page.dart';
 import 'package:mishkat_app/features/settings/presentation/widgets/about_mishkat_dialog.dart';
+import 'package:mishkat_app/features/settings/presentation/widgets/privacy_policy_dialog.dart';
 
 class _Storage extends LocalStorageService {
   final Map<String, Map<String, dynamic>> values = {};
@@ -202,6 +203,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('early prayer reminder stays editable in adhan settings', (
+    tester,
+  ) async {
+    final cubit = await _mount(tester);
+    await _openRow(tester, 'الأذان والتنبيهات');
+    final early = find.byKey(const ValueKey('prayer-pre-reminder'));
+    await tester.ensureVisible(early);
+    await tester.tap(early);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('قبل 10 دقائق').last);
+    await tester.pumpAndSettle();
+    expect(cubit.state.settings.preMinutes, 10);
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
+    await _openRow(tester, 'تذكيرات الخير والأذكار');
+    expect(find.byKey(const ValueKey('reminder-charity')), findsOneWidget);
+    expect(find.text('تذكير قبل الأذان'), findsNothing);
+    expect(cubit.state.settings.preMinutes, 10);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'About reads changed package metadata instead of a fixed version',
     (tester) async {
@@ -226,7 +248,7 @@ void main() {
   );
 
   testWidgets(
-    'privacy opens offline, scrolls at 320px and returns to settings',
+    'privacy opens as an offline dialog, scrolls at 320px and closes to settings',
     (tester) async {
       tester.view.physicalSize = const Size(320, 568);
       tester.view.devicePixelRatio = 1;
@@ -234,6 +256,8 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await _mount(tester, scale: 2);
       await _openRow(tester, 'سياسة الخصوصية');
+      expect(find.byType(PrivacyPolicyDialog), findsOneWidget);
+      expect(find.byType(Dialog), findsOneWidget);
 
       // Flutter widget tests have no working HTTP service. All privacy content
       // must still be available from the bundled page, including its last section.
@@ -242,7 +266,7 @@ void main() {
       expect(tester.takeException(), isNull);
       final privacyScroll = find
           .descendant(
-            of: find.byType(ListView).last,
+            of: find.byKey(const ValueKey('privacy-policy-scroll')),
             matching: find.byType(Scrollable),
           )
           .first;
@@ -285,11 +309,12 @@ void main() {
       expect(scrollPosition.pixels, greaterThan(0));
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.byTooltip('رجوع'));
+      await tester.tap(find.byTooltip('إغلاق'));
       await tester.pumpAndSettle();
       expect(find.text('الإعدادات'), findsOneWidget);
       expect(find.byKey(const ValueKey('settings-privacy')), findsOneWidget);
       expect(find.text('خصوصيتك في مشكاة'), findsNothing);
+      expect(find.byType(PrivacyPolicyDialog), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

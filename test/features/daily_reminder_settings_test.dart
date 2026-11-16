@@ -59,6 +59,12 @@ void main() {
       find.text('اختر تذكيراتك، ثم فعّل «نظام التنبيهات» لتصلك.'),
       findsOneWidget,
     );
+    // The overview stays quiet even when every reminder is enabled.
+    expect(find.text('موعد الصدقة صباحًا'), findsNothing);
+    expect(find.byType(DropdownButtonFormField<int>), findsNothing);
+    expect(find.textContaining('نباعد تذكيرات'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('reminder-friday')));
+    await tester.pumpAndSettle();
     final friday = find.byKey(const ValueKey('friday-reminders-toggle'));
     expect(cubit.state.settings.reminders.fridayEnabled, true);
     await tester.ensureVisible(friday);
@@ -72,18 +78,32 @@ void main() {
     await tester.ensureVisible(charity);
     await tester.tap(charity);
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('friday-reminders-toggle')), findsNothing);
+    expect(find.text('موعد الصدقة صباحًا'), findsOneWidget);
+    // Opening a section does not toggle or reschedule its saved preference.
+    expect(cubit.state.settings.reminders.charityEnabled, true);
+    final charityToggle = find.byKey(
+      const ValueKey('charity-reminders-toggle'),
+    );
+    await tester.ensureVisible(charityToggle);
+    await tester.tap(charityToggle);
+    await tester.pumpAndSettle();
     expect(cubit.state.settings.reminders.charityEnabled, false);
     expect(find.text('موعد الصدقة صباحًا'), findsNothing);
 
+    final dhikr = find.byKey(const ValueKey('reminder-dhikr'));
+    await tester.ensureVisible(dhikr);
+    await tester.tap(dhikr);
+    await tester.pumpAndSettle();
     final frequency = find.byType(DropdownButtonFormField<int>);
     await tester.ensureVisible(frequency);
     await tester.tap(frequency);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('خفيف — مرة يوميًا').last);
+    await tester.tap(find.text('مرة يوميًا').last);
     await tester.pumpAndSettle();
     expect(cubit.state.settings.reminders.dhikrPerDay, 1);
 
-    final sound = find.text('صوت تذكيرات الخير والأذكار');
+    final sound = find.byKey(const ValueKey('reminder-sound-toggle'));
     await tester.ensureVisible(sound);
     await tester.tap(sound);
     await tester.pumpAndSettle();

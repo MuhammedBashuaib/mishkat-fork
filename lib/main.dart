@@ -25,6 +25,7 @@ Future<void> main() async {
     androidNotificationChannelDescription:
         'التلاوات وإذاعات القرآن الكريم أثناء استخدام التطبيقات الأخرى',
     androidNotificationOngoing: true,
+    androidNotificationIcon: 'drawable/ic_stat_mishkat',
   );
   Bloc.observer = const AppBlocObserver();
 

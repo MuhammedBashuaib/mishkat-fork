@@ -16,10 +16,10 @@ import '../../../quran/presentation/pages/offline_audio_downloads_page.dart';
 import '../cubit/settings_cubit.dart';
 import '../widgets/daily_reminder_settings.dart';
 import '../widgets/about_mishkat_dialog.dart';
+import '../widgets/privacy_policy_dialog.dart';
 import '../cubit/settings_state.dart';
 import '../../data/models/adhan_preferences.dart';
 import '../../data/models/app_settings.dart';
-import 'privacy_policy_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key, this.openPrayerSettings = false});
@@ -136,7 +136,7 @@ class SettingsPage extends StatelessWidget {
                       title: 'تذكيرات الخير والأذكار',
                       description: 'اختر ما يرافق يومك من تذكيرات، وفي الأوقات التي تناسبك.',
                       content: (_, state) => [
-                        _AdvancedNotificationSettings(settings: state.settings),
+                        DailyReminderSettings(settings: state.settings),
                       ],
                     ),
                   ),
@@ -165,12 +165,7 @@ class SettingsPage extends StatelessWidget {
                     icon: Icons.privacy_tip_outlined,
                     title: 'سياسة الخصوصية',
                     subtitle: 'بياناتك والأذونات وطريقة حذفها',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const PrivacyPolicyPage(),
-                      ),
-                    ),
+                    onTap: () => PrivacyPolicyDialog.show(context),
                   ),
                   _SettingsRow(
                     key: const ValueKey('settings-about'),
@@ -515,6 +510,26 @@ class _NotificationSettings extends StatelessWidget {
                   ),
           ),
         ],
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          key: const ValueKey('prayer-pre-reminder'),
+          initialValue: settings.preMinutes,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'تذكير قبل الأذان'),
+          items: const [
+            DropdownMenuItem(value: 0, child: Text('دون تذكير مبكر')),
+            DropdownMenuItem(value: 5, child: Text('قبل 5 دقائق')),
+            DropdownMenuItem(value: 10, child: Text('قبل 10 دقائق')),
+            DropdownMenuItem(value: 15, child: Text('قبل 15 دقيقة')),
+            DropdownMenuItem(value: 20, child: Text('قبل 20 دقيقة')),
+            DropdownMenuItem(value: 30, child: Text('قبل 30 دقيقة')),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              context.read<SettingsCubit>().setPreMinutes(value);
+            }
+          },
+        ),
       ],
     ),
   );
@@ -1086,46 +1101,6 @@ class _CalculationSettings extends StatelessWidget {
               ),
             ],
           ),
-      ],
-    ),
-  );
-}
-
-class _AdvancedNotificationSettings extends StatelessWidget {
-  const _AdvancedNotificationSettings({required this.settings});
-  final AppSettings settings;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: ExpansionTile(
-      key: const PageStorageKey('settings-notifications'),
-      initiallyExpanded: true,
-      leading: Icon(Icons.spa_outlined, color: context.mishkat.primary),
-      title: const Text(
-        'تذكيرات الخير والأذكار',
-        style: TextStyle(fontWeight: FontWeight.w800),
-      ),
-      subtitle: const Text('الصدقة والذكر والورد اليومي وأذكار اليوم والليلة'),
-      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
-        DropdownButtonFormField<int>(
-          initialValue: settings.preMinutes,
-          decoration: const InputDecoration(labelText: 'تذكير قبل الأذان'),
-          items: const [
-            DropdownMenuItem(value: 0, child: Text('دون تذكير مبكر')),
-            DropdownMenuItem(value: 5, child: Text('قبل 5 دقائق')),
-            DropdownMenuItem(value: 10, child: Text('قبل 10 دقائق')),
-            DropdownMenuItem(value: 15, child: Text('قبل 15 دقيقة')),
-            DropdownMenuItem(value: 20, child: Text('قبل 20 دقيقة')),
-            DropdownMenuItem(value: 30, child: Text('قبل 30 دقيقة')),
-          ],
-          onChanged: (value) {
-            if (value != null) {
-              context.read<SettingsCubit>().setPreMinutes(value);
-            }
-          },
-        ),
-        DailyReminderSettings(settings: settings),
       ],
     ),
   );

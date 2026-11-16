@@ -382,6 +382,8 @@ class LocalNotificationService {
         'mishkat_${item.kind.name}_${channelSuffix}_v2_${item.vibrate}',
         item.kind.channelName,
         channelDescription: item.kind.channelDescription,
+        icon: 'ic_stat_mishkat',
+        largeIcon: const DrawableResourceAndroidBitmap('ic_mishkat_large'),
         importance: item.kind == AppNotificationKind.adhan
             ? Importance.max
             : Importance.high,

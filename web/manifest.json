@@ -1,11 +1,13 @@
 {
-    "name": "mishkat_app",
-    "short_name": "mishkat_app",
+    "name": "مشكاة",
+    "short_name": "مشكاة",
+    "lang": "ar",
+    "dir": "rtl",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F5F8F7",
+    "theme_color": "#28584E",
+    "description": "تطبيق مشكاة للقرآن والأذكار ومواقيت الصلاة والقبلة.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

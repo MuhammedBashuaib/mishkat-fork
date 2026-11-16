@@ -20,6 +20,7 @@ class _Storage extends LocalStorageService {
 
 class _Notifications extends LocalNotificationService {
   bool failPermission = false, failSchedule = false, failCancel = false;
+  int cancellationAttempts = 0;
   Completer<void>? scheduleGate;
   @override
   Future<bool> requestPermission() async {
@@ -38,6 +39,7 @@ class _Notifications extends LocalNotificationService {
 
   @override
   Future<void> cancelAll() async {
+    cancellationAttempts++;
     if (failCancel) throw PlatformException(code: 'cancel_failed');
   }
 }
@@ -45,10 +47,12 @@ class _Notifications extends LocalNotificationService {
 void main() {
   late SettingsCubit cubit;
   late _Notifications notifications;
+  late _Storage storage;
   setUp(() async {
     notifications = _Notifications();
+    storage = _Storage();
     cubit = SettingsCubit(
-      storage: _Storage(),
+      storage: storage,
       locationService: LocationService(),
       notifications: notifications,
     );
@@ -97,6 +101,43 @@ void main() {
     expect(cubit.state, disabled);
     expect(cubit.state.message, isNull);
   });
+
+  test('resume retries a failed disable and clears its error', () async {
+    expect(await cubit.setNotificationsEnabled(true), isTrue);
+    notifications.failCancel = true;
+    expect(await cubit.setNotificationsEnabled(false), isFalse);
+    expect(cubit.state.settings.notificationsEnabled, isFalse);
+    expect(notifications.cancellationAttempts, 1);
+
+    notifications.failCancel = false;
+    await cubit.refreshNotificationSchedule();
+    expect(notifications.cancellationAttempts, 2);
+    expect(cubit.state.settings.notificationsEnabled, isFalse);
+    expect(cubit.state.status, SettingsStatus.ready);
+    expect(cubit.state.message, isNull);
+  });
+
+  test(
+    'restart reconciles the persisted off switch after failed cancellation',
+    () async {
+      expect(await cubit.setNotificationsEnabled(true), isTrue);
+      notifications.failCancel = true;
+      expect(await cubit.setNotificationsEnabled(false), isFalse);
+      await cubit.close();
+
+      notifications.failCancel = false;
+      cubit = SettingsCubit(
+        storage: storage,
+        locationService: LocationService(),
+        notifications: notifications,
+      );
+      await cubit.load();
+      await Future<void>.delayed(Duration.zero);
+      expect(notifications.cancellationAttempts, 2);
+      expect(cubit.state.settings.notificationsEnabled, isFalse);
+      expect(cubit.state.status, SettingsStatus.ready);
+    },
+  );
 
   test(
     'older failure cannot overwrite a newer retry with identical settings',
