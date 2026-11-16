@@ -54,6 +54,14 @@ class AdhkarCategory extends Equatable {
   final List<DhikrItem> items;
   final bool custom;
 
+  AdhkarCategory copyWith({String? name, List<DhikrItem>? items}) =>
+      AdhkarCategory(
+        id: id,
+        name: name ?? this.name,
+        items: items ?? this.items,
+        custom: custom,
+      );
+
   factory AdhkarCategory.fromJson(Map<String, dynamic> json) => AdhkarCategory(
     id: (json['id'] as num).toInt(),
     name: json['cat'] as String,
@@ -62,7 +70,15 @@ class AdhkarCategory extends Equatable {
           (item) => DhikrItem.fromJson(Map<String, dynamic>.from(item as Map)),
         )
         .toList(growable: false),
+    custom: json['custom'] == true,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'cat': name,
+    'items': items.map((item) => item.toJson()).toList(),
+    'custom': custom,
+  };
 
   @override
   List<Object?> get props => [id, name, items, custom];

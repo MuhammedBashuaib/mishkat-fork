@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mishkat_app/features/quran/presentation/services/mushaf_coordinate_mapper.dart';
+import 'package:mishkat_app/features/quran/presentation/services/mushaf_artwork_cache.dart';
 import 'package:mishkat_app/features/quran/presentation/widgets/mushaf_page_artwork.dart';
 
 class _PageBundle extends CachingAssetBundle {
@@ -14,10 +16,19 @@ class _PageBundle extends CachingAssetBundle {
   final String? svg;
   int loads = 0;
   bool fail = false;
+  bool failOnce = false;
+  final reads = <String, int>{};
+  final gates = <String, Completer<void>>{};
 
   @override
   Future<ByteData> load(String key) async {
     loads++;
+    reads.update(key, (count) => count + 1, ifAbsent: () => 1);
+    if (gates[key] case final gate?) await gate.future;
+    if (failOnce) {
+      failOnce = false;
+      throw StateError('Temporary page read failure');
+    }
     if (fail) throw StateError('Page unavailable');
     return ByteData.sublistView(
       Uint8List.fromList(
@@ -125,13 +136,16 @@ void main() {
     );
     expect(painter(tester).picture, same(original));
     expect(painter(tester).colorFilter, filter);
-    expect(bundle.loads, 1);
+    expect(bundle.reads['assets/mushaf/pages/001.svg'], 1);
     await mount(tester, bundle, page: 2);
-    expect(original.picture.debugDisposed, isTrue);
+    expect(original.picture.debugDisposed, isFalse);
     final replacement = painter(tester).picture;
     expect(replacement, isNot(same(original)));
-    expect(bundle.loads, 2);
+    expect(bundle.reads['assets/mushaf/pages/002.svg'], 1);
     await tester.pumpWidget(const SizedBox.shrink());
+    expect(replacement.picture.debugDisposed, isFalse);
+    MushafArtworkCache.forBundle(bundle).clear();
+    expect(original.picture.debugDisposed, isTrue);
     expect(replacement.picture.debugDisposed, isTrue);
     expect(tester.takeException(), isNull);
   });
@@ -145,9 +159,66 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('تعذر تحميل صفحة المصحف. إعادة المحاولة'), findsNothing);
     expect(painter(tester).picture.size, const Size(100, 100));
-    expect(bundle.loads, 2);
+    expect(bundle.reads['assets/mushaf/pages/001.svg'], 3);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('temporary failure recovers without requiring a tap', (
+    tester,
+  ) async {
+    final bundle = _PageBundle()..failOnce = true;
+    await mount(tester, bundle);
+    expect(find.text('تعذر تحميل صفحة المصحف. إعادة المحاولة'), findsNothing);
+    expect(painter(tester).picture.size, const Size(100, 100));
+    expect(bundle.reads['assets/mushaf/pages/001.svg'], 2);
+  });
+
+  testWidgets('returning to a nearby page reuses its ready picture', (
+    tester,
+  ) async {
+    final bundle = _PageBundle();
+    await mount(tester, bundle, page: 8);
+    final original = painter(tester).picture;
+    await mount(tester, bundle, page: 9);
+    await mount(tester, bundle, page: 8);
+    expect(painter(tester).picture, same(original));
+    expect(bundle.reads['assets/mushaf/pages/008.svg'], 1);
+    expect(find.text('تعذر تحميل صفحة المصحف. إعادة المحاولة'), findsNothing);
+  });
+
+  testWidgets(
+    'late page load cannot replace a newer page or update disposed state',
+    (tester) async {
+      final bundle = _PageBundle();
+      final gate = Completer<void>();
+      bundle.gates['assets/mushaf/pages/010.svg'] = gate;
+      Widget app(int page) => MaterialApp(
+        home: DefaultAssetBundle(
+          bundle: bundle,
+          child: SizedBox(
+            width: 100,
+            height: 200,
+            child: MushafPageArtwork(
+              page: page,
+              viewBox: viewBox,
+              mapper: mapper,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(app(10));
+      await tester.pumpWidget(app(20));
+      await tester.pumpAndSettle();
+      final current = painter(tester).picture;
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(painter(tester).picture, same(current));
+      await tester.pumpWidget(const SizedBox.shrink());
+      MushafArtworkCache.forBundle(bundle).clear();
+      expect(current.picture.debugDisposed, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('curved seams preserve ink extending across nominal row bounds', (
     tester,

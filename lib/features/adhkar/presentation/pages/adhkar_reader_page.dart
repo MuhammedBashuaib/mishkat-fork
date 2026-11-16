@@ -12,6 +12,7 @@ import '../../data/models/adhkar_models.dart';
 import '../cubit/adhkar_cubit.dart';
 import '../cubit/adhkar_state.dart';
 import '../widgets/dua_editor_sheet.dart';
+import 'my_duas_page.dart';
 
 class AdhkarReaderPage extends StatefulWidget {
   const AdhkarReaderPage({super.key});
@@ -25,6 +26,7 @@ class _AdhkarReaderPageState extends State<AdhkarReaderPage> {
   int? _categoryId;
   int _index = 0;
   Timer? _advanceTimer;
+  bool _openedAsCustomList = false;
 
   void _cancelAdvance() {
     _advanceTimer?.cancel();
@@ -112,6 +114,8 @@ class _AdhkarReaderPageState extends State<AdhkarReaderPage> {
   @override
   Widget build(BuildContext context) => BlocBuilder<AdhkarCubit, AdhkarState>(
     builder: (context, state) {
+      if (state.selectedId == 0) _openedAsCustomList = true;
+      if (_openedAsCustomList) return const MyDuasPage();
       final category = state.selected;
       if (category == null) {
         return Scaffold(
@@ -165,10 +169,10 @@ class _AdhkarReaderPageState extends State<AdhkarReaderPage> {
               ),
             if (category.custom)
               IconButton(
-                tooltip: 'إضافة دعاء',
+                tooltip: 'إضافة بطاقة',
                 onPressed: () {
                   _cancelAdvance();
-                  DuaEditorSheet.show(context);
+                  DuaEditorSheet.show(context, duaId: category.id);
                 },
                 icon: const Icon(Icons.add),
               ),
@@ -182,12 +186,13 @@ class _AdhkarReaderPageState extends State<AdhkarReaderPage> {
               child: category.items.isEmpty
                   ? ContentStatePanel(
                       icon: Icons.edit_note,
-                      title: 'أدعية خاصة بك',
-                      message: 'أضف دعاءً أو ذكرًا تريد الرجوع إليه باستمرار.',
+                      title: 'بطاقات هذا الدعاء',
+                      message: 'أضف أول بطاقة لتبدأ قراءة هذا الدعاء.',
                       action: FilledButton.icon(
-                        onPressed: () => DuaEditorSheet.show(context),
+                        onPressed: () =>
+                            DuaEditorSheet.show(context, duaId: category.id),
                         icon: const Icon(Icons.add),
-                        label: const Text('إضافة دعاء'),
+                        label: const Text('إضافة بطاقة'),
                       ),
                     )
                   : LayoutBuilder(
@@ -488,6 +493,35 @@ class _ReadingCard extends StatelessWidget {
   final VoidCallback onCount;
   final VoidCallback onInteraction;
 
+  Future<void> _deleteCard(BuildContext context) async {
+    final cubit = context.read<AdhkarCubit>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف البطاقة؟'),
+        content: const Text('سيُحذف نص هذه البطاقة وعدّادها من هذا الدعاء.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await cubit.deleteCustom(index, duaId: category.id);
+    } catch (_) {
+      if (context.mounted) {
+        context.showMessage('تعذّر حذف البطاقة. حاول مرة أخرى.');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = category.items[index];
@@ -545,7 +579,11 @@ class _ReadingCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      completed ? 'اكتمل الذكر' : 'الذكر ${index + 1}',
+                      completed
+                          ? 'اكتمل الذكر'
+                          : category.custom
+                          ? 'البطاقة ${index + 1}'
+                          : 'الذكر ${index + 1}',
                       style: TextStyle(
                         color: colors.primary,
                         fontWeight: FontWeight.w800,
@@ -582,11 +620,12 @@ class _ReadingCard extends StatelessWidget {
                         case 'edit':
                           DuaEditorSheet.show(
                             context,
+                            duaId: category.id,
                             index: index,
                             item: item,
                           );
                         case 'delete':
-                          cubit.deleteCustom(index);
+                          _deleteCard(context);
                       }
                     },
                     itemBuilder: (_) => [

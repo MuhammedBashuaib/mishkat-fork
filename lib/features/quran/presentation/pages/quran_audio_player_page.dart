@@ -13,6 +13,7 @@ import '../../data/services/haramain_live_service.dart';
 import '../cubit/quran_cubit.dart';
 import '../cubit/quran_state.dart';
 import '../widgets/quran_mini_player.dart';
+import '../widgets/quran_surah_picker_sheet.dart';
 import 'haramain_live_page.dart';
 import 'offline_audio_downloads_page.dart';
 
@@ -508,81 +509,16 @@ class _QuranAudioPlayerPageState extends State<QuranAudioPlayerPage>
           top: Radius.circular(MishkatRadius.xl),
         ),
       ),
-      builder: (sheetContext) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
-        expand: false,
-        builder: (ctx, scrollController) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(MishkatSpacing.base),
-              child: Column(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'اختر السورة للاستماع بصوت ${reciter.name}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.builder(
-                controller: scrollController,
-                itemCount: data.chapters.length,
-                itemBuilder: (ctx, idx) {
-                  final chapter = data.chapters[idx];
-                  return ListTile(
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: ctx.mishkat.primarySoft,
-                        borderRadius: BorderRadius.circular(MishkatRadius.sm),
-                      ),
-                      child: Text(
-                        '${chapter.number}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: ctx.mishkat.primary,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      'سورة ${chapter.name}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      '${chapter.revelationType} · ${chapter.ayahs.length} آية · صفحة ${chapter.page}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    trailing: const Icon(Icons.play_circle_fill_rounded),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      cubit.updateReciter(reciter.id, restartIfPlaying: false);
-                      context.read<SettingsCubit>().setReciter(reciter.id);
-                      cubit.playSurah(chapter.number);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+      useSafeArea: true,
+      builder: (sheetContext) => QuranSurahPickerSheet(
+        chapters: data.chapters,
+        reciterName: reciter.name,
+        onSelected: (chapter) {
+          Navigator.pop(sheetContext);
+          cubit.updateReciter(reciter.id, restartIfPlaying: false);
+          context.read<SettingsCubit>().setReciter(reciter.id);
+          cubit.playSurah(chapter.number);
+        },
       ),
     );
   }

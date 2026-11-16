@@ -17,6 +17,7 @@ import 'package:mishkat_app/features/adhkar/data/models/adhkar_models.dart';
 import 'package:mishkat_app/features/adhkar/data/repositories/adhkar_repository.dart';
 import 'package:mishkat_app/features/adhkar/presentation/cubit/adhkar_cubit.dart';
 import 'package:mishkat_app/features/adhkar/presentation/pages/adhkar_reader_page.dart';
+import 'package:mishkat_app/features/adhkar/presentation/pages/my_duas_page.dart';
 import 'package:mishkat_app/features/home/presentation/cubit/home_cubit.dart';
 import 'package:mishkat_app/features/home/presentation/pages/home_page.dart';
 import 'package:mishkat_app/features/home/presentation/pages/charity_reminder_page.dart';
@@ -375,6 +376,8 @@ void main() {
 
       expect(adhkarCubit.state.customItems.length, 1);
       expect(adhkarCubit.state.customItems.first.title, 'دعاء تيسير الأمور');
+      expect(adhkarCubit.state.customDuas, hasLength(1));
+      final firstDuaId = adhkarCubit.state.customDuas.single.id;
       expect(
         find.text('دعاء تيسير الأمور', skipOffstage: false),
         findsOneWidget,
@@ -394,6 +397,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('1 / 3', skipOffstage: false), findsOneWidget);
+      expect(adhkarCubit.countFor(firstDuaId, 0), 1);
+      expect(adhkarCubit.state.progress[0], isNull);
 
       // 4. Add 4 more duas (total 5) and verify only latest 3 are shown
       await adhkarCubit.saveCustom(
@@ -435,11 +440,70 @@ void main() {
         findsOneWidget,
       );
 
+      await tester.ensureVisible(find.text('عرض جميع أدعيتي (5)'));
+      await tester.tap(find.text('عرض جميع أدعيتي (5)'));
+      await tester.pumpAndSettle();
+      expect(find.byType(MyDuasPage), findsOneWidget);
+      expect(find.byType(AdhkarReaderPage), findsNothing);
+
       await tester.pumpWidget(const SizedBox());
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     },
   );
+
+  testWidgets('Home opens only the tapped dua and counts its own cards', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(840, 3200);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final firstId = await adhkarCubit.saveCustom(
+      title: 'دعاء الوالدين',
+      text: 'رب ارحمهما كما ربياني صغيرا',
+      count: 3,
+    );
+    await adhkarCubit.saveCustom(
+      duaId: firstId,
+      title: 'بطاقة ثانية',
+      text: 'اللهم اغفر لوالدي',
+      count: 2,
+    );
+    final secondId = await adhkarCubit.saveCustom(
+      title: 'دعاء العافية',
+      text: 'اللهم إني أسألك العافية',
+      count: 3,
+    );
+    await adhkarCubit.increment(firstId, 0);
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+    expect(find.text('عرض جميع أدعيتي (2)'), findsOneWidget);
+    expect(find.text('0 / 2 بطاقات'), findsOneWidget);
+    await tester.ensureVisible(find.text('دعاء العافية'));
+    await tester.tap(find.text('دعاء العافية'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AdhkarReaderPage), findsOneWidget);
+    expect(adhkarCubit.state.selectedId, secondId);
+    expect(adhkarCubit.state.selected!.items, hasLength(1));
+    expect(find.text('رب ارحمهما كما ربياني صغيرا'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('dhikr-counter')).hitTestable());
+    await tester.pumpAndSettle();
+    expect(adhkarCubit.countFor(secondId, 0), 1);
+    expect(adhkarCubit.countFor(firstId, 0), 1);
+    expect(adhkarCubit.countFor(firstId, 1), 0);
+
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('دعاء الوالدين'));
+    await tester.tap(find.text('دعاء الوالدين'));
+    await tester.pumpAndSettle();
+    expect(adhkarCubit.state.selectedId, firstId);
+    expect(adhkarCubit.state.selected!.items, hasLength(2));
+    expect(find.text('اللهم إني أسألك العافية'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('Home Page exposes a shortcut to the tasbih session', (
     tester,

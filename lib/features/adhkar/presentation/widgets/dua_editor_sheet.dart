@@ -10,13 +10,15 @@ import '../cubit/adhkar_cubit.dart';
 
 /// Modal bottom sheet for adding or editing a personal dua/supplication.
 class DuaEditorSheet extends StatefulWidget {
-  const DuaEditorSheet({super.key, this.index, this.item});
+  const DuaEditorSheet({super.key, this.duaId, this.index, this.item});
 
+  final int? duaId;
   final int? index;
   final DhikrItem? item;
 
   static Future<bool?> show(
     BuildContext context, {
+    int? duaId,
     int? index,
     DhikrItem? item,
   }) {
@@ -33,7 +35,7 @@ class DuaEditorSheet extends StatefulWidget {
       ),
       builder: (sheetContext) => BlocProvider.value(
         value: cubit,
-        child: DuaEditorSheet(index: index, item: item),
+        child: DuaEditorSheet(duaId: duaId, index: index, item: item),
       ),
     );
   }
@@ -49,6 +51,7 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
   bool _isSaving = false;
 
   bool get _isEdit => widget.item != null || widget.index != null;
+  bool get _isCard => widget.duaId != null;
 
   @override
   void initState() {
@@ -71,16 +74,27 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
   Future<void> _submit() async {
     final text = _textController.text.trim();
     if (text.isEmpty) {
-      context.showMessage('يرجى كتابة نص الدعاء أولاً.');
+      context.showMessage(
+        _isCard
+            ? 'يرجى كتابة نص البطاقة أولاً.'
+            : 'يرجى كتابة نص الدعاء أولاً.',
+      );
       return;
     }
 
-    setState(() => _isSaving = true);
     final title = _titleController.text.trim();
-    final count = int.tryParse(_countController.text) ?? 1;
+    final count = int.tryParse(
+      AppFormatters.normalizeArabic(_countController.text),
+    );
+    if (count == null || count < 1 || count > 10000) {
+      context.showMessage('أدخل عدد تكرار من 1 إلى 10000.');
+      return;
+    }
+    setState(() => _isSaving = true);
 
     try {
       await context.read<AdhkarCubit>().saveCustom(
+        duaId: widget.duaId,
         index: widget.index,
         title: title,
         text: text,
@@ -88,13 +102,18 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
       );
       if (mounted) {
         context.showMessage(
-          _isEdit ? 'تم تحديث الدعاء بنجاح.' : 'تمت إضافة الدعاء إلى أدعيتك.',
+          _isCard
+              ? (_isEdit
+                    ? 'تم تحديث البطاقة.'
+                    : 'تمت إضافة البطاقة إلى الدعاء.')
+              : 'تمت إضافة الدعاء إلى أدعيتك.',
         );
         Navigator.pop(context, true);
       }
     } catch (_) {
       if (mounted) {
         setState(() => _isSaving = false);
+        context.showMessage('تعذّر الحفظ. حاول مرة أخرى.');
       }
     }
   }
@@ -148,22 +167,35 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
                 const SizedBox(width: MishkatSpacing.md),
                 Expanded(
                   child: Text(
-                    _isEdit ? 'تعديل الدعاء' : 'إضافة دعاء جديد',
+                    _isCard
+                        ? (_isEdit ? 'تعديل البطاقة' : 'إضافة بطاقة للدعاء')
+                        : 'إضافة دعاء جديد',
                     style: Theme.of(context).textTheme.headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w800, fontSize: 18),
                   ),
                 ),
               ],
             ),
+            if (!_isCard) ...[
+              const SizedBox(height: MishkatSpacing.sm),
+              Text(
+                'يُحفظ الدعاء مستقلًا، ويمكنك إضافة بطاقات أخرى داخله.',
+                style: TextStyle(color: colors.textSecondary, height: 1.5),
+              ),
+            ],
             const SizedBox(height: MishkatSpacing.lg),
 
             // Optional title input
             TextField(
               controller: _titleController,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'عنوان الدعاء (اختياري)',
-                hintText: 'مثال: دعاء تيسير الأمور، للوالدين...',
+              decoration: InputDecoration(
+                labelText: _isCard
+                    ? 'عنوان البطاقة (اختياري)'
+                    : 'عنوان الدعاء (اختياري)',
+                hintText: _isCard
+                    ? 'مثال: دعاء البداية'
+                    : 'مثال: دعاء تيسير الأمور، للوالدين...',
               ),
             ),
             const SizedBox(height: MishkatSpacing.md),
@@ -174,8 +206,8 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
               minLines: 3,
               maxLines: 6,
               textInputAction: TextInputAction.newline,
-              decoration: const InputDecoration(
-                labelText: 'نص الدعاء أو الذكر *',
+              decoration: InputDecoration(
+                labelText: _isCard ? 'نص البطاقة *' : 'نص الدعاء أو الذكر *',
                 hintText: 'اكتب نص الدعاء هنا...',
                 alignLabelWithHint: true,
               ),
@@ -198,7 +230,11 @@ class _DuaEditorSheetState extends State<DuaEditorSheet> {
             MishkatPrimaryAction(
               onPressed: _isSaving ? null : _submit,
               icon: const Icon(Icons.check_rounded),
-              label: _isEdit ? 'حفظ التعديلات' : 'حفظ في أدعيتي',
+              label: _isEdit
+                  ? 'حفظ التعديلات'
+                  : _isCard
+                  ? 'إضافة البطاقة'
+                  : 'حفظ في أدعيتي',
             ),
           ],
         ),

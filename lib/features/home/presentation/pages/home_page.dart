@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,6 +12,7 @@ import '../../../adhkar/data/models/adhkar_models.dart';
 import '../../../adhkar/presentation/cubit/adhkar_cubit.dart';
 import '../../../adhkar/presentation/cubit/adhkar_state.dart';
 import '../../../adhkar/presentation/pages/adhkar_reader_page.dart';
+import '../../../adhkar/presentation/pages/my_duas_page.dart';
 import '../../../adhkar/presentation/widgets/dua_editor_sheet.dart';
 import '../../../khatma/presentation/cubit/khatma_cubit.dart';
 import '../../../khatma/presentation/cubit/khatma_state.dart';
@@ -552,7 +551,12 @@ class _MyDuasSection extends StatelessWidget {
   const _MyDuasSection();
 
   void _openAllDuas(BuildContext context) {
-    context.read<AdhkarCubit>().select(0);
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const MyDuasPage()));
+  }
+
+  void _openDua(BuildContext context, AdhkarCategory dua) {
+    context.read<AdhkarCubit>().select(dua.id);
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const AdhkarReaderPage()));
@@ -566,13 +570,13 @@ class _MyDuasSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AdhkarCubit, AdhkarState>(
       buildWhen: (previous, current) =>
-          previous.customItems != current.customItems ||
-          previous.progress[0] != current.progress[0],
+          previous.customDuas != current.customDuas ||
+          previous.progress != current.progress,
       builder: (context, state) {
-        final customItems = state.customItems;
+        final customDuas = state.customDuas;
         final colors = context.mishkat;
 
-        if (customItems.isEmpty) {
+        if (customDuas.isEmpty) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -634,13 +638,9 @@ class _MyDuasSection extends StatelessWidget {
           );
         }
 
-        final totalCount = customItems.length;
-        final latestCount = math.min(3, totalCount);
+        final totalCount = customDuas.length;
         // Latest 3 duas in reverse chronological order (newest first)
-        final latestEntries = <({int originalIndex, DhikrItem item})>[
-          for (var i = totalCount - 1; i >= totalCount - latestCount; i--)
-            (originalIndex: i, item: customItems[i]),
-        ];
+        final latestDuas = customDuas.reversed.take(3);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -654,25 +654,24 @@ class _MyDuasSection extends StatelessWidget {
                 onPressed: () => _openAddDua(context),
               ),
             ),
-            for (final entry in latestEntries) ...[
+            for (final dua in latestDuas) ...[
               _HomeDuaCard(
-                item: entry.item,
-                originalIndex: entry.originalIndex,
-                onTap: () => _openAllDuas(context),
+                dua: dua,
+                progress: state.progress[dua.id] ?? const {},
+                onTap: () => _openDua(context, dua),
               ),
               const SizedBox(height: MishkatSpacing.sm),
             ],
-            if (totalCount > 3)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Center(
-                  child: MishkatTextAction(
-                    label: 'عرض جميع أدعيتي ($totalCount)',
-                    icon: MishkatNavigationIcons.forward,
-                    onPressed: () => _openAllDuas(context),
-                  ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Center(
+                child: MishkatTextAction(
+                  label: 'عرض جميع أدعيتي ($totalCount)',
+                  icon: MishkatNavigationIcons.forward,
+                  onPressed: () => _openAllDuas(context),
                 ),
               ),
+            ),
           ],
         );
       },
@@ -682,22 +681,25 @@ class _MyDuasSection extends StatelessWidget {
 
 class _HomeDuaCard extends StatelessWidget {
   const _HomeDuaCard({
-    required this.item,
-    required this.originalIndex,
+    required this.dua,
+    required this.progress,
     required this.onTap,
   });
 
-  final DhikrItem item;
-  final int originalIndex;
+  final AdhkarCategory dua;
+  final Map<int, int> progress;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.mishkat;
-    final hasTitle = item.title.trim().isNotEmpty;
-    final adhkarState = context.watch<AdhkarCubit>().state;
-    final done = adhkarState.progress[0]?[originalIndex] ?? 0;
-    final isCompleted = item.count > 0 && done >= item.count;
+    final item = dua.items.firstOrNull;
+    final done = progress[0] ?? 0;
+    final completedCards = dua.items.indexed
+        .where((entry) => (progress[entry.$1] ?? 0) >= entry.$2.count)
+        .length;
+    final isCompleted =
+        dua.items.isNotEmpty && completedCards == dua.items.length;
 
     return MishkatCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -727,26 +729,23 @@ class _HomeDuaCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  hasTitle ? item.title.trim() : 'من أدعيتي',
+                  dua.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     fontSize: 13.5,
-                    color: hasTitle ? colors.textPrimary : colors.textSecondary,
+                    color: colors.textPrimary,
                   ),
                 ),
               ),
-              if (item.count > 1) ...[
+              if (item != null && dua.items.length == 1 && item.count > 1) ...[
                 MishkatPressable(
                   onTap: isCompleted
                       ? null
                       : () {
                           HapticFeedback.selectionClick();
-                          context.read<AdhkarCubit>().increment(
-                            0,
-                            originalIndex,
-                          );
+                          context.read<AdhkarCubit>().increment(dua.id, 0);
                         },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -788,21 +787,33 @@ class _HomeDuaCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
               ],
-              MishkatIconButton(
-                tooltip: 'نسخ الدعاء',
-                icon: const Icon(Icons.copy_rounded, size: 16),
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: item.text));
-                  if (context.mounted) {
-                    context.showMessage('تم نسخ الدعاء.');
-                  }
-                },
-              ),
+              if (dua.items.length > 1) ...[
+                Text(
+                  '$completedCards / ${dua.items.length} بطاقات',
+                  style: TextStyle(fontSize: 11, color: colors.primary),
+                ),
+                const SizedBox(width: 4),
+              ],
+              if (dua.items.isNotEmpty)
+                MishkatIconButton(
+                  tooltip: 'نسخ الدعاء',
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  onPressed: () async {
+                    await Clipboard.setData(
+                      ClipboardData(
+                        text: dua.items.map((card) => card.text).join('\n\n'),
+                      ),
+                    );
+                    if (context.mounted) {
+                      context.showMessage('تم نسخ الدعاء.');
+                    }
+                  },
+                ),
             ],
           ),
           const SizedBox(height: 10),
           Text(
-            item.text.trim(),
+            item?.text.trim() ?? 'أضف بطاقة لهذا الدعاء.',
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(

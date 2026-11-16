@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/services/local_storage_service.dart';
@@ -33,11 +34,11 @@ class AdhkarCubit extends Cubit<AdhkarState> {
       final categories = await _repository.load();
       if (isClosed || revision != _loadRevision) return;
       final saved = _storage.readMap('adhkar');
-      final custom = <DhikrItem>[
-        if (saved['custom'] is List)
-          for (final item in saved['custom'] as List)
-            if (item is Map)
-              DhikrItem.fromJson(Map<String, dynamic>.from(item)),
+      final needsCustomMigration = saved['customDuas'] is! List;
+      final customDuas = <AdhkarCategory>[
+        if (!needsCustomMigration)
+          for (final item in saved['customDuas'] as List)
+            AdhkarCategory.fromJson(Map<String, dynamic>.from(item as Map)),
       ];
       final progress = <int, Map<int, int>>{};
       final countTargets = <int, Map<int, int>>{};
@@ -69,9 +70,10 @@ class AdhkarCubit extends Cubit<AdhkarState> {
           ..remove(1)
           ..remove(133);
       }
-      final needsMigration = saved['schemaVersion'] != 2;
+      final schemaVersion = (saved['schemaVersion'] as num?)?.toInt() ?? 1;
+      final needsMigration = schemaVersion < 3;
       final old = progress[1];
-      if (needsMigration && old != null) {
+      if (schemaVersion < 2 && old != null) {
         // Morning card 18 was merged into card 17. Keep the larger count,
         // never add the two narrations together, and shift subsequent cards.
         final ten = old[17] ?? 0;
@@ -86,16 +88,78 @@ class AdhkarCubit extends Cubit<AdhkarState> {
         };
         if (hundred > 0) countTargets.putIfAbsent(1, () => {})[17] = 100;
       }
+      if (schemaVersion < 3) {
+        for (final categoryId in const [1, 133]) {
+          final previousProgress = progress[categoryId];
+          if (previousProgress != null) {
+            // Each repetition of the combined card included all three surahs.
+            // Carry it to each new card, then move the remaining saved counts.
+            progress[categoryId] = {
+              for (final entry in previousProgress.entries)
+                if (entry.key == 1)
+                  for (var index = 1; index <= 3; index++)
+                    index: entry.value.clamp(0, 3)
+                else
+                  (entry.key > 1 ? entry.key + 2 : entry.key): entry.value,
+            };
+          }
+          final previousTargets = countTargets[categoryId];
+          if (previousTargets != null) {
+            // Targets survive the daily reset, so migrate them independently.
+            countTargets[categoryId] = {
+              for (final entry in previousTargets.entries)
+                (entry.key > 1 ? entry.key + 2 : entry.key): entry.value,
+            };
+          }
+        }
+      }
+      if (needsCustomMigration) {
+        final legacyProgress = progress.remove(0) ?? const <int, int>{};
+        final legacyTargets = countTargets.remove(0) ?? const <int, int>{};
+        final legacyItems = saved['custom'] as List? ?? const [];
+        for (final entry in legacyItems.indexed) {
+          if (entry.$2 is! Map) continue;
+          final item = DhikrItem.fromJson(
+            Map<String, dynamic>.from(entry.$2 as Map),
+          );
+          final id = -entry.$1 - 1;
+          customDuas.add(
+            AdhkarCategory(
+              id: id,
+              name: item.title.trim().isEmpty ? 'دعاء ${-id}' : item.title,
+              items: [item],
+              custom: true,
+            ),
+          );
+          if (legacyProgress.containsKey(entry.$1)) {
+            progress[id] = {0: legacyProgress[entry.$1]!};
+          }
+          if (legacyTargets.containsKey(entry.$1)) {
+            countTargets[id] = {0: legacyTargets[entry.$1]!};
+          }
+        }
+      }
+      var nextCustomId = (saved['nextCustomId'] as num?)?.toInt() ?? -1;
+      if (nextCustomId >= 0) nextCustomId = -1;
+      for (final dua in customDuas) {
+        if (!dua.custom || dua.id >= 0) {
+          throw const FormatException('معرّف الدعاء الخاص غير صالح');
+        }
+        if (dua.id <= nextCustomId) nextCustomId = dua.id - 1;
+      }
       emit(
         state.copyWith(
           status: AdhkarStatus.ready,
           categories: categories,
-          customItems: custom,
+          customDuas: customDuas,
+          nextCustomId: nextCustomId,
           progress: progress,
           countTargets: countTargets,
         ),
       );
-      if (shouldResetDailyWirds || needsMigration) await _persist();
+      if (shouldResetDailyWirds || needsMigration || needsCustomMigration) {
+        await _persist();
+      }
     } on Object catch (error) {
       if (isClosed || revision != _loadRevision) return;
       emit(
@@ -117,8 +181,16 @@ class AdhkarCubit extends Cubit<AdhkarState> {
       if (AppFormatters.normalizeArabic(category.name).contains(query)) {
         return true;
       }
+      if (category.id == 0 &&
+          state.customDuas.any(
+            (dua) => AppFormatters.normalizeArabic(dua.name).contains(query),
+          )) {
+        return true;
+      }
       return category.items.any(
-        (item) => AppFormatters.normalizeArabic(item.text).contains(query),
+        (item) =>
+            AppFormatters.normalizeArabic(item.text).contains(query) ||
+            AppFormatters.normalizeArabic(item.title).contains(query),
       );
     }).toList();
   }
@@ -127,9 +199,7 @@ class AdhkarCubit extends Cubit<AdhkarState> {
       state.progress[categoryId]?[index] ?? 0;
 
   Future<void> setCountTarget(int categoryId, int index, int target) async {
-    final item = state.allCategories
-        .firstWhere((category) => category.id == categoryId)
-        .items[index];
+    final item = state.categoryById(categoryId)!.items[index];
     if (!item.countOptions.contains(target)) return;
     final targets = {
       for (final entry in state.countTargets.entries)
@@ -143,9 +213,7 @@ class AdhkarCubit extends Cubit<AdhkarState> {
   }
 
   Future<void> increment(int categoryId, int index) async {
-    final category = state.allCategories.firstWhere(
-      (item) => item.id == categoryId,
-    );
+    final category = state.categoryById(categoryId)!;
     final target = category.items[index].count;
     if (countFor(categoryId, index) >= target) return;
     final progress = _copyProgress();
@@ -174,40 +242,207 @@ class AdhkarCubit extends Cubit<AdhkarState> {
     await _persist();
   }
 
-  Future<void> saveCustom({
+  Future<int> saveCustom({
+    int? duaId,
     int? index,
     required String title,
     required String text,
     required int count,
-  }) async {
-    final items = [...state.customItems];
+  }) => _queueCustom(() async {
+    if (text.trim().isEmpty) {
+      throw ArgumentError.value(text, 'text', 'نص الدعاء مطلوب');
+    }
+    if (duaId == null && index != null) {
+      throw ArgumentError('يجب تحديد الدعاء عند تعديل بطاقة');
+    }
     final value = DhikrItem(
       title: title.trim(),
       text: text.trim(),
       count: count.clamp(1, 10000),
     );
-    if (index == null) {
-      items.add(value);
+    final customDuas = [...state.customDuas];
+    final progress = _copyProgress();
+    final id = duaId ?? state.nextCustomId;
+    if (duaId == null) {
+      customDuas.add(
+        AdhkarCategory(
+          id: id,
+          name: value.title.isEmpty ? 'دعاء ${-id}' : value.title,
+          items: [value],
+          custom: true,
+        ),
+      );
     } else {
-      items[index] = value;
+      final duaIndex = _customIndex(duaId);
+      final dua = customDuas[duaIndex];
+      final items = [...dua.items];
+      if (index == null) {
+        items.add(value);
+      } else {
+        if (items[index].text != value.text) {
+          progress[duaId]?.remove(index);
+        }
+        items[index] = value;
+      }
+      customDuas[duaIndex] = dua.copyWith(items: items);
     }
-    emit(state.copyWith(customItems: items));
-    await _persist();
+    await _commitCustom(
+      state.copyWith(
+        customDuas: customDuas,
+        progress: progress,
+        nextCustomId: duaId == null ? id - 1 : state.nextCustomId,
+      ),
+    );
+    return id;
+  });
+
+  Future<void> deleteCustom(int index, {required int duaId}) =>
+      _queueCustom(() async {
+        final customDuas = [...state.customDuas];
+        final duaIndex = _customIndex(duaId);
+        final dua = customDuas[duaIndex];
+        final items = [...dua.items]..removeAt(index);
+        customDuas[duaIndex] = dua.copyWith(items: items);
+        final progress = _copyProgress();
+        progress[duaId] = _withoutCard(progress[duaId] ?? const {}, index);
+        final targets = Map<int, Map<int, int>>.from(state.countTargets);
+        if (targets.containsKey(duaId)) {
+          targets[duaId] = _withoutCard(targets[duaId]!, index);
+        }
+        await _commitCustom(
+          state.copyWith(
+            customDuas: customDuas,
+            progress: progress,
+            countTargets: targets,
+          ),
+        );
+      });
+
+  Future<void> renameCustomDua(int duaId, String name) =>
+      _queueCustom(() async {
+        if (name.trim().isEmpty) {
+          throw ArgumentError.value(name, 'name', 'عنوان الدعاء مطلوب');
+        }
+        final customDuas = [...state.customDuas];
+        final index = _customIndex(duaId);
+        customDuas[index] = customDuas[index].copyWith(name: name.trim());
+        await _commitCustom(state.copyWith(customDuas: customDuas));
+      });
+
+  Future<void> deleteCustomDua(int duaId) => _queueCustom(() async {
+    final customDuas = [...state.customDuas]..removeAt(_customIndex(duaId));
+    final progress = _copyProgress()..remove(duaId);
+    final targets = Map<int, Map<int, int>>.from(state.countTargets)
+      ..remove(duaId);
+    await _commitCustom(
+      state.copyWith(
+        customDuas: customDuas,
+        progress: progress,
+        countTargets: targets,
+        selectedId: state.selectedId == duaId ? 0 : state.selectedId,
+      ),
+    );
+  });
+
+  int _customIndex(int duaId) {
+    final index = state.customDuas.indexWhere((dua) => dua.id == duaId);
+    if (index < 0) throw StateError('الدعاء غير موجود');
+    return index;
   }
 
-  Future<void> deleteCustom(int index) async {
-    final items = [...state.customItems]..removeAt(index);
-    final progress = _copyProgress();
-    final existing = progress[0] ?? <int, int>{};
-    progress[0] = {
-      for (final entry in existing.entries)
-        if (entry.key < index)
-          entry.key: entry.value
-        else if (entry.key > index)
-          entry.key - 1: entry.value,
-    };
-    emit(state.copyWith(customItems: items, progress: progress));
-    await _persist();
+  Map<int, int> _withoutCard(Map<int, int> values, int index) => {
+    for (final entry in values.entries)
+      if (entry.key < index)
+        entry.key: entry.value
+      else if (entry.key > index)
+        entry.key - 1: entry.value,
+  };
+
+  Future<void>? _pendingCustomWrite;
+
+  Future<T> _queueCustom<T>(Future<T> Function() action) {
+    final revision = _loadRevision;
+    Future<T> run() {
+      if (isClosed || revision != _loadRevision) {
+        throw StateError('أُلغيت العملية بعد تحديث البيانات');
+      }
+      return action();
+    }
+
+    final previous = _pendingCustomWrite;
+    final result = previous == null
+        ? Future<T>.sync(run)
+        : previous.then((_) => run());
+    // Keep later edits usable even if one disk write fails.
+    late final Future<void> completion;
+    void finish() {
+      if (identical(_pendingCustomWrite, completion)) {
+        _pendingCustomWrite = null;
+      }
+    }
+
+    completion = result.then<void>(
+      (_) => finish(),
+      onError: (Object _) => finish(),
+    );
+    _pendingCustomWrite = completion;
+    return result;
+  }
+
+  Future<void> _commitCustom(AdhkarState candidate) async {
+    final revision = _loadRevision;
+    final before = state;
+    var observed = before;
+    var saved = candidate;
+    while (true) {
+      await _persist(saved);
+      if (isClosed || revision != _loadRevision) return;
+      if (!identical(state.progress, observed.progress) ||
+          !identical(state.countTargets, observed.countTargets)) {
+        // Counting remains immediate while a custom edit is saving. Reconcile
+        // unrelated counters and persist again if one changed during the write.
+        observed = state;
+        saved = candidate.copyWith(
+          progress: _mergeCustomMapChanges(
+            before.progress,
+            candidate.progress,
+            observed.progress,
+          ),
+          countTargets: _mergeCustomMapChanges(
+            before.countTargets,
+            candidate.countTargets,
+            observed.countTargets,
+          ),
+        );
+        continue;
+      }
+      emit(
+        saved.copyWith(
+          query: state.query,
+          selectedId: state.selectedId == before.selectedId
+              ? candidate.selectedId
+              : state.selectedId,
+        ),
+      );
+      return;
+    }
+  }
+
+  Map<int, Map<int, int>> _mergeCustomMapChanges(
+    Map<int, Map<int, int>> before,
+    Map<int, Map<int, int>> edited,
+    Map<int, Map<int, int>> current,
+  ) {
+    final merged = Map<int, Map<int, int>>.from(current);
+    for (final id in {...before.keys, ...edited.keys}) {
+      if (mapEquals(before[id], edited[id])) continue;
+      if (edited.containsKey(id)) {
+        merged[id] = edited[id]!;
+      } else {
+        merged.remove(id);
+      }
+    }
+    return merged;
   }
 
   Map<int, Map<int, int>> _copyProgress() => {
@@ -215,25 +450,29 @@ class AdhkarCubit extends Cubit<AdhkarState> {
       entry.key: Map<int, int>.from(entry.value),
   };
 
-  Future<void> _persist() => _storage.writeMap('adhkar', {
-    'schemaVersion': 2,
-    'custom': state.customItems.map((item) => item.toJson()).toList(),
-    'dailyDate': _dayKey(DateTime.now()),
-    'countTargets': {
-      for (final category in state.countTargets.entries)
-        '${category.key}': {
-          for (final value in category.value.entries)
-            '${value.key}': value.value,
-        },
-    },
-    'progress': {
-      for (final category in state.progress.entries)
-        '${category.key}': {
-          for (final value in category.value.entries)
-            '${value.key}': value.value,
-        },
-    },
-  });
+  Future<void> _persist([AdhkarState? candidate]) {
+    final saved = candidate ?? state;
+    return _storage.writeMap('adhkar', {
+      'schemaVersion': 3,
+      'customDuas': saved.customDuas.map((dua) => dua.toJson()).toList(),
+      'nextCustomId': saved.nextCustomId,
+      'dailyDate': _dayKey(DateTime.now()),
+      'countTargets': {
+        for (final category in saved.countTargets.entries)
+          '${category.key}': {
+            for (final value in category.value.entries)
+              '${value.key}': value.value,
+          },
+      },
+      'progress': {
+        for (final category in saved.progress.entries)
+          '${category.key}': {
+            for (final value in category.value.entries)
+              '${value.key}': value.value,
+          },
+      },
+    });
+  }
 
   String _dayKey(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'

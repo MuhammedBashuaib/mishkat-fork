@@ -9,6 +9,7 @@ import '../../data/models/adhkar_models.dart';
 import '../cubit/adhkar_cubit.dart';
 import '../cubit/adhkar_state.dart';
 import 'adhkar_reader_page.dart';
+import 'my_duas_page.dart';
 import '../../../tasbih/presentation/cubit/tasbih_cubit.dart';
 import '../../../tasbih/presentation/cubit/tasbih_state.dart';
 import '../../../tasbih/presentation/pages/tasbih_page.dart';
@@ -290,6 +291,9 @@ class _AdhkarPageState extends State<AdhkarPage> {
                   padding: const EdgeInsets.only(bottom: MishkatSpacing.sm),
                   child: _CategoryTile(
                     category: category,
+                    customDuaCount: category.id == 0
+                        ? state.customDuas.length
+                        : null,
                     progress: state.progress[category.id] ?? const {},
                     onTap: () => _open(context, category),
                   ),
@@ -314,7 +318,10 @@ class _AdhkarPageState extends State<AdhkarPage> {
     context.read<AdhkarCubit>().select(category.id);
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => const AdhkarReaderPage()),
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            category.id == 0 ? const MyDuasPage() : const AdhkarReaderPage(),
+      ),
     );
   }
 }
@@ -599,10 +606,12 @@ class _CategoryTile extends StatelessWidget {
     required this.category,
     required this.progress,
     required this.onTap,
+    this.customDuaCount,
   });
   final AdhkarCategory category;
   final Map<int, int> progress;
   final VoidCallback onTap;
+  final int? customDuaCount;
 
   @override
   Widget build(BuildContext context) {
@@ -651,7 +660,15 @@ class _CategoryTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  hasProgress
+                  customDuaCount != null
+                      ? customDuaCount == 0
+                            ? 'أضف أدعيتك الخاصة'
+                            : customDuaCount == 1
+                            ? 'دعاء واحد مستقل'
+                            : customDuaCount == 2
+                            ? 'دعاءان مستقلان'
+                            : '$customDuaCount أدعية مستقلة'
+                      : hasProgress
                       ? '$completed من ${category.items.length} مكتمل'
                       : category.custom && category.items.isEmpty
                       ? 'أضف أدعيتك الخاصة'

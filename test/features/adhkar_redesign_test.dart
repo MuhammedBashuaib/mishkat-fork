@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,14 +33,14 @@ void main() {
       expect(categories, hasLength(133));
       expect(morning.name, 'أذكار الصباح');
       expect(evening.name, 'أذكار المساء');
-      expect(morning.items, hasLength(22));
-      expect(evening.items, hasLength(21));
+      expect(morning.items, hasLength(24));
+      expect(evening.items, hasLength(23));
       expect(
         morning.items.any((item) => item.text.contains('إذا أمسى')),
         isFalse,
       );
       expect(evening.items.any((item) => item.text.contains('[')), isFalse);
-      expect(evening.items[2].text, contains('أَمْسَيْنَا'));
+      expect(evening.items[4].text, contains('أَمْسَيْنَا'));
       expect(
         evening.items.any((item) => item.text.contains('عِلْماً نَافِعاً')),
         isFalse,
@@ -51,6 +54,94 @@ void main() {
     },
   );
 
+  test(
+    'daily surah cards preserve the source text with three repetitions each',
+    () async {
+      final source = jsonDecode(
+        await rootBundle.loadString('assets/data/adhkar.json'),
+      ) as List;
+      final combinedText = DhikrItem.fromJson(
+        Map<String, dynamic>.from(
+          (source.singleWhere((item) => item['id'] == 1)['items'] as List)[1]
+              as Map,
+        ),
+      ).text;
+      for (final categoryId in [1, 133]) {
+        final cards = categories
+            .singleWhere((category) => category.id == categoryId)
+            .items
+            .sublist(1, 4);
+        expect(cards.map((item) => item.title), [
+          'سورة الإخلاص',
+          'سورة الفلق',
+          'سورة الناس',
+        ]);
+        expect(cards.map((item) => item.count), [3, 3, 3]);
+        expect(
+          '${cards.map((item) => item.text).join('. ')} (ثلاثَ مرَّاتٍ).',
+          combinedText,
+        );
+      }
+    },
+  );
+
+  for (final categoryId in [1, 133]) {
+    testWidgets(
+      'each daily surah advances after its own three taps ($categoryId)',
+      (tester) async {
+        final storage = _MemoryStorage();
+        final cubit = AdhkarCubit(_PreparedRepository(categories), storage);
+        await cubit.load();
+        cubit.select(categoryId);
+        addTearDown(cubit.close);
+        await tester.pumpWidget(
+          BlocProvider.value(
+            value: cubit,
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              supportedLocales: const [Locale('ar')],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              theme: AppTheme.light(),
+              home: const AdhkarReaderPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('الذكر التالي'));
+        await tester.pumpAndSettle();
+        final items = cubit.state.selected!.items;
+        for (var index = 1; index <= 3; index++) {
+          expect(_currentPage(tester), index);
+          final card = find.byKey(ValueKey('dhikr-card-$index'));
+          expect(
+            find.descendant(of: card, matching: find.text(items[index].title)),
+            findsOneWidget,
+          );
+          expect(cubit.countFor(categoryId, index), 0);
+          for (var repetition = 1; repetition <= 3; repetition++) {
+            await tester.tap(
+              find.byKey(const ValueKey('dhikr-counter')).hitTestable(),
+            );
+            await _settleCompletion(tester);
+            expect(cubit.countFor(categoryId, index), repetition);
+            expect(_currentPage(tester), repetition == 3 ? index + 1 : index);
+            expect(cubit.countFor(categoryId, index + 1), 0);
+          }
+        }
+        final otherCategoryId = categoryId == 1 ? 133 : 1;
+        for (var index = 1; index <= 3; index++) {
+          expect(cubit.countFor(otherCategoryId, index), 0);
+        }
+        await cubit.reset(categoryId, 2);
+        await cubit.load();
+        expect(cubit.countFor(categoryId, 1), 3);
+        expect(cubit.countFor(categoryId, 2), 0);
+        expect(cubit.countFor(categoryId, 3), 3);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   test('tahlil appears once with the counts available for each wird', () {
     final morning = categories.singleWhere((item) => item.id == 1);
     final evening = categories.singleWhere((item) => item.id == 133);
@@ -58,14 +149,14 @@ void main() {
       morning.items.where((item) => item.countOptions.isNotEmpty),
       hasLength(1),
     );
-    expect(morning.items[17].countOptions, [1, 10, 100]);
-    expect(evening.items[17].countOptions, [1, 10]);
-    expect(morning.items[8].count, 7);
-    expect(evening.items[8].count, 7);
+    expect(morning.items[19].countOptions, [1, 10, 100]);
+    expect(evening.items[19].countOptions, [1, 10]);
+    expect(morning.items[10].count, 7);
+    expect(evening.items[10].count, 7);
     expect(morning.items[1].text, isNot(contains(r'\u06dd')));
-    expect(evening.items[2].text, contains('مَا بَعْدَهَا'));
-    expect(evening.items[14].text, contains('هذه الليلة'));
-    expect(evening.items[14].text, isNot(contains('هَذَا الْيَوْمِ')));
+    expect(evening.items[4].text, contains('مَا بَعْدَهَا'));
+    expect(evening.items[16].text, contains('هذه الليلة'));
+    expect(evening.items[16].text, isNot(contains('هَذَا الْيَوْمِ')));
   });
 
   test('merging cards preserves saved counts and shifts later morning progress', () async {
@@ -82,24 +173,24 @@ void main() {
     final cubit = AdhkarCubit(_PreparedRepository(categories), storage);
     await cubit.load();
     addTearDown(cubit.close);
-    expect(cubit.state.progress[1]?[17], 42);
-    expect(cubit.state.progress[1]?[18], 2);
-    expect(cubit.state.progress[1]?[21], 7);
-    expect(cubit.state.progress[133]?[18], 55);
+    expect(cubit.state.progress[1]?[19], 42);
+    expect(cubit.state.progress[1]?[20], 2);
+    expect(cubit.state.progress[1]?[23], 7);
+    expect(cubit.state.progress[133]?[20], 55);
     cubit.select(1);
-    expect(cubit.state.selected!.items[17].count, 100);
-    await cubit.setCountTarget(1, 17, 10);
-    await cubit.increment(1, 17);
-    expect(cubit.countFor(1, 17), 42);
-    await cubit.setCountTarget(1, 17, 100);
-    await cubit.increment(1, 17);
-    expect(cubit.countFor(1, 17), 43);
+    expect(cubit.state.selected!.items[19].count, 100);
+    await cubit.setCountTarget(1, 19, 10);
+    await cubit.increment(1, 19);
+    expect(cubit.countFor(1, 19), 42);
+    await cubit.setCountTarget(1, 19, 100);
+    await cubit.increment(1, 19);
+    expect(cubit.countFor(1, 19), 43);
     await cubit.load();
-    expect(cubit.countFor(1, 17), 43);
-    expect(cubit.state.selected!.items[17].count, 100);
+    expect(cubit.countFor(1, 19), 43);
+    expect(cubit.state.selected!.items[19].count, 100);
     await cubit.resetCategory(1);
-    expect(cubit.countFor(1, 17), 0);
-    expect(cubit.state.progress[133]?[18], 55);
+    expect(cubit.countFor(1, 19), 0);
+    expect(cubit.state.progress[133]?[20], 55);
   });
 
   for (final (dark, scale, height) in [
@@ -166,22 +257,22 @@ void main() {
         await tester.tap(find.byTooltip('فهرس الورد'));
         await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
-          find.byKey(const ValueKey('dhikr-index-17')),
+          find.byKey(const ValueKey('dhikr-index-19')),
           400,
           scrollable: find.byType(Scrollable).last,
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('dhikr-index-17')));
+        await tester.tap(find.byKey(const ValueKey('dhikr-index-19')));
         await tester.pumpAndSettle();
         expect(
           tester.widget<PageView>(find.byType(PageView)).controller!.page,
-          17,
+          19,
         );
         expect(
           tester
               .getSize(
                 find.descendant(
-                  of: find.byKey(const ValueKey('dhikr-card-17')),
+                  of: find.byKey(const ValueKey('dhikr-card-19')),
                   matching: find.byType(Scrollable),
                 ),
               )
@@ -193,7 +284,7 @@ void main() {
           find.widgetWithText(ChoiceChip, '100'),
           160,
           scrollable: find.descendant(
-            of: find.byKey(const ValueKey('dhikr-card-17')),
+            of: find.byKey(const ValueKey('dhikr-card-19')),
             matching: find.byType(Scrollable),
           ),
         );
@@ -201,13 +292,13 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tap(find.widgetWithText(ChoiceChip, '100'));
         await tester.pumpAndSettle();
-        expect(cubit.state.selected!.items[17].count, 100);
-        expect(cubit.countFor(1, 17), 0);
+        expect(cubit.state.selected!.items[19].count, 100);
+        expect(cubit.countFor(1, 19), 0);
         await tester.tap(
           find.byKey(const ValueKey('dhikr-counter')).hitTestable(),
         );
         await tester.pumpAndSettle();
-        expect(cubit.countFor(1, 17), 1);
+        expect(cubit.countFor(1, 19), 1);
         expect(tester.takeException(), isNull);
       },
     );

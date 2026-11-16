@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/mushaf_coordinate_mapper.dart';
+import '../services/mushaf_artwork_cache.dart';
 
 /// Draws the original page with extra space only between verified ink-free cuts.
 ///
@@ -31,7 +32,8 @@ class MushafPageArtwork extends StatefulWidget {
 
 class _MushafPageArtworkState extends State<MushafPageArtwork> {
   AssetBundle? _bundle;
-  PictureInfo? _picture;
+  MushafArtworkCache? _cache;
+  MushafArtworkLease? _lease;
   bool _failed = false;
   int _loadGeneration = 0;
 
@@ -41,6 +43,7 @@ class _MushafPageArtworkState extends State<MushafPageArtwork> {
     final bundle = DefaultAssetBundle.of(context);
     if (!identical(_bundle, bundle)) {
       _bundle = bundle;
+      _cache = MushafArtworkCache.forBundle(bundle);
       _loadPicture();
     }
   }
@@ -53,27 +56,45 @@ class _MushafPageArtworkState extends State<MushafPageArtwork> {
 
   void _loadPicture() {
     final generation = ++_loadGeneration;
-    _picture?.picture.dispose();
-    _picture = null;
+    _lease?.release();
+    _lease = null;
     _failed = false;
-    final loader = SvgAssetLoader(
-      'assets/mushaf/pages/${widget.page.toString().padLeft(3, '0')}.svg',
-      assetBundle: _bundle,
-    );
-    unawaited(_decode(loader, generation));
+    unawaited(_decode(_cache!, widget.page, generation));
   }
 
-  Future<void> _decode(SvgAssetLoader loader, int generation) async {
-    try {
-      final picture = await vg.loadPicture(loader, context);
-      if (!mounted || generation != _loadGeneration) {
-        picture.picture.dispose();
+  Future<void> _decode(
+    MushafArtworkCache cache,
+    int page,
+    int generation,
+  ) async {
+    // Recover a transient local read failure once before offering manual retry.
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final lease = await cache.acquire(page);
+        if (!mounted || generation != _loadGeneration) {
+          lease.release();
+          return;
+        }
+        setState(() => _lease = lease);
+        // Only nearby pages are warmed; never retain the entire Mushaf.
+        for (final neighbor in [page - 1, page + 1]) {
+          if (neighbor >= 1 && neighbor <= 604) {
+            unawaited(
+              cache.prefetch(neighbor).catchError((Object error) {
+                // A speculative read must not fail the page currently on screen.
+                debugPrint('Mushaf prefetch $neighbor failed: $error');
+              }),
+            );
+          }
+        }
         return;
-      }
-      setState(() => _picture = picture);
-    } catch (_) {
-      if (mounted && generation == _loadGeneration) {
-        setState(() => _failed = true);
+      } catch (error, stackTrace) {
+        if (!mounted || generation != _loadGeneration) return;
+        if (attempt == 1) {
+          debugPrint('Mushaf page $page failed to load: $error');
+          debugPrintStack(stackTrace: stackTrace);
+          setState(() => _failed = true);
+        }
       }
     }
   }
@@ -81,13 +102,13 @@ class _MushafPageArtworkState extends State<MushafPageArtwork> {
   @override
   void dispose() {
     _loadGeneration++;
-    _picture?.picture.dispose();
+    _lease?.release();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final picture = _picture;
+    final picture = _lease?.picture;
     return RepaintBoundary(
       child: picture != null
           ? CustomPaint(

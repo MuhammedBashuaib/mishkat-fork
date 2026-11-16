@@ -8,7 +8,8 @@ class AdhkarState extends Equatable {
   const AdhkarState({
     this.status = AdhkarStatus.initial,
     this.categories = const [],
-    this.customItems = const [],
+    this.customDuas = const [],
+    this.nextCustomId = -1,
     this.progress = const {},
     this.countTargets = const {},
     this.query = '',
@@ -18,7 +19,11 @@ class AdhkarState extends Equatable {
 
   final AdhkarStatus status;
   final List<AdhkarCategory> categories;
-  final List<DhikrItem> customItems;
+  final List<AdhkarCategory> customDuas;
+  final int nextCustomId;
+  List<DhikrItem> get customItems => [
+    for (final dua in customDuas) ...dua.items,
+  ];
   final Map<int, Map<int, int>> progress;
   final Map<int, Map<int, int>> countTargets;
   final String query;
@@ -43,13 +48,18 @@ class AdhkarState extends Equatable {
         ],
       ),
   ];
+  AdhkarCategory? categoryById(int id) => (id < 0 ? customDuas : allCategories)
+      .where((item) => item.id == id)
+      .firstOrNull;
+
   AdhkarCategory? get selected =>
-      allCategories.where((item) => item.id == selectedId).firstOrNull;
+      selectedId == null ? null : categoryById(selectedId!);
 
   AdhkarState copyWith({
     AdhkarStatus? status,
     List<AdhkarCategory>? categories,
-    List<DhikrItem>? customItems,
+    List<AdhkarCategory>? customDuas,
+    int? nextCustomId,
     Map<int, Map<int, int>>? progress,
     Map<int, Map<int, int>>? countTargets,
     String? query,
@@ -58,7 +68,8 @@ class AdhkarState extends Equatable {
   }) => AdhkarState(
     status: status ?? this.status,
     categories: categories ?? this.categories,
-    customItems: customItems ?? this.customItems,
+    customDuas: customDuas ?? this.customDuas,
+    nextCustomId: nextCustomId ?? this.nextCustomId,
     progress: progress ?? this.progress,
     countTargets: countTargets ?? this.countTargets,
     query: query ?? this.query,
@@ -70,7 +81,8 @@ class AdhkarState extends Equatable {
   List<Object?> get props => [
     status,
     categories,
-    customItems,
+    customDuas,
+    nextCustomId,
     progress,
     countTargets,
     query,

@@ -36,6 +36,12 @@ class AdhkarRepository {
 
     for (var index = 0; index < source.items.length; index++) {
       final item = source.items[index];
+      if (index == 1) {
+        final surahs = _dailySurahCards(item.text);
+        morning.addAll(surahs);
+        evening.addAll(surahs);
+        continue;
+      }
       // The same tahlil is narrated with different counts. Present it once;
       // retain the source's morning-only hundred-count option.
       if (index == 18) continue;
@@ -78,6 +84,25 @@ class AdhkarRepository {
       sourceIndex + 1,
       AdhkarCategory(id: 133, name: 'أذكار المساء', items: evening),
     );
+  }
+
+  List<DhikrItem> _dailySurahCards(String text) {
+    const titles = ['سورة الإخلاص', 'سورة الفلق', 'سورة الناس'];
+    // Keep each surah and its basmala exactly as supplied by the source.
+    final surahs = RegExp(r'بسم الله الرحمن الرحيم\s*﴿[^﴾]+﴾')
+        .allMatches(text)
+        .toList();
+    if (surahs.length != titles.length) {
+      throw const FormatException('تعذّر فصل سور أذكار الصباح والمساء');
+    }
+    return [
+      for (var index = 0; index < titles.length; index++)
+        DhikrItem(
+          text: surahs[index].group(0)!,
+          count: 3,
+          title: titles[index],
+        ),
+    ];
   }
 
   String _dailyWirdText(String text, int index, {required bool evening}) {

@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/mishkat_widgets.dart';
 import '../cubit/quran_cubit.dart';
+import '../services/quran_surah_search.dart';
 
 class OfflineAudioDownloadsPage extends StatefulWidget {
   const OfflineAudioDownloadsPage({super.key});
@@ -18,6 +19,8 @@ class OfflineAudioDownloadsPage extends StatefulWidget {
 
 class _OfflineAudioDownloadsPageState extends State<OfflineAudioDownloadsPage> {
   late String _reciterId;
+  final _searchController = TextEditingController();
+  String _query = '';
 
   @override
   void initState() {
@@ -33,10 +36,19 @@ class _OfflineAudioDownloadsPageState extends State<OfflineAudioDownloadsPage> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final controller = context.read<OfflineAudioDownloadController>();
     final data = context.watch<QuranCubit>().state.data;
     final reciter = AppConstants.findReciter(_reciterId);
+    final chapters = data == null
+        ? null
+        : QuranSurahSearch.findChapters(data.chapters, _query);
     return Scaffold(
       appBar: AppBar(title: const Text('المحتوى دون إنترنت')),
       body: data == null
@@ -89,7 +101,32 @@ class _OfflineAudioDownloadsPageState extends State<OfflineAudioDownloadsPage> {
                       ),
                     ),
                   ),
-                  for (final chapter in data.chapters)
+                  TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'ابحث باسم السورة أو رقمها',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'مسح البحث',
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
+                    ),
+                    onChanged: (value) => setState(() => _query = value),
+                  ),
+                  const SizedBox(height: MishkatSpacing.sm),
+                  if (chapters!.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: Text('لا توجد سور مطابقة لبحثك')),
+                    ),
+                  for (final chapter in chapters)
                     Builder(
                       builder: (context) {
                         final saved = controller.cachedCountNow(
